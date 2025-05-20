@@ -1,8 +1,9 @@
 @import 'scss/custom-bootstrap';
 
 body {
-  font-family: "Onest", sans-serif;
   background-color: $gray-200;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 header {
