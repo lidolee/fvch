@@ -40,30 +40,43 @@
 
   .cardbox-button {
     display: inline-block;
-    padding: 0.75rem 1.5rem;
-    font-weight: 500;
+    padding: 12px 18px;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 1px;
     text-decoration: none;
     border-radius: 4px;
-    background-color: var(--bs-primary);
-    color: white;
+    background-color: $primary;
+    color: rgba(255,255,255, .9);
+    text-shadow: 1px 1px rgba(0,0,0,.1);
     border: none;
     transition: all .2s ease-in-out;
+    text-transform: uppercase;
 
     &:hover {
-      background-color: darken(#007bff, 10%);
+      background-color: darken($primary, 10%);
+    }
+
+    &.secondary {
+      background-color: transparentize($secondary, .2);
+      color: rgba(255,255,255,.9);
+
+      &:hover {
+        background-color: darken($secondary, 10%);
+      }
     }
 
     &.disabled {
       opacity: 0.65;
       cursor: not-allowed;
-      background-color: var(--bs-gray-400) !important;
-      border-color: var(--bs-gray-500) !important;
-      color: var(--bs-gray-700) !important;
+      background-color: $gray-400 !important;
+      border-color: $gray-500 !important;
+      color: $gray-700 !important;
 
       &:hover, &:focus, &:active {
-        background-color: var(--bs-gray-400) !important;
-        border-color: var(--bs-gray-500) !important;
-        color: var(--bs-gray-700) !important;
+        background-color: $gray-400 !important;
+        border-color: $gray-500 !important;
+        color: $gray-700 !important;
         box-shadow: none !important;
       }
     }

@@ -1,4 +1,4 @@
-import {Component, Input} from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { NgbModal, NgbModule } from '@ng-bootstrap/ng-bootstrap';
@@ -12,9 +12,8 @@ import { OfferteStateService } from '../../services/offerte-state.service';
   styleUrl: './confirmation.component.scss'
 })
 export class ConfirmationComponent {
-  confirmationForm: FormGroup;
   @Input() disabled = false;
-
+  confirmationForm: FormGroup;
 
   constructor(
     private fb: FormBuilder,

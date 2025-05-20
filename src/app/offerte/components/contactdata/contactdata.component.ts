@@ -1,4 +1,11 @@
-import { Component } from '@angular/core';
+/**
+ * @file contactdata.component.ts
+ * @author lidolee
+ * @date 2025-05-20 16:57:11
+ * @description Component for handling contact data input in the quote process
+ */
+
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { NgbModal, NgbModule } from '@ng-bootstrap/ng-bootstrap';
@@ -11,9 +18,10 @@ import { OfferteStateService } from '../../services/offerte-state.service';
   templateUrl: './contactdata.component.html',
   styleUrl: './contactdata.component.scss'
 })
-export class ContactdataComponent {
+export class ContactdataComponent implements OnInit {
   contactForm: FormGroup;
   salutations = ['Herr', 'Frau'];
+  isStepCompleted = false;
 
   constructor(
     private fb: FormBuilder,
@@ -22,14 +30,22 @@ export class ContactdataComponent {
   ) {
     this.contactForm = this.fb.group({
       salutation: ['', [Validators.required]],
-      name: ['', [Validators.required]],
+      firstName: ['', [Validators.required]],
+      lastName: ['', [Validators.required]],
       email: ['', [Validators.required, Validators.email]],
       phone: [''],
       company: [''],
       street: [''],
+      houseNumber: [''],
       postalCode: [''],
       city: [''],
       website: ['']
+    });
+  }
+
+  ngOnInit() {
+    this.offerteState.stepState$.subscribe(state => {
+      this.isStepCompleted = state.contact.isCompleted;
     });
   }
 

@@ -7,8 +7,10 @@
         <p class="cardbox-text">Teilen Sie uns Ihre Kontaktdaten mit, damit wir sie erreichen können.</p>
       </div>
       <div class="col-lg-3 align-self-center">
-        <button type="button" class="cardbox-button" (click)="openContactModal(contactModal)">
-          Weiter
+        <button type="button"
+                [class]="isStepCompleted ? 'cardbox-button secondary' : 'cardbox-button'"
+                (click)="openContactModal(contactModal)">
+          {{ isStepCompleted ? 'Bearbeiten' : 'Weiter' }}
         </button>
       </div>
     </div>
@@ -16,88 +18,151 @@
 </div>
 
 <ng-template #contactModal let-modal>
+
   <div class="modal-header">
-    <h4 class="modal-title">Kontaktdaten</h4>
+    <h4 class="modal-title">Kontaktdaten erfassen</h4>
     <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss()"></button>
   </div>
+
   <div class="modal-body">
     <p class="text-muted mb-4">Mit * gekennzeichnete Felder sind Pflichtfelder.</p>
 
     <form [formGroup]="contactForm" (ngSubmit)="onSubmit()">
-      <div class="mb-4">
-        <label class="form-label" for="salutation">Anrede *</label>
-        <select class="form-select" id="salutation" formControlName="salutation"
-                [class.is-invalid]="isFieldInvalid('salutation')">
-          <option value="">Bitte wählen</option>
-          <option *ngFor="let salutation of salutations" [value]="salutation">
-            {{ salutation }}
-          </option>
-        </select>
-        <div class="invalid-feedback" *ngIf="isFieldInvalid('salutation')">
-          Bitte wählen Sie eine Anrede
+      <div class="row kontaktdaten">
+        <div class="col-lg-6">
+          <div class="card card-body">
+            <form [formGroup]="contactForm" (ngSubmit)="onSubmit()">
+              <div class="mb-3 row">
+                <label for="anrede" class="col-sm-4 col-form-label">Anrede *</label>
+                <div class="col-sm-8">
+                  <select class="form-select form-control border border-required"
+                          id="anrede"
+                          formControlName="salutation"
+                          [class.is-invalid]="isFieldInvalid('salutation')">
+                    <option value="" selected>— Anrede wählen</option>
+                    <option *ngFor="let salutation of salutations" [value]="salutation">
+                      {{salutation}}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="mb-3 row">
+                <label for="vorname" class="col-sm-4 col-form-label">Name *</label>
+                <div class="col-sm-8">
+                  <div class="input-group">
+                    <input id="vorname"
+                           type="text"
+                           class="form-control border border-required"
+                           placeholder="Max"
+                           formControlName="firstName"
+                           [class.is-invalid]="isFieldInvalid('firstName')">
+                    <input id="nachname"
+                           type="text"
+                           class="form-control border border-required"
+                           placeholder="Mustermann"
+                           formControlName="lastName"
+                           [class.is-invalid]="isFieldInvalid('lastName')">
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-3 row">
+                <label for="email" class="col-sm-4 col-form-label">E-Mail *</label>
+                <div class="col-sm-8">
+                  <input type="email"
+                         id="email"
+                         class="form-control border border-required"
+                         placeholder="max.mustermann@musterfirma.ch"
+                         autocomplete="on"
+                         formControlName="email"
+                         [class.is-invalid]="isFieldInvalid('email')">
+                </div>
+              </div>
+
+              <div class="mb-3 row">
+                <label for="telefon" class="col-sm-4 col-form-label">Telefon</label>
+                <div class="col-sm-8">
+                  <div class="input-group">
+                    <input type="tel"
+                           id="telefon"
+                           class="form-control border"
+                           placeholder="+417998761234"
+                           formControlName="phone">
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-3 row">
+                <label for="firma" class="col-sm-4 col-form-label">Firma</label>
+                <div class="col-sm-8">
+                  <input type="text"
+                         id="firma"
+                         class="form-control"
+                         placeholder="Musterfirma GmbH"
+                         formControlName="company">
+                </div>
+              </div>
+
+              <div class="mb-3 row">
+                <label for="strasse" class="col-sm-4 col-form-label">Strasse & Hausnummer</label>
+                <div class="col-sm-8">
+                  <div class="input-group">
+                    <input id="strasse"
+                           type="text"
+                           class="form-control w-75"
+                           placeholder="Musterweg"
+                           formControlName="street">
+                    <input id="hausnummer"
+                           type="text"
+                           class="form-control w-25"
+                           placeholder="248"
+                           formControlName="houseNumber">
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-3 row">
+                <label for="plz" class="col-sm-4 col-form-label">PLZ & Ort</label>
+                <div class="col-sm-8">
+                  <div class="input-group">
+                    <input id="plz"
+                           type="text"
+                           class="form-control w-25"
+                           placeholder="8001"
+                           formControlName="postalCode">
+                    <input id="ort"
+                           type="text"
+                           class="form-control w-75"
+                           placeholder="Zürich"
+                           formControlName="city">
+                  </div>
+                </div>
+              </div>
+
+              <div class="row">
+                <label for="website" class="col-sm-4 col-form-label">Website</label>
+                <div class="col-sm-8">
+                  <input type="url"
+                         id="website"
+                         class="form-control"
+                         placeholder="www.musterfirma.ch"
+                         formControlName="website">
+                </div>
+              </div>
+
+            </form>
+          </div>
+
         </div>
-      </div>
-
-      <div class="mb-4">
-        <label class="form-label" for="name">Name *</label>
-        <input type="text" class="form-control" id="name" formControlName="name"
-               [class.is-invalid]="isFieldInvalid('name')">
-        <div class="invalid-feedback" *ngIf="isFieldInvalid('name')">
-          Bitte geben Sie Ihren Namen ein
-        </div>
-      </div>
-
-      <div class="mb-4">
-        <label class="form-label" for="email">E-Mail *</label>
-        <input type="email" class="form-control" id="email" formControlName="email"
-               [class.is-invalid]="isFieldInvalid('email')">
-        <div class="invalid-feedback" *ngIf="contactForm.get('email')?.errors?.['required']">
-          Bitte geben Sie Ihre E-Mail-Adresse ein
-        </div>
-        <div class="invalid-feedback" *ngIf="contactForm.get('email')?.errors?.['email']">
-          Bitte geben Sie eine gültige E-Mail-Adresse ein
-        </div>
-      </div>
-
-      <div class="mb-4">
-        <label class="form-label" for="phone">Telefon</label>
-        <input type="tel" class="form-control" id="phone" formControlName="phone">
-      </div>
-
-      <div class="mb-4">
-        <label class="form-label" for="company">Firma</label>
-        <input type="text" class="form-control" id="company" formControlName="company">
-      </div>
-
-      <div class="mb-4">
-        <label class="form-label" for="street">Strasse & Hausnummer</label>
-        <input type="text" class="form-control" id="street" formControlName="street">
-      </div>
-
-      <div class="row mb-4">
-        <div class="col-md-4">
-          <label class="form-label" for="postalCode">PLZ</label>
-          <input type="text" class="form-control" id="postalCode" formControlName="postalCode">
-        </div>
-        <div class="col-md-8">
-          <label class="form-label" for="city">Ort</label>
-          <input type="text" class="form-control" id="city" formControlName="city">
-        </div>
-      </div>
-
-      <div class="mb-4">
-        <label class="form-label" for="website">Website</label>
-        <input type="url" class="form-control" id="website" formControlName="website">
       </div>
 
       <div class="modal-footer px-0 pb-0">
-        <button type="button" class="btn btn-outline-secondary" (click)="modal.dismiss()">
-          Abbrechen
-        </button>
         <button type="submit" class="btn btn-primary">
           Speichern
         </button>
       </div>
+
     </form>
   </div>
 </ng-template>

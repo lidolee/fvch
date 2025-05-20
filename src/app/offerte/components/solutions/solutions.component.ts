@@ -1,4 +1,11 @@
-import {Component, Input} from '@angular/core';
+/**
+ * @file solutions.component.ts
+ * @author lidolee
+ * @date 2025-05-20 16:57:11
+ * @description Component for handling solution selection in the quote process
+ */
+
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { NgbModal, NgbModule } from '@ng-bootstrap/ng-bootstrap';
@@ -11,11 +18,11 @@ import { OfferteStateService } from '../../services/offerte-state.service';
   templateUrl: './solutions.component.html',
   styleUrl: './solutions.component.scss'
 })
-export class SolutionsComponent {
-  solutionsForm: FormGroup;
+export class SolutionsComponent implements OnInit {
   @Input() disabled = false;
+  solutionsForm: FormGroup;
+  isStepCompleted = false;
 
-  // Beispiel-Services - diese sollten später aus einem Service oder einer Konfiguration kommen
   availableSolutions = [
     { id: 'web', name: 'Webentwicklung', description: 'Entwicklung von Webseiten und Webanwendungen' },
     { id: 'mobile', name: 'Mobile Apps', description: 'Entwicklung von mobilen Anwendungen' },
@@ -31,6 +38,12 @@ export class SolutionsComponent {
     this.solutionsForm = this.fb.group({
       selectedSolutions: [[], [Validators.required, Validators.minLength(1)]],
       additionalNotes: ['']
+    });
+  }
+
+  ngOnInit() {
+    this.offerteState.stepState$.subscribe(state => {
+      this.isStepCompleted = state.solutions.isCompleted;
     });
   }
 
@@ -63,13 +76,11 @@ export class SolutionsComponent {
     return field ? field.invalid && (field.dirty || field.touched) : false;
   }
 
-  // Hilfsmethode zum Prüfen, ob ein Service ausgewählt ist
   isSolutionSelected(solutionId: string): boolean {
     const selectedSolutions = this.solutionsForm.get('selectedSolutions')?.value || [];
     return selectedSolutions.includes(solutionId);
   }
 
-  // Methode zum Togglen eines Services
   toggleSolution(solutionId: string) {
     const selectedSolutions = [...(this.solutionsForm.get('selectedSolutions')?.value || [])];
     const index = selectedSolutions.indexOf(solutionId);

@@ -8,11 +8,11 @@
       </div>
       <div class="col-lg-3 align-self-center">
         <button type="button"
-                class="cardbox-button"
+                [class]="isStepCompleted ? 'cardbox-button secondary' : 'cardbox-button'"
                 [disabled]="disabled"
                 [class.disabled]="disabled"
                 (click)="openSolutionsModal(solutionsModal)">
-          Weiter
+          {{ isStepCompleted ? 'Bearbeiten' : 'Weiter' }}
         </button>
       </div>
     </div>
