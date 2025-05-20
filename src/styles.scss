@@ -1,8 +1,43 @@
-/* You can add global styles to this file, and also import other style files */
-
-/* Importing Bootstrap SCSS file. */
-@import 'bootstrap/scss/bootstrap';
+@import 'scss/custom-bootstrap';
 
 body {
   font-family: Onest, sans-serif;
+  background-color: $gray-200;
+}
+
+header {
+  background-color: $white;
+  border-bottom: 1px solid $gray-400;
+  box-shadow: 0 5px 15px rgba(0,0,0,.1);
+
+  .logo {
+    width: 160px;
+    margin-bottom: 10px;
+  }
+
+  .row {
+    height: 160px;
+  }
+
+  h1 {
+    font-size: 1rem;
+    text-transform: uppercase;
+    color: rgba(0,0,0,.4);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  h2 {
+    font-weight: normal;
+    font-size: 2.25rem;
+    color: $gray-700;
+    margin: 0;
+    line-height: 100%;
+  }
+}
+
+
+.canvas {
+  background-color: $gray-100;
+  margin: 60px auto;
 }

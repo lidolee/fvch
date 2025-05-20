@@ -33,6 +33,7 @@
               }
             ],
             "styles": [
+              "src/scss/_custom-bootstrap.scss",
               "src/styles.scss"
             ],
             "scripts": [],

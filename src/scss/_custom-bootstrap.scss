@@ -1,0 +1,8 @@
+// Importiere zuerst unsere eigenen Variablen
+@import "./variables";
+
+// Importiere dann Bootstrap
+@import "bootstrap/scss/bootstrap";
+
+// Importiere unser Theme
+@import "./theme";
