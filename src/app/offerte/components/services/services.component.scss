@@ -1,0 +1,89 @@
+.services-modal {
+  .modal-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--bs-border-color);
+
+    .modal-title {
+      font-size: 1.5rem;
+      font-weight: 500;
+    }
+  }
+
+  .modal-body {
+    padding: 2rem;
+  }
+
+  .form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+  }
+}
+
+.services-modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.service-card {
+  border: 2px solid var(--bs-border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+
+  &:hover {
+    border-color: var(--bs-primary);
+    background-color: rgba(var(--bs-primary-rgb), 0.05);
+  }
+
+  &.selected {
+    border-color: var(--bs-primary);
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+  }
+
+  .service-card-content {
+    flex: 1;
+
+    h5 {
+      margin: 0 0 0.5rem 0;
+      font-weight: 500;
+    }
+
+    p {
+      margin: 0;
+      color: var(--bs-secondary);
+      font-size: 0.9rem;
+    }
+  }
+
+  .service-card-check {
+    font-size: 1.5rem;
+    color: var(--bs-primary);
+  }
+}
+
+.cardbox-button {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 4px;
+  background-color: var(--bs-primary);
+  color: white;
+  border: none;
+  transition: all 0.2s ease-in-out;
+
+  &:hover {
+    background-color: darken(#007bff, 10%);
+    transform: translateY(-1px);
+  }
+}

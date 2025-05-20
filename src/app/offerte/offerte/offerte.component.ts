@@ -1,24 +1,34 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-
-// Import der Komponenten
 import { ContactdataComponent } from '../components/contactdata/contactdata.component';
 import { ServicesComponent } from '../components/services/services.component';
 import { ConfirmationComponent } from '../components/confirmation/confirmation.component';
-import { CalculatorComponent } from '../components/calculator/calculator.component';
+import { OfferteStateService } from '../services/offerte-state.service';
+
 
 @Component({
   selector: 'app-offerte',
   standalone: true,
-  imports: [
-    CommonModule,
-    ContactdataComponent,
-    ServicesComponent,
-    ConfirmationComponent,
-    CalculatorComponent
-  ],
+  imports: [CommonModule, ContactdataComponent, ServicesComponent, ConfirmationComponent],
   templateUrl: './offerte.component.html',
   styleUrl: './offerte.component.scss'
 })
-export class OfferteComponent {
+export class OfferteComponent implements OnInit {
+  stepsCompleted: {[key: string]: boolean} = {
+    contact: false,
+    services: false,
+    confirmation: false
+  };
+
+  constructor(private offerteState: OfferteStateService) {}
+
+  ngOnInit() {
+    this.offerteState.stepsCompleted$.subscribe(steps => {
+      this.stepsCompleted = steps;
+    });
+  }
+
+  isStepCompleted(step: string): boolean {
+    return this.stepsCompleted[step] || false;
+  }
 }

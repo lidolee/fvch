@@ -3,12 +3,64 @@
     <div class="row">
       <div class="col-lg-9">
         <h6 class="cardbox-step">Schritt 2</h6>
-        <h3 class="cardbox-title">Leistungen auswählen</h3>
-        <p class="cardbox-text">Wählen Sie die gewünschten Dienstleistungen und passen Sie diese an.</p>
+        <h3 class="cardbox-title">Services auswählen</h3>
+        <p class="cardbox-text">Wählen Sie die gewünschten Services aus.</p>
       </div>
       <div class="col-lg-3 align-self-center">
-        <a href="#" class="cardbox-button">Weiter</a>
+        <button type="button" class="cardbox-button" (click)="openServicesModal(servicesModal)">
+          Weiter
+        </button>
       </div>
     </div>
   </div>
 </div>
+
+<ng-template #servicesModal let-modal>
+  <div class="modal-header">
+    <h4 class="modal-title">Services auswählen</h4>
+    <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss()"></button>
+  </div>
+  <div class="modal-body">
+    <p class="text-muted mb-4">Bitte wählen Sie mindestens einen Service aus.</p>
+
+    <form [formGroup]="servicesForm" (ngSubmit)="onSubmit()">
+      <div class="mb-4">
+        <label class="form-label">Verfügbare Services *</label>
+        <div class="services-grid">
+          <div class="service-card" *ngFor="let service of availableServices"
+               [class.selected]="isServiceSelected(service.id)"
+               (click)="toggleService(service.id)">
+            <div class="service-card-content">
+              <h5>{{ service.name }}</h5>
+              <p>{{ service.description }}</p>
+            </div>
+            <div class="service-card-check">
+              <i class="bi" [class.bi-check-circle-fill]="isServiceSelected(service.id)"
+                 [class.bi-circle]="!isServiceSelected(service.id)"></i>
+            </div>
+          </div>
+        </div>
+        <div class="invalid-feedback" [class.d-block]="isFieldInvalid('selectedServices')">
+          Bitte wählen Sie mindestens einen Service aus
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label" for="additionalNotes">Zusätzliche Anmerkungen</label>
+        <textarea class="form-control" id="additionalNotes"
+                  formControlName="additionalNotes"
+                  rows="3"
+                  placeholder="Hier können Sie zusätzliche Wünsche oder Anforderungen angeben"></textarea>
+      </div>
+
+      <div class="modal-footer px-0 pb-0">
+        <button type="button" class="btn btn-outline-secondary" (click)="modal.dismiss()">
+          Abbrechen
+        </button>
+        <button type="submit" class="btn btn-primary">
+          Speichern
+        </button>
+      </div>
+    </form>
+  </div>
+</ng-template>

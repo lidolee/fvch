@@ -38,7 +38,57 @@
         </div>
       </div>
 
-      <!-- Weitere Formularfelder... -->
+      <div class="mb-4">
+        <label class="form-label" for="name">Name *</label>
+        <input type="text" class="form-control" id="name" formControlName="name"
+               [class.is-invalid]="isFieldInvalid('name')">
+        <div class="invalid-feedback" *ngIf="isFieldInvalid('name')">
+          Bitte geben Sie Ihren Namen ein
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label" for="email">E-Mail *</label>
+        <input type="email" class="form-control" id="email" formControlName="email"
+               [class.is-invalid]="isFieldInvalid('email')">
+        <div class="invalid-feedback" *ngIf="contactForm.get('email')?.errors?.['required']">
+          Bitte geben Sie Ihre E-Mail-Adresse ein
+        </div>
+        <div class="invalid-feedback" *ngIf="contactForm.get('email')?.errors?.['email']">
+          Bitte geben Sie eine gültige E-Mail-Adresse ein
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label" for="phone">Telefon</label>
+        <input type="tel" class="form-control" id="phone" formControlName="phone">
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label" for="company">Firma</label>
+        <input type="text" class="form-control" id="company" formControlName="company">
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label" for="street">Strasse & Hausnummer</label>
+        <input type="text" class="form-control" id="street" formControlName="street">
+      </div>
+
+      <div class="row mb-4">
+        <div class="col-md-4">
+          <label class="form-label" for="postalCode">PLZ</label>
+          <input type="text" class="form-control" id="postalCode" formControlName="postalCode">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label" for="city">Ort</label>
+          <input type="text" class="form-control" id="city" formControlName="city">
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label" for="website">Website</label>
+        <input type="url" class="form-control" id="website" formControlName="website">
+      </div>
 
       <div class="modal-footer px-0 pb-0">
         <button type="button" class="btn btn-outline-secondary" (click)="modal.dismiss()">
