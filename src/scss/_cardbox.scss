@@ -19,28 +19,25 @@
 
   .cardbox-title {
     @extend .card-title;
-    font-weight: 500;
+    font-weight: 400;
     color: $gray-800;
+    font-size: 1.75rem;
   }
 
   .cardbox-text {
     @extend .cardbox-text;
-    font-weight: 500;
+    font-weight: 400;
     margin-bottom: 0;
     font-size: 18px;
-    color: rgba(0,0,0,.6);
+    color: $gray-800;
   }
 
   .cardbox-button {
     @extend .btn;
     @extend .btn-primary;
-    font-weight: bold;
-    width: 100%;
-  }
-
-  .cardbox-button {
     display: inline-block;
     padding: 12px 18px;
+    width: 100%;
     font-weight: 600;
     font-size: 13px;
     letter-spacing: 1px;

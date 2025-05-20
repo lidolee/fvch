@@ -31,6 +31,7 @@ export class ConfirmationComponent {
   openConfirmationModal(content: any) {
     if (!this.disabled) {
       this.modalService.open(content, {
+        animation: false,
         fullscreen: true,
         windowClass: 'confirmation-modal',
         backdropClass: 'confirmation-modal-backdrop'

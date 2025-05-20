@@ -50,6 +50,7 @@ export class SolutionsComponent implements OnInit {
   openSolutionsModal(content: any) {
     if (!this.disabled) {
       this.modalService.open(content, {
+        animation: false,
         fullscreen: true,
         windowClass: 'solutions-modal',
         backdropClass: 'solutions-modal-backdrop'

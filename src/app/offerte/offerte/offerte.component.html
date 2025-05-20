@@ -1,66 +1,66 @@
-<section class="canvas"></section>
-<div class="container-xl">
-  <div class="row">
-    <div class="col-12 col-lg-12">
+<section class="canvas">
+  <div class="container-xl">
+    <div class="row">
+      <div class="col-12 col-lg-12">
 
-      <div class="seo-text">
-        <div class="row">
-          <div class="col-0 col-lg-1"></div>
-          <div class="col-12 col-lg-11">
-            <div class="row">
+        <div class="seo-text">
+          <div class="row">
+            <div class="col-0 col-lg-1"></div>
+            <div class="col-12 col-lg-11">
+              <div class="row">
 
-              <div class="col-12 col-lg-6">
-                <p>Wählen Sie Ihre Dienstleistungen wie Flyer Design, Flyer Druck und Flyer Verteilung,
-                  geben Sie Ihre Kontaktdaten ein und senden Sie das Formular ab.
-                  Wir bieten Ihnen massgeschneiderte Lösungen für Prospektverteilung und Flyer Zustellung in Zürich,
-                  Bern, Basel, Luzern, St. Gallen und Winterthur. Starten Sie jetzt Ihre Direktwerbung Schweiz!</p>
+                <div class="col-12 col-lg-6">
+                  <p>Wählen Sie Ihre Dienstleistungen wie Flyer Design, Flyer Druck und Flyer Verteilung,
+                    geben Sie Ihre Kontaktdaten ein und senden Sie das Formular ab.
+                    Wir bieten Ihnen massgeschneiderte Lösungen für Prospektverteilung und Flyer Zustellung in Zürich,
+                    Bern, Basel, Luzern, St. Gallen und Winterthur. Starten Sie jetzt Ihre Direktwerbung Schweiz!</p>
+                </div>
+
+                <div class="col-12 col-lg-6">
+                  <p>✔ Sie erhalten eine Offerte von uns per E-Mail<br>
+                    ✔ Schnell und unkompliziert<br>
+                    ✔ Gutes Preis-Leistungs-Verhältnis<br>
+                    ✔ Transparente Abwicklung mit GPS-Daten<br>
+                  </p>
+                </div>
               </div>
 
-              <div class="col-12 col-lg-6">
-                <p>✔ Sie erhalten eine Offerte von uns per E-Mail<br>
-                  ✔ Schnell und unkompliziert<br>
-                  ✔ Gutes Preis-Leistungs-Verhältnis<br>
-                  ✔ Transparente Abwicklung mit GPS-Daten<br>
-                </p>
-              </div>
             </div>
-
-          </div>
-        </div>
-      </div>
-
-      <div class="offerte-container">
-        <div class="row">
-          <div class="col-2 col-lg-1">
-            <div class="step first" [class.checked]="isStepCompleted('contact')"></div>
-          </div>
-          <div class="col-10 col-lg-11">
-            <app-contactdata></app-contactdata>
           </div>
         </div>
 
-        <div class="row">
-          <div class="col-2 col-lg-1">
-            <div class="step" [class.checked]="isStepCompleted('solutions')"></div>
+        <div class="offerte-container">
+          <div class="row">
+            <div class="col-2 col-lg-1">
+              <div class="step first" [class.checked]="isStepCompleted('contact')"></div>
+            </div>
+            <div class="col-10 col-lg-11">
+              <app-contactdata></app-contactdata>
+            </div>
           </div>
-          <div class="col-10 col-lg-11">
-            <app-solutions [disabled]="!isStepAccessible('solutions')"></app-solutions>
+
+          <div class="row">
+            <div class="col-2 col-lg-1">
+              <div class="step" [class.checked]="isStepCompleted('solutions')"></div>
+            </div>
+            <div class="col-10 col-lg-11">
+              <app-solutions [disabled]="!isStepAccessible('solutions')"></app-solutions>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-2 col-lg-1">
+              <div class="step last" [class.checked]="isStepCompleted('confirmation')"></div>
+            </div>
+            <div class="col-10 col-lg-11">
+              <app-confirmation [disabled]="!isStepAccessible('confirmation')"></app-confirmation>
+            </div>
           </div>
         </div>
 
-        <div class="row">
-          <div class="col-2 col-lg-1">
-            <div class="step last" [class.checked]="isStepCompleted('confirmation')"></div>
-          </div>
-          <div class="col-10 col-lg-11">
-            <app-confirmation [disabled]="!isStepAccessible('confirmation')"></app-confirmation>
-          </div>
-        </div>
       </div>
 
     </div>
-
   </div>
-</div>
-
+</section>
 

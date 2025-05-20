@@ -51,6 +51,7 @@ export class ContactdataComponent implements OnInit {
 
   openContactModal(content: any) {
     this.modalService.open(content, {
+      animation: false,
       fullscreen: true,
       windowClass: 'contact-modal',
       backdropClass: 'contact-modal-backdrop'

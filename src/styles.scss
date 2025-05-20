@@ -1,4 +1,5 @@
-@import 'scss/custom-bootstrap';
+@import "scss/custom-bootstrap";
+@import "bootstrap-icons/font/bootstrap-icons.css";
 
 body {
   background-color: $gray-200;
@@ -13,7 +14,7 @@ header {
 
   .logo {
     width: 220px;
-    margin-bottom: 10px;
+    margin: 0;
   }
 
   .row {
@@ -24,12 +25,12 @@ header {
     font-size: 1rem;
     text-transform: uppercase;
     color: rgba(0,0,0,.4);
-    font-weight: 700;
+    font-weight: 500;
     letter-spacing: 1px;
   }
 
   h2 {
-    font-weight: 600;
+    font-weight: 400;
     font-size: 2rem;
     color: $gray-700;
     margin: 0;
@@ -41,4 +42,8 @@ header {
 .canvas {
   background-color: rgba(255,255,255,.08);
   margin: 60px auto;
+}
+
+.bg-icon {
+  font-size: 240px;
 }
