@@ -4,9 +4,22 @@
     <div class="col-12 col-lg-12">
 
       <div class="offerte-container">
-        <app-contactdata></app-contactdata>
-        <app-dienstleistungen></app-dienstleistungen>
-        <app-confirmation></app-confirmation>
+
+        <div class="row">
+          <div class="col-2 col-lg-1"><div class="step first checked"></div></div>
+          <div class="col-10 col-lg-11"><app-contactdata></app-contactdata></div>
+        </div>
+
+        <div class="row">
+          <div class="col-2 col-lg-1"><div class="step"></div></div>
+          <div class="col-10 col-lg-11"><app-dienstleistungen></app-dienstleistungen></div>
+        </div>
+
+        <div class="row">
+          <div class="col-2 col-lg-1"><div class="step last"></div></div>
+          <div class="col-10 col-lg-11"><app-confirmation></app-confirmation></div>
+        </div>
+
       </div>
 
     </div>

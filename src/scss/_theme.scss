@@ -8,10 +8,23 @@
     color: $gray-600;
     font-size: 14px;
     letter-spacing: 1px;
+    margin-bottom: 16px;
   }
 
   .cardbox-body {
     @extend .card-body;
     padding: 24px;
+  }
+
+  .cardbox-title {
+    @extend .card-title;
+    font-weight: 400;
+  }
+
+  .cardbox-button {
+    @extend .btn;
+    @extend .btn-primary;
+    font-weight: bold;
+    width: 100%;
   }
 }
