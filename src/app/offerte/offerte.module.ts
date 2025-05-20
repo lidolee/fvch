@@ -12,7 +12,7 @@ import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 
 import { OfferteComponent } from './offerte/offerte.component';
 import { ContactdataComponent } from './components/contactdata/contactdata.component';
-import { ServicesComponent } from './components/services/services.component';
+import { SolutionsComponent } from './components/solutions/solutions.component';
 import { ConfirmationComponent } from './components/confirmation/confirmation.component';
 import { CalculatorComponent } from './components/calculator/calculator.component';
 
@@ -26,7 +26,7 @@ import { CalculatorComponent } from './components/calculator/calculator.componen
     NgbModule,
     OfferteComponent,
     ContactdataComponent,
-    ServicesComponent,
+    SolutionsComponent,
     ConfirmationComponent,
     CalculatorComponent
   ],

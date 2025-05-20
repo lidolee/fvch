@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { ContactData } from '../interfaces/contact-data.interface';
-import { ServiceData } from '../interfaces/service-data.interface';
+import { SolutionsData } from '../interfaces/solutions-data.interface';
 import { ConfirmationData } from '../interfaces/confirmation-data.interface';
 
 @Injectable({
@@ -9,16 +9,16 @@ import { ConfirmationData } from '../interfaces/confirmation-data.interface';
 })
 export class OfferteStateService {
   private contactDataSubject = new BehaviorSubject<ContactData | null>(null);
-  private serviceDataSubject = new BehaviorSubject<ServiceData | null>(null);
+  private solutionsDataSubject = new BehaviorSubject<SolutionsData | null>(null);
   private confirmationDataSubject = new BehaviorSubject<ConfirmationData | null>(null);
   private stepsCompletedSubject = new BehaviorSubject<{[key: string]: boolean}>({
     contact: false,
-    services: false,
+    solutions: false,
     confirmation: false
   });
 
   contactData$ = this.contactDataSubject.asObservable();
-  serviceData$ = this.serviceDataSubject.asObservable();
+  solutionsData$ = this.solutionsDataSubject.asObservable();
   confirmationData$ = this.confirmationDataSubject.asObservable();
   stepsCompleted$ = this.stepsCompletedSubject.asObservable();
 
@@ -27,9 +27,9 @@ export class OfferteStateService {
     this.updateStepStatus('contact', true);
   }
 
-  updateServices(data: ServiceData) {
-    this.serviceDataSubject.next(data);
-    this.updateStepStatus('services', true);
+  updateSolutions(data: SolutionsData) {
+    this.solutionsDataSubject.next(data);
+    this.updateStepStatus('solutions', true);
   }
 
   updateConfirmation(data: ConfirmationData) {

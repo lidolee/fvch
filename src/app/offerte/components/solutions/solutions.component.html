@@ -1,13 +1,13 @@
-<div class="cardbox services">
+<div class="cardbox solutions">
   <div class="cardbox-body">
     <div class="row">
       <div class="col-lg-9">
         <h6 class="cardbox-step">Schritt 2</h6>
-        <h3 class="cardbox-title">Services auswählen</h3>
-        <p class="cardbox-text">Wählen Sie die gewünschten Services aus.</p>
+        <h3 class="cardbox-title">Leistungen auswählen</h3>
+        <p class="cardbox-text">Wählen Sie die gewünschten Dienstleistungen aus.</p>
       </div>
       <div class="col-lg-3 align-self-center">
-        <button type="button" class="cardbox-button" (click)="openServicesModal(servicesModal)">
+        <button type="button" class="cardbox-button" (click)="openSolutionsModal(solutionsModal)">
           Weiter
         </button>
       </div>
@@ -15,7 +15,7 @@
   </div>
 </div>
 
-<ng-template #servicesModal let-modal>
+<ng-template #solutionsModal let-modal>
   <div class="modal-header">
     <h4 class="modal-title">Services auswählen</h4>
     <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss()"></button>
@@ -23,24 +23,24 @@
   <div class="modal-body">
     <p class="text-muted mb-4">Bitte wählen Sie mindestens einen Service aus.</p>
 
-    <form [formGroup]="servicesForm" (ngSubmit)="onSubmit()">
+    <form [formGroup]="solutionsForm" (ngSubmit)="onSubmit()">
       <div class="mb-4">
         <label class="form-label">Verfügbare Services *</label>
-        <div class="services-grid">
-          <div class="service-card" *ngFor="let service of availableServices"
-               [class.selected]="isServiceSelected(service.id)"
-               (click)="toggleService(service.id)">
-            <div class="service-card-content">
-              <h5>{{ service.name }}</h5>
-              <p>{{ service.description }}</p>
+        <div class="solutions-grid">
+          <div class="solution-card" *ngFor="let solution of availableSolutions"
+               [class.selected]="isSolutionSelected(solution.id)"
+               (click)="toggleSolution(solution.id)">
+            <div class="solution-card-content">
+              <h5>{{ solution.name }}</h5>
+              <p>{{ solution.description }}</p>
             </div>
-            <div class="service-card-check">
-              <i class="bi" [class.bi-check-circle-fill]="isServiceSelected(service.id)"
-                 [class.bi-circle]="!isServiceSelected(service.id)"></i>
+            <div class="solution-card-check">
+              <i class="bi" [class.bi-check-circle-fill]="isSolutionSelected(solution.id)"
+                 [class.bi-circle]="!isSolutionSelected(solution.id)"></i>
             </div>
           </div>
         </div>
-        <div class="invalid-feedback" [class.d-block]="isFieldInvalid('selectedServices')">
+        <div class="invalid-feedback" [class.d-block]="isFieldInvalid('selectedSolutions')">
           Bitte wählen Sie mindestens einen Service aus
         </div>
       </div>

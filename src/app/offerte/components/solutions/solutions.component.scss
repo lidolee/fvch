@@ -1,4 +1,4 @@
-.services-modal {
+.solutions-modal {
   .modal-header {
     padding: 1.5rem 2rem;
     border-bottom: 1px solid var(--bs-border-color);
@@ -19,18 +19,18 @@
   }
 }
 
-.services-modal-backdrop {
+.solutions-modal-backdrop {
   background-color: rgba(0, 0, 0, 0.5);
 }
 
-.services-grid {
+.solutions-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 1rem;
   margin-bottom: 1rem;
 }
 
-.service-card {
+.solution-card {
   border: 2px solid var(--bs-border-color);
   border-radius: 8px;
   padding: 1.5rem;
@@ -50,7 +50,7 @@
     background-color: rgba(var(--bs-primary-rgb), 0.1);
   }
 
-  .service-card-content {
+  .solution-card-content {
     flex: 1;
 
     h5 {
@@ -65,7 +65,7 @@
     }
   }
 
-  .service-card-check {
+  .solution-card-check {
     font-size: 1.5rem;
     color: var(--bs-primary);
   }

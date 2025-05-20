@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ContactdataComponent } from '../components/contactdata/contactdata.component';
-import { ServicesComponent } from '../components/services/services.component';
+import { SolutionsComponent } from '../components/solutions/solutions.component';
 import { ConfirmationComponent } from '../components/confirmation/confirmation.component';
 import { OfferteStateService } from '../services/offerte-state.service';
 
@@ -9,14 +9,14 @@ import { OfferteStateService } from '../services/offerte-state.service';
 @Component({
   selector: 'app-offerte',
   standalone: true,
-  imports: [CommonModule, ContactdataComponent, ServicesComponent, ConfirmationComponent],
+  imports: [CommonModule, ContactdataComponent, SolutionsComponent, ConfirmationComponent],
   templateUrl: './offerte.component.html',
   styleUrl: './offerte.component.scss'
 })
 export class OfferteComponent implements OnInit {
   stepsCompleted: {[key: string]: boolean} = {
     contact: false,
-    services: false,
+    solutions: false,
     confirmation: false
   };
 
