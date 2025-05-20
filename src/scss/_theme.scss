@@ -18,8 +18,8 @@
 
   .cardbox-title {
     @extend .card-title;
-    font-weight: 400;
-    color: rgba(0,0,0,.8);
+    font-weight: 500;
+    color: $gray-800;
   }
 
   .cardbox-text {
