@@ -8,7 +8,7 @@
     color: $gray-600;
     font-size: 14px;
     letter-spacing: 1px;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
   }
 
   .cardbox-body {
@@ -19,6 +19,15 @@
   .cardbox-title {
     @extend .card-title;
     font-weight: 400;
+    color: rgba(0,0,0,.8);
+  }
+
+  .cardbox-text {
+    @extend .cardbox-text;
+    font-weight: 500;
+    margin-bottom: 0;
+    font-size: 18px;
+    color: rgba(0,0,0,.6);
   }
 
   .cardbox-button {
