@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import {Component, Input} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { NgbModal, NgbModule } from '@ng-bootstrap/ng-bootstrap';
@@ -13,6 +13,8 @@ import { OfferteStateService } from '../../services/offerte-state.service';
 })
 export class ConfirmationComponent {
   confirmationForm: FormGroup;
+  @Input() disabled = false;
+
 
   constructor(
     private fb: FormBuilder,
@@ -28,11 +30,13 @@ export class ConfirmationComponent {
   }
 
   openConfirmationModal(content: any) {
-    this.modalService.open(content, {
-      fullscreen: true,
-      windowClass: 'confirmation-modal',
-      backdropClass: 'confirmation-modal-backdrop'
-    });
+    if (!this.disabled) {
+      this.modalService.open(content, {
+        fullscreen: true,
+        windowClass: 'confirmation-modal',
+        backdropClass: 'confirmation-modal-backdrop'
+      });
+    }
   }
 
   onSubmit() {

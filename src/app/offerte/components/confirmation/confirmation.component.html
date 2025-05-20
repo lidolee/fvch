@@ -7,7 +7,11 @@
         <p class="cardbox-text">Bestätigen Sie Ihre Angaben und senden Sie die Offertanfrage ab.</p>
       </div>
       <div class="col-lg-3 align-self-center">
-        <button type="button" class="cardbox-button" (click)="openConfirmationModal(confirmationModal)">
+        <button type="button"
+                class="cardbox-button"
+                [disabled]="disabled"
+                [class.disabled]="disabled"
+                (click)="openConfirmationModal(confirmationModal)">
           Weiter
         </button>
       </div>

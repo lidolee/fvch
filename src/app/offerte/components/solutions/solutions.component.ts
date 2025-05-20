@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import {Component, Input} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { NgbModal, NgbModule } from '@ng-bootstrap/ng-bootstrap';
@@ -13,6 +13,7 @@ import { OfferteStateService } from '../../services/offerte-state.service';
 })
 export class SolutionsComponent {
   solutionsForm: FormGroup;
+  @Input() disabled = false;
 
   // Beispiel-Services - diese sollten später aus einem Service oder einer Konfiguration kommen
   availableSolutions = [
@@ -34,11 +35,13 @@ export class SolutionsComponent {
   }
 
   openSolutionsModal(content: any) {
-    this.modalService.open(content, {
-      fullscreen: true,
-      windowClass: 'solutions-modal',
-      backdropClass: 'solutions-modal-backdrop'
-    });
+    if (!this.disabled) {
+      this.modalService.open(content, {
+        fullscreen: true,
+        windowClass: 'solutions-modal',
+        backdropClass: 'solutions-modal-backdrop'
+      });
+    }
   }
 
   onSubmit() {

@@ -1,0 +1,72 @@
+.cardbox {
+  @extend .card;
+  margin-bottom: 36px;
+  box-shadow: 5px 5px 15px 0 rgba(0, 0, 0, .06);
+
+  .cardbox-step {
+    text-transform: uppercase;
+    color: $gray-600;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+
+  .cardbox-body {
+    @extend .card-body;
+    padding: 24px;
+  }
+
+  .cardbox-title {
+    @extend .card-title;
+    font-weight: 500;
+    color: $gray-800;
+  }
+
+  .cardbox-text {
+    @extend .cardbox-text;
+    font-weight: 500;
+    margin-bottom: 0;
+    font-size: 18px;
+    color: rgba(0,0,0,.6);
+  }
+
+  .cardbox-button {
+    @extend .btn;
+    @extend .btn-primary;
+    font-weight: bold;
+    width: 100%;
+  }
+
+  .cardbox-button {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    text-decoration: none;
+    border-radius: 4px;
+    background-color: var(--bs-primary);
+    color: white;
+    border: none;
+    transition: all .2s ease-in-out;
+
+    &:hover {
+      background-color: darken(#007bff, 10%);
+    }
+
+    &.disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      background-color: var(--bs-gray-400) !important;
+      border-color: var(--bs-gray-500) !important;
+      color: var(--bs-gray-700) !important;
+
+      &:hover, &:focus, &:active {
+        background-color: var(--bs-gray-400) !important;
+        border-color: var(--bs-gray-500) !important;
+        color: var(--bs-gray-700) !important;
+        box-shadow: none !important;
+      }
+    }
+  }
+}
+
