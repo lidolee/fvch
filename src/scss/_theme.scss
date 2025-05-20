@@ -1,0 +1,17 @@
+.cardbox {
+  @extend .card;
+  margin-bottom: 36px;
+  box-shadow: 5px 5px 15px 0 rgba(0, 0, 0, .06);
+
+  .cardbox-step {
+    text-transform: uppercase;
+    color: $gray-600;
+    font-size: 14px;
+    letter-spacing: 1px;
+  }
+
+  .cardbox-body {
+    @extend .card-body;
+    padding: 24px;
+  }
+}

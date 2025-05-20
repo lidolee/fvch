@@ -8,10 +8,10 @@ body {
 header {
   background-color: $white;
   border-bottom: 1px solid $gray-400;
-  box-shadow: 0 5px 15px rgba(0,0,0,.1);
+  box-shadow: 0 5px 15px rgba(0,0,0,.08);
 
   .logo {
-    width: 160px;
+    width: 220px;
     margin-bottom: 10px;
   }
 
@@ -28,8 +28,8 @@ header {
   }
 
   h2 {
-    font-weight: normal;
-    font-size: 2.25rem;
+    font-weight: 600;
+    font-size: 2rem;
     color: $gray-700;
     margin: 0;
     line-height: 100%;
@@ -38,6 +38,6 @@ header {
 
 
 .canvas {
-  background-color: $gray-100;
+  background-color: rgba(255,255,255,.08);
   margin: 60px auto;
 }

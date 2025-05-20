@@ -1,5 +1,5 @@
 /**
- * @file dienstleistungen.component.ts
+ * @file services.component.ts
  * @author lidolee
  * @date 2025-05-19 16:14:37
  * @description Component for services selection
@@ -12,7 +12,7 @@ import { CommonModule } from '@angular/common';
   selector: 'app-dienstleistungen',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './dienstleistungen.component.html',
-  styleUrl: './dienstleistungen.component.scss'
+  templateUrl: './services.component.html',
+  styleUrl: './services.component.scss'
 })
-export class DienstleistungenComponent { }
+export class ServicesComponent { }

@@ -1,5 +1,5 @@
 /**
- * @file kontaktdaten.component.ts
+ * @file contactdata.component.ts
  * @author lidolee
  * @date 2025-05-19 16:14:37
  * @description Component for contact information input
@@ -9,10 +9,10 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'app-kontaktdaten',
+  selector: 'app-contactdata',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './kontaktdaten.component.html',
-  styleUrl: './kontaktdaten.component.scss'
+  templateUrl: './contactdata.component.html',
+  styleUrl: './contactdata.component.scss'
 })
-export class KontaktdatenComponent { }
+export class ContactdataComponent { }

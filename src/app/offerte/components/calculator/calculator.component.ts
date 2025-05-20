@@ -1,5 +1,5 @@
 /**
- * @file kalkulation.component.ts
+ * @file calculator.component.ts
  * @author lidolee
  * @date 2025-05-19 16:14:37
  * @description Component for quote calculation
@@ -12,7 +12,7 @@ import { CommonModule } from '@angular/common';
   selector: 'app-kalkulation',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './kalkulation.component.html',
-  styleUrl: './kalkulation.component.scss'
+  templateUrl: './calculator.component.html',
+  styleUrl: './calculator.component.scss'
 })
-export class KalkulationComponent { }
+export class CalculatorComponent { }
