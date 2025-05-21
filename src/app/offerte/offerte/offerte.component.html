@@ -30,21 +30,22 @@
         </div>
 
         <div class="offerte-container">
+
           <div class="row">
             <div class="col-2 col-lg-1">
-              <div class="step first" [class.checked]="isStepCompleted('contact')"></div>
+              <div class="step first" [class.checked]="isStepCompleted('solutions')"></div>
             </div>
             <div class="col-10 col-lg-11">
-              <app-contactdata></app-contactdata>
+              <app-solutions [disabled]="!isStepAccessible('solutions')"></app-solutions>
             </div>
           </div>
 
           <div class="row">
             <div class="col-2 col-lg-1">
-              <div class="step" [class.checked]="isStepCompleted('solutions')"></div>
+              <div class="step" [class.checked]="isStepCompleted('contactdata')"></div>
             </div>
             <div class="col-10 col-lg-11">
-              <app-solutions [disabled]="!isStepAccessible('solutions')"></app-solutions>
+              <app-contactdata [disabled]="!isStepAccessible('contactdata')"></app-contactdata>
             </div>
           </div>
 

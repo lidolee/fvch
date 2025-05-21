@@ -2,13 +2,15 @@
   <div class="cardbox-body">
     <div class="row">
       <div class="col-lg-9">
-        <h6 class="cardbox-step">Schritt 1</h6>
+        <h6 class="cardbox-step">Schritt 2</h6>
         <h3 class="cardbox-title">Kontaktdaten erfassen</h3>
         <p class="cardbox-text">Teilen Sie uns Ihre Kontaktdaten mit, damit wir sie erreichen können.</p>
       </div>
       <div class="col-lg-3 align-self-center">
         <button type="button"
                 [class]="isStepCompleted ? 'cardbox-button secondary' : 'cardbox-button'"
+                [disabled]="disabled"
+                [class.disabled]="disabled"
                 (click)="openContactModal(contactModal)">
           {{ isStepCompleted ? 'Bearbeiten' : 'Weiter' }}
         </button>
@@ -112,7 +114,7 @@
                     <input type="text"
                            id="firma"
                            class="form-control"
-                           placeholder="Musterfirma GmbH"
+                           placeholder="Musterfirma AG"
                            formControlName="company">
                   </div>
                 </div>

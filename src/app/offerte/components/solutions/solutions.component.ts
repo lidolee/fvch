@@ -25,9 +25,21 @@ export class SolutionsComponent implements OnInit {
   isStepCompleted = false;
 
   availableSolutions = [
-    { id: 'design', name: 'Flyer Design', description: 'Wir gestalten Ihre Flyer professionell', icon: 'bi-palette-fill' },
-    { id: 'druck', name: 'Flyer Druck', description: 'Wir drucken Ihre Flyer in Top-Qualität', icon: 'bi-printer-fill' },
-    { id: 'verteilung', name: 'Flyer Verteilung', description: 'Wir verteilen Ihre Flyer schweizweit', icon: 'bi-mailbox2-flag' },
+    { id: 'design',
+      name: 'Flyer Design',
+      description: 'Wir gestalten Ihre Flyer professionell',
+      icon: 'bi-palette-fill'
+    },
+    { id: 'druck',
+      name: 'Flyer Druck',
+      description: 'Wir drucken Ihre Flyer in Top-Qualität',
+      icon: 'bi-printer-fill'
+    },
+    { id: 'verteilung',
+      name: 'Flyer Verteilung',
+      description: 'Wir verteilen Ihre Flyer schweizweit',
+      icon: 'bi-mailbox2-flag'
+    },
   ];
 
   constructor(

@@ -10,8 +10,8 @@ import { OfferteStepState } from '../interfaces/step-state.interface';
 })
 export class OfferteStateService {
   private initialStepState: OfferteStepState = {
-    contact: { isCompleted: false, isAccessible: true },
-    solutions: { isCompleted: false, isAccessible: false },
+    solutions: { isCompleted: false, isAccessible: true },
+    contactdata: { isCompleted: false, isAccessible: false },
     confirmation: { isCompleted: false, isAccessible: false }
   };
 
@@ -28,7 +28,7 @@ export class OfferteStateService {
 
   updateContactData(data: ContactData) {
     this.contactDataSubject.next(data);
-    this.updateStepState('contact', true);
+    this.updateStepState('contactdata', true);
   }
 
   updateSolutions(data: SolutionsData) {
@@ -54,10 +54,10 @@ export class OfferteStateService {
     // Update accessibility based on completion status
     if (completed) {
       switch(step) {
-        case 'contact':
-          newState.solutions.isAccessible = true;
-          break;
         case 'solutions':
+          newState.contactdata.isAccessible = true;
+          break;
+        case 'contactdata':
           newState.confirmation.isAccessible = true;
           break;
       }

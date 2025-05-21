@@ -5,7 +5,7 @@
  * @description Component for handling contact data input in the quote process
  */
 
-import { Component, OnInit } from '@angular/core';
+import {Component, Input, OnInit} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { NgbModal, NgbModule } from '@ng-bootstrap/ng-bootstrap';
@@ -19,6 +19,7 @@ import { OfferteStateService } from '../../services/offerte-state.service';
   styleUrl: './contactdata.component.scss'
 })
 export class ContactdataComponent implements OnInit {
+  @Input() disabled = false;
   contactForm: FormGroup;
   salutations = ['Herr', 'Frau'];
   isStepCompleted = false;
@@ -45,7 +46,7 @@ export class ContactdataComponent implements OnInit {
 
   ngOnInit() {
     this.offerteState.stepState$.subscribe(state => {
-      this.isStepCompleted = state.contact.isCompleted;
+      this.isStepCompleted = state.contactdata.isCompleted;
     });
   }
 

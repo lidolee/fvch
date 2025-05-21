@@ -20,8 +20,8 @@ import { OfferteStepState } from '../interfaces/step-state.interface';
 })
 export class OfferteComponent implements OnInit {
   stepState: OfferteStepState = {
-    contact: { isCompleted: false, isAccessible: true },
-    solutions: { isCompleted: false, isAccessible: false },
+    solutions: { isCompleted: false, isAccessible: true },
+    contactdata: { isCompleted: false, isAccessible: false },
     confirmation: { isCompleted: false, isAccessible: false }
   };
 

@@ -4,7 +4,7 @@ export interface StepState {
 }
 
 export interface OfferteStepState {
-  contact: StepState;
+  contactdata: StepState;
   solutions: StepState;
   confirmation: StepState;
 }
