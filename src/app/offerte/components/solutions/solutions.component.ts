@@ -49,7 +49,6 @@ export class SolutionsComponent implements OnInit {
   ) {
     this.solutionsForm = this.fb.group({
       selectedSolutions: [[], [Validators.required, Validators.minLength(1)]],
-      additionalNotes: ['']
     });
   }
 

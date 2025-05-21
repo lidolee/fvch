@@ -42,7 +42,9 @@
             "outputMode": "server",
             "ssr": {
               "entry": "src/server.ts"
-            }
+            },
+            "baseHref": "/offerte/",
+            "deployUrl": "/offerte/"
           },
           "configurations": {
             "production": {
