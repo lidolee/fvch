@@ -1,0 +1,21 @@
+.modal-header {
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--bs-border-color);
+
+  .modal-title {
+    font-size: 24px;
+    font-weight: 600;
+
+    i {
+      font-size: 22px;
+      opacity: .4;
+    }
+  }
+}
+.modal-body {
+  background-image: url("../images/pattern.png");
+  background-repeat: no-repeat;
+  background-size: cover;
+  padding: 60px 0;
+  //background-color: transparentize($primary, .96);
+}

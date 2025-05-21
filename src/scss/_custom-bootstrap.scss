@@ -1,9 +1,13 @@
-// Importiere zuerst unsere eigenen Variablen
+// LOCAL VARIABLES
 @import "./variables";
 
-// Importiere dann Bootstrap
+// BOOTSTRAP
 @import "bootstrap/scss/bootstrap";
 
-// Importiere unser Theme
+// USER THEME
 @import "./theme";
+@import "./layout";
+@import "./typography";
 @import "./cardbox";
+@import "./modal";
+@import "./form";

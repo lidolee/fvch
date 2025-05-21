@@ -21,7 +21,7 @@
 
 <ng-template #solutionsModal let-modal>
   <div class="modal-header">
-    <h4 class="modal-title">Services auswählen</h4>
+    <h4 class="modal-title"><i class="bi bi-ui-checks"></i>&nbsp;Leistungen auswählen</h4>
     <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss()"></button>
   </div>
   <div class="modal-body">
@@ -29,7 +29,7 @@
 
     <form [formGroup]="solutionsForm" (ngSubmit)="onSubmit()">
       <div class="mb-4">
-        <label class="form-label">Verfügbare Services *</label>
+        <label class="form-label">Verfügbare Leistungen *</label>
         <div class="solutions-grid">
           <div class="solution-card" *ngFor="let solution of availableSolutions"
                [class.selected]="isSolutionSelected(solution.id)"

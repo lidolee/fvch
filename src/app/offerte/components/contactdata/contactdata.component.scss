@@ -1,24 +1,11 @@
+@import './../../../../scss/variables';
+@import 'bootstrap/scss/mixins';
+
 .contact-modal {
 
-  .modal-header {
-    padding: 1.5rem 2rem;
-    border-bottom: 1px solid var(--bs-border-color);
+}
 
-    .modal-title {
-      font-size: 1.5rem;
-      font-weight: 500;
-    }
-  }
-
-  .modal-body {
-    padding: 2rem;
-    background-color: red !important;
-  }
-
-  .form-label {
-    font-weight: 500;
-    margin-bottom: 0.5rem;
-  }
+::ng-deep {
 }
 
 .contact-modal-backdrop {
