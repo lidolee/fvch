@@ -10,11 +10,12 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { NgbModal, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { OfferteStateService } from '../../services/offerte-state.service';
+import {CalculatorComponent} from '../calculator/calculator.component';
 
 @Component({
   selector: 'app-solutions',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, NgbModule],
+  imports: [CommonModule, ReactiveFormsModule, NgbModule, CalculatorComponent],
   templateUrl: './solutions.component.html',
   styleUrl: './solutions.component.scss'
 })
@@ -24,10 +25,9 @@ export class SolutionsComponent implements OnInit {
   isStepCompleted = false;
 
   availableSolutions = [
-    { id: 'web', name: 'Webentwicklung', description: 'Entwicklung von Webseiten und Webanwendungen' },
-    { id: 'mobile', name: 'Mobile Apps', description: 'Entwicklung von mobilen Anwendungen' },
-    { id: 'cloud', name: 'Cloud Services', description: 'Cloud-Infrastruktur und Beratung' },
-    { id: 'consulting', name: 'IT Beratung', description: 'Strategische IT-Beratung' }
+    { id: 'design', name: 'Flyer Design', description: 'Wir gestalten Ihre Flyer professionell', icon: 'bi-palette-fill' },
+    { id: 'druck', name: 'Flyer Druck', description: 'Wir drucken Ihre Flyer in Top-Qualität', icon: 'bi-printer-fill' },
+    { id: 'verteilung', name: 'Flyer Verteilung', description: 'Wir verteilen Ihre Flyer schweizweit', icon: 'bi-mailbox2-flag' },
   ];
 
   constructor(

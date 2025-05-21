@@ -21,41 +21,62 @@
 
 <ng-template #solutionsModal let-modal>
   <div class="modal-header">
-    <h4 class="modal-title"><i class="bi bi-ui-checks"></i>&nbsp;Leistungen auswählen</h4>
+    <h4 class="modal-title">Leistungen auswählen</h4>
     <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss()"></button>
   </div>
   <div class="modal-body">
-    <p class="text-muted mb-4">Bitte wählen Sie mindestens einen Service aus.</p>
 
     <form [formGroup]="solutionsForm" (ngSubmit)="onSubmit()">
-      <div class="mb-4">
-        <label class="form-label">Verfügbare Leistungen *</label>
-        <div class="solutions-grid">
-          <div class="solution-card" *ngFor="let solution of availableSolutions"
-               [class.selected]="isSolutionSelected(solution.id)"
-               (click)="toggleSolution(solution.id)">
-            <div class="solution-card-content">
-              <h5>{{ solution.name }}</h5>
-              <p>{{ solution.description }}</p>
+      <div class="row modal-content-spacer">
+        <div class="col-lg-8">
+
+          <fieldset class="mb-4">
+            <legend>Leistungen auswählen</legend>
+
+            <p class="invalid-feedback" [class.d-block]="isFieldInvalid('selectedSolutions')">
+              Bitte wählen Sie mind. eine Dienstleistung aus.
+            </p>
+
+            <p [class.d-none]="isFieldInvalid('selectedSolutions')">
+              Bitte wählen Sie mind. eine Dienstleistung aus.
+            </p>
+
+
+            <div class="solutions-grid">
+              <div class="solution-card"
+                   *ngFor="let solution of availableSolutions"
+                   [class.selected]="isSolutionSelected(solution.id)"
+                   (click)="toggleSolution(solution.id)">
+
+                <div class="solution-icon"><i [ngClass]="['bi', solution.icon]"></i></div>
+                <div class="solution-card-content">
+                  <h5>{{ solution.name }}</h5>
+                  <p>{{ solution.description }}</p>
+                </div>
+
+                <div class="solution-card-check">
+                  <i class="bi"
+                     [class.bi-check-square-fill]="isSolutionSelected(solution.id)"
+                     [class.bi-square]="!isSolutionSelected(solution.id)"></i>
+                </div>
+
+              </div>
             </div>
-            <div class="solution-card-check">
-              <i class="bi" [class.bi-check-circle-fill]="isSolutionSelected(solution.id)"
-                 [class.bi-circle]="!isSolutionSelected(solution.id)"></i>
-            </div>
+          </fieldset>
+
+          <div class="mb-4">
+            <label class="form-label" for="additionalNotes">Zusätzliche Anmerkungen</label>
+            <textarea class="form-control" id="additionalNotes"
+                      formControlName="additionalNotes"
+                      rows="3"
+                      placeholder="Hier können Sie zusätzliche Wünsche oder Anforderungen angeben"></textarea>
           </div>
         </div>
-        <div class="invalid-feedback" [class.d-block]="isFieldInvalid('selectedSolutions')">
-          Bitte wählen Sie mindestens einen Service aus
+        <div class="col-lg-4">
+          <app-calculator></app-calculator>
         </div>
       </div>
 
-      <div class="mb-4">
-        <label class="form-label" for="additionalNotes">Zusätzliche Anmerkungen</label>
-        <textarea class="form-control" id="additionalNotes"
-                  formControlName="additionalNotes"
-                  rows="3"
-                  placeholder="Hier können Sie zusätzliche Wünsche oder Anforderungen angeben"></textarea>
-      </div>
 
       <div class="modal-footer px-0 pb-0">
         <button type="button" class="btn btn-outline-secondary" (click)="modal.dismiss()">

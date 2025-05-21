@@ -6,11 +6,6 @@
   .modal-title {
     font-size: 24px;
     font-weight: 600;
-
-    i {
-      font-size: 22px;
-      opacity: .4;
-    }
   }
 }
 .modal-body {
@@ -18,5 +13,5 @@
   background-repeat: no-repeat;
   background-size: cover;
   padding: 60px 0;
-  background-color: transparentize($primary, .96);
+  background-color: transparentize($primary, .97);
 }
