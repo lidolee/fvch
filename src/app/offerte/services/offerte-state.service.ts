@@ -26,19 +26,46 @@ export class OfferteStateService {
   confirmationData$ = this.confirmationDataSubject.asObservable();
   stepState$ = this.stepStateSubject.asObservable();
 
-  updateContactData(data: ContactData) {
+  updateContactData(data: ContactData | null) {
     this.contactDataSubject.next(data);
-    this.updateStepState('contactdata', true);
+    this.updateStepState('contactdata', data !== null);
   }
 
-  updateSolutions(data: SolutionsData) {
+  updateSolutions(data: SolutionsData | null) {
     this.solutionsDataSubject.next(data);
-    this.updateStepState('solutions', true);
+    this.updateStepState('solutions', data !== null);
   }
 
-  updateConfirmation(data: ConfirmationData) {
+  updateConfirmation(data: ConfirmationData | null) {
     this.confirmationDataSubject.next(data);
-    this.updateStepState('confirmation', true);
+    this.updateStepState('confirmation', data !== null);
+  }
+
+  invalidateStep(step: keyof OfferteStepState) {
+    const currentState = this.stepStateSubject.value;
+    const newState: OfferteStepState = {
+      ...currentState,
+      [step]: {
+        ...currentState[step],
+        isCompleted: false
+      }
+    };
+
+    // Nachfolgende Steps invalidieren
+    switch(step) {
+      case 'solutions':
+        newState.contactdata.isAccessible = false;
+        newState.contactdata.isCompleted = false;
+        newState.confirmation.isAccessible = false;
+        newState.confirmation.isCompleted = false;
+        break;
+      case 'contactdata':
+        newState.confirmation.isAccessible = false;
+        newState.confirmation.isCompleted = false;
+        break;
+    }
+
+    this.stepStateSubject.next(newState);
   }
 
   private updateStepState(step: keyof OfferteStepState, completed: boolean) {
@@ -51,7 +78,6 @@ export class OfferteStateService {
       }
     };
 
-    // Update accessibility based on completion status
     if (completed) {
       switch(step) {
         case 'solutions':
@@ -64,13 +90,5 @@ export class OfferteStateService {
     }
 
     this.stepStateSubject.next(newState);
-  }
-
-  isStepAccessible(step: keyof OfferteStepState): boolean {
-    return this.stepStateSubject.value[step].isAccessible;
-  }
-
-  isStepCompleted(step: keyof OfferteStepState): boolean {
-    return this.stepStateSubject.value[step].isCompleted;
   }
 }

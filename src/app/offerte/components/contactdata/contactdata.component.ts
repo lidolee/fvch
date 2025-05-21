@@ -1,15 +1,9 @@
-/**
- * @file contactdata.component.ts
- * @author lidolee
- * @date 2025-05-20 16:57:11
- * @description Component for handling contact data input in the quote process
- */
-
-import {Component, Input, OnInit} from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { NgbModal, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { OfferteStateService } from '../../services/offerte-state.service';
+import { take } from 'rxjs/operators';
 
 @Component({
   selector: 'app-contactdata',
@@ -51,6 +45,13 @@ export class ContactdataComponent implements OnInit {
   }
 
   openContactModal(content: any) {
+    // Lade aktuelle Daten
+    this.offerteState.contactData$.pipe(take(1)).subscribe(data => {
+      if (data) {
+        this.contactForm.patchValue(data);
+      }
+    });
+
     this.modalService.open(content, {
       animation: false,
       fullscreen: true,
@@ -64,6 +65,11 @@ export class ContactdataComponent implements OnInit {
       this.offerteState.updateContactData(this.contactForm.value);
       this.modalService.dismissAll();
     } else {
+      // Invalidiere den State
+      this.offerteState.updateContactData(null);
+      this.offerteState.invalidateStep('contactdata');
+
+      // Markiere invalide Felder
       Object.keys(this.contactForm.controls).forEach(key => {
         const control = this.contactForm.get(key);
         if (control?.invalid) {
