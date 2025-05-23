@@ -11,7 +11,7 @@ const DESIGN_PACKAGES_DATA: FlyerDesignPackage[] = [
     designProposals: 1, revisions: 1, printablePdf: true, swissQualityCheck: true, sourceFiles: false, logoBrandingConsultation: false, marketingStrategy: false,
   },
   {
-    id: 'gold', name: 'Gold - Bestseller', priceNormal: 999, priceDiscounted: 899, isBestseller: true,
+    id: 'gold', name: 'Gold', priceNormal: 999, priceDiscounted: 899, isBestseller: true,
     features: ['2 Designvorschläge', '3 Korrekturen', 'Druckfähiges PDF', 'Swiss Quality-Check', 'Quelldateien (AI, PSD etc.)'],
     designProposals: 2, revisions: 3, printablePdf: true, swissQualityCheck: true, sourceFiles: true, logoBrandingConsultation: false, marketingStrategy: false,
   },

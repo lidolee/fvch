@@ -77,6 +77,7 @@ export class SolutionsComponent implements OnInit {
           this.currentDetailConfigs.druck = data.druckConfig || { druckAktiv: true, format: null, grammatur: null, druckart: null, auflage: null, isValid: false };
         }
       } else {
+        // Setzt Standardwerte, wenn keine Daten im State sind
         this.currentDetailConfigs = {
           design: { designAktiv: true, selectedPackageId: null, isValid: false },
           druck: { druckAktiv: true, format: null, grammatur: null, druckart: null, auflage: null, isValid: false }
@@ -102,18 +103,17 @@ export class SolutionsComponent implements OnInit {
   openSolutionsModal(content: any) {
     if (!this.disabled) {
       this.offerteState.solutionsData$.pipe(take(1)).subscribe((data: SolutionsDataFromState | null) => {
-        if (data) {
-          this.solutionsForm.patchValue({ selectedSolutions: data.selectedSolutions || [] });
-          if (this.isSolutionSelectedInternal('design')) {
-            this.currentDetailConfigs.design = data.designConfig || { designAktiv: true, selectedPackageId: null, isValid: false };
-          } else {
-            delete this.currentDetailConfigs.design;
-          }
-          if (this.isSolutionSelectedInternal('druck')) {
-            this.currentDetailConfigs.druck = data.druckConfig || { druckAktiv: true, format: null, grammatur: null, druckart: null, auflage: null, isValid: false };
-          } else {
-            delete this.currentDetailConfigs.druck;
-          }
+        if (data && data.selectedSolutions) {
+          this.solutionsForm.patchValue({ selectedSolutions: data.selectedSolutions });
+
+          this.currentDetailConfigs.design = (this.isSolutionSelectedInternal('design') && data.designConfig)
+            ? data.designConfig
+            : { designAktiv: true, selectedPackageId: null, isValid: false };
+
+          this.currentDetailConfigs.druck = (this.isSolutionSelectedInternal('druck') && data.druckConfig)
+            ? data.druckConfig
+            : { druckAktiv: true, format: null, grammatur: null, druckart: null, auflage: null, isValid: false };
+
         } else {
           this.solutionsForm.patchValue({ selectedSolutions: [] });
           this.currentDetailConfigs = {
@@ -128,6 +128,12 @@ export class SolutionsComponent implements OnInit {
 
   onSubmit() {
     const currentSelectedSolutions = this.selectedSolutionsValue;
+
+    if (currentSelectedSolutions.length === 0) {
+      this.solutionsForm.get('selectedSolutions')?.setErrors({minlength: true});
+      this.solutionsForm.get('selectedSolutions')?.markAsTouched();
+    }
+
     if (this.solutionsForm.valid && currentSelectedSolutions.length > 0 && this.areSelectedDetailConfigsValid()) {
       const dataToSave: SolutionsDataFromState = {
         selectedSolutions: currentSelectedSolutions,
@@ -141,12 +147,9 @@ export class SolutionsComponent implements OnInit {
       this.offerteState.updateSolutions(dataToSave);
       this.modalService.dismissAll();
     } else {
-      this.offerteState.updateSolutions(null);
       this.offerteState.invalidateStep('solutions');
       Object.keys(this.solutionsForm.controls).forEach(key => { this.solutionsForm.get(key)?.markAsTouched(); });
-      if (currentSelectedSolutions.length === 0) {
-        this.solutionsForm.get('selectedSolutions')?.setErrors({ required: true });
-      }
+
       if (!this.areSelectedDetailConfigsValid()) {
         console.warn("Eine oder mehrere Detailkonfigurationen sind ungültig.");
       }
@@ -170,11 +173,10 @@ export class SolutionsComponent implements OnInit {
       }
     } else {
       currentSelected.splice(index, 1);
-      if (solutionId === 'design') { delete this.currentDetailConfigs.design; }
-      if (solutionId === 'druck') { delete this.currentDetailConfigs.druck; }
     }
     selectedSolutionsControl.patchValue(currentSelected);
     selectedSolutionsControl.markAsTouched();
+    selectedSolutionsControl.updateValueAndValidity();
   }
 
   isFieldInvalid(fieldName: string): boolean {
@@ -183,7 +185,7 @@ export class SolutionsComponent implements OnInit {
   }
 
   isSolutionSelected(solutionId: string): boolean { return this.isSolutionSelectedInternal(solutionId); }
-  isSolutionSelectedInternal(solutionId: string): boolean { return this.selectedSolutionsValue.includes(solutionId); }
+  private isSolutionSelectedInternal(solutionId: string): boolean { return this.selectedSolutionsValue.includes(solutionId); }
 
   onFlyerDesignConfigChanged(config: FlyerDesignConfig): void {
     if (this.isSolutionSelectedInternal('design')) {
