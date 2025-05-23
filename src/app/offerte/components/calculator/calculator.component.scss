@@ -1,0 +1,36 @@
+// Bestehende Stile für .cardbox .calculator etc. werden hier angenommen und ggf. erweitert.
+
+.calculator {
+  .card-body {
+    // Ggf. spezifische Stile für den Body der Kalkulator-Cardbox
+  }
+
+  .calculation-details {
+    margin-top: 0; // Angepasst, da die hr nun direkt unter dem Titel ist
+
+    ul {
+      margin-bottom: 1rem;
+      li.calculation-item { // Spezifischer Selektor für Items
+        padding: 0.35rem 0; // Etwas mehr Padding
+        font-size: 0.95rem;
+      }
+    }
+
+    .subtotal-line, .vat-line {
+      font-size: 0.9rem;
+      padding: 0.1rem 0;
+    }
+
+    .total-line {
+      font-size: 1.1rem;
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid #dee2e6; // Leichte Trennlinie über dem Total
+    }
+  }
+
+  .text-muted {
+    color: #6c757d !important; // Bootstrap Standard
+    font-style: italic;
+  }
+}

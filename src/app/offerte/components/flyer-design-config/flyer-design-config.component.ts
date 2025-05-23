@@ -3,6 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FlyerDesignPackage } from '../../interfaces/flyer-design-package.interface';
 import { FlyerDesignConfig } from '../../interfaces/flyer-design-config.interface';
 import { PackageCardComponent } from '../package-card/package-card.component';
+import { OfferCalculationService } from '../../services/offer-calculation.service';
+
+const CALCULATOR_PACKAGE_ID_MAP: { [key: string]: string } = {
+  'silber': 'design_silver',
+  'gold': 'design_gold',
+  'platin': 'design_platinum',
+};
 
 const DESIGN_PACKAGES_DATA: FlyerDesignPackage[] = [
   {
@@ -38,6 +45,7 @@ export class FlyerDesignConfigComponent implements OnInit, OnChanges {
 
   allPackages: FlyerDesignPackage[] = DESIGN_PACKAGES_DATA;
   currentSelectedPackageId: 'silber' | 'gold' | 'platin' | null = null;
+  public designServiceAktiv: boolean = true; // Initialwert
 
   comparisonTableFeatures: { key: keyof FlyerDesignPackage, label: string }[] = [
     { key: 'designProposals', label: 'Designvorschläge' },
@@ -49,24 +57,35 @@ export class FlyerDesignConfigComponent implements OnInit, OnChanges {
     { key: 'marketingStrategy', label: 'Marketing Strategie' },
   ];
 
-  constructor() { }
+  constructor(private offerCalculationService: OfferCalculationService) { }
 
   ngOnInit(): void {
     this.updateFromInitialConfig();
-    this.notifyParentAboutChange(); // Wichtig für initialen Zustand an Parent
+    this.notifyParentAndService();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['initialConfig']) {
       this.updateFromInitialConfig();
-      this.notifyParentAboutChange(); // Wichtig nach Änderung von initialConfig
+      this.notifyParentAndService();
     }
   }
 
   private updateFromInitialConfig(): void {
-    if (this.initialConfig && this.initialConfig.selectedPackageId) {
-      this.currentSelectedPackageId = this.initialConfig.selectedPackageId;
+    if (this.initialConfig) {
+      // Wenn initialConfig vorhanden ist, verwende dessen Wert für designAktiv,
+      // oder falle auf 'true' zurück, falls initialConfig.designAktiv undefined ist.
+      this.designServiceAktiv = this.initialConfig.designAktiv ?? true;
+
+      if (this.initialConfig.selectedPackageId &&
+        (this.initialConfig.selectedPackageId === 'silber' || this.initialConfig.selectedPackageId === 'gold' || this.initialConfig.selectedPackageId === 'platin')) {
+        this.currentSelectedPackageId = this.initialConfig.selectedPackageId;
+      } else {
+        this.currentSelectedPackageId = null;
+      }
     } else {
+      // initialConfig ist NICHT vorhanden. Setze auf Standardwerte.
+      this.designServiceAktiv = true; // Standardmäßig aktiv, wenn keine Konfiguration übergeben wird
       this.currentSelectedPackageId = null;
     }
   }
@@ -79,36 +98,51 @@ export class FlyerDesignConfigComponent implements OnInit, OnChanges {
 
     if (typeof eventData === 'string' && validPackageIds.includes(eventData)) {
       extractedPackageId = eventData as 'silber' | 'gold' | 'platin';
-    } else if (typeof eventData === 'object' && eventData !== null) {
-      if (eventData.id && typeof eventData.id === 'string' && validPackageIds.includes(eventData.id)) {
-        extractedPackageId = eventData.id as 'silber' | 'gold' | 'platin';
-      } else if (eventData.packageId && typeof eventData.packageId === 'string' && validPackageIds.includes(eventData.packageId)) {
-        extractedPackageId = eventData.packageId as 'silber' | 'gold' | 'platin';
-      } else if (eventData.detail && typeof eventData.detail === 'string' && validPackageIds.includes(eventData.detail)) {
-        // Für CustomEvent, falls die ID in event.detail steckt
-        extractedPackageId = eventData.detail as 'silber' | 'gold' | 'platin';
-      }
+    } else if (eventData && typeof eventData.id === 'string' && validPackageIds.includes(eventData.id)) {
+      extractedPackageId = eventData.id as 'silber' | 'gold' | 'platin';
     }
 
     if (extractedPackageId) {
-      this.currentSelectedPackageId = extractedPackageId;
+      if (this.currentSelectedPackageId === extractedPackageId) {
+        this.currentSelectedPackageId = null;
+      } else {
+        this.currentSelectedPackageId = extractedPackageId;
+      }
       console.log('[FlyerDesignConfigComponent] Package selected and ID set to:', this.currentSelectedPackageId);
     } else {
       console.warn('[FlyerDesignConfigComponent] Could not extract a valid packageId. currentSelectedPackageId remains:', this.currentSelectedPackageId, '. Received eventData:', eventData);
-      // Optional: Wenn keine gültige ID extrahiert werden kann, Auswahl zurücksetzen oder beibehalten.
-      // Aktuell wird currentSelectedPackageId nicht geändert, wenn die Extraktion fehlschlägt.
     }
-    this.notifyParentAboutChange();
+    this.notifyParentAndService();
   }
 
-  private notifyParentAboutChange(): void {
-    const config: FlyerDesignConfig = {
-      designAktiv: true,
+  onDesignAktivToggle(aktiv: boolean): void {
+    this.designServiceAktiv = aktiv;
+    if (!this.designServiceAktiv) {
+      this.currentSelectedPackageId = null;
+    }
+    this.notifyParentAndService();
+  }
+
+  private notifyParentAndService(): void {
+    const configForParent: FlyerDesignConfig = {
+      designAktiv: this.designServiceAktiv,
       selectedPackageId: this.currentSelectedPackageId,
-      isValid: !!this.currentSelectedPackageId // isValid ist true, wenn ein Paket ausgewählt ist
+      isValid: this.designServiceAktiv ? !!this.currentSelectedPackageId : true
     };
-    console.log('[FlyerDesignConfigComponent] Notifying parent with config:', config);
-    this.configChanged.emit(config);
+    console.log('[FlyerDesignConfigComponent] Notifying parent with config:', configForParent);
+    this.configChanged.emit(configForParent);
+
+    if (this.designServiceAktiv && this.currentSelectedPackageId) {
+      const fullCalculatorId = CALCULATOR_PACKAGE_ID_MAP[this.currentSelectedPackageId];
+      if (fullCalculatorId) {
+        this.offerCalculationService.selectDesignPackage(fullCalculatorId);
+      } else {
+        console.warn(`[FlyerDesignConfigComponent] No calculator mapping for package ID: ${this.currentSelectedPackageId}`);
+        this.offerCalculationService.selectDesignPackage(null);
+      }
+    } else {
+      this.offerCalculationService.selectDesignPackage(null);
+    }
   }
 
   getFeatureDisplayValue(pkg: FlyerDesignPackage, featureKey: keyof FlyerDesignPackage): string | number {
@@ -120,6 +154,6 @@ export class FlyerDesignConfigComponent implements OnInit, OnChanges {
   }
 
   isSelected(pkgId: 'silber' | 'gold' | 'platin'): boolean {
-    return this.currentSelectedPackageId === pkgId;
+    return this.currentSelectedPackageId === pkgId && this.designServiceAktiv;
   }
 }
