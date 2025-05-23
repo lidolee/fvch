@@ -26,7 +26,7 @@
     <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
   </div>
   <div class="modal-body">
-    <form [formGroup]="solutionsForm">
+    <form [formGroup]="solutionsForm" novalidate>
       <p>Wählen Sie die gewünschten Dienstleistungen für Ihre Flyer:</p>
 
       <div *ngFor="let sol of availableSolutions" class="solution-option card mb-3">
@@ -53,36 +53,41 @@
                    [attr.aria-label]="'Select ' + sol.name">
           </div>
         </div>
-
-        <!-- DESIGN KONFIGURATOR EINFÜGEN -->
-        <div *ngIf="sol.id === 'design' && isSolutionSelected('design')" class="configurator-details card-footer">
-          <h6 class="mt-2 mb-3">Details für: {{ sol.name }}</h6>
-          <app-flyer-design-config
-            [initialConfig]="currentDetailConfigs.design"
-            (configChanged)="onFlyerDesignConfigChanged($event)">
-          </app-flyer-design-config>
-        </div>
-
-        <!-- TODO: Hier später die Konfiguratoren für Druck und Verteilung einfügen -->
-        <!--
-        <div *ngIf="sol.id === 'druck' && isSolutionSelected('druck')" class="configurator-details card-footer">
-          <h6 class="mt-2 mb-3">Details für: {{ sol.name }}</h6>
-          <p>Druck-Konfigurator kommt hier hin...</p>
-        </div>
-        <div *ngIf="sol.id === 'verteilung' && isSolutionSelected('verteilung')" class="configurator-details card-footer">
-          <h6 class="mt-2 mb-3">Details für: {{ sol.name }}</h6>
-          <p>Verteilungs-Konfigurator kommt hier hin...</p>
-        </div>
-        -->
       </div>
 
-      <div *ngIf="isFieldInvalid('selectedSolutions')" class="alert alert-danger mt-3">
+      <div *ngIf="isSolutionSelected('design')" class="configurator-section mt-4 pt-3 border-top">
+        <h5 class="mb-3">Details für: Flyer Design</h5>
+        <app-flyer-design-config
+          [initialConfig]="currentDetailConfigs.design"
+          (configChanged)="onFlyerDesignConfigChanged($event)">
+        </app-flyer-design-config>
+      </div>
+
+      <div *ngIf="isSolutionSelected('druck')" class="configurator-section mt-4 pt-3 border-top">
+        <h5 class="mb-3">Details für: Flyer Druck</h5>
+        <app-flyer-druck-config
+          [initialConfig]="currentDetailConfigs.druck"
+          (druckKonfigurationChanged)="onFlyerDruckConfigChanged($event)">
+        </app-flyer-druck-config>
+      </div>
+
+      <div *ngIf="isSolutionSelected('verteilung')" class="configurator-section mt-4 pt-3 border-top">
+        <h5 class="mb-3">Details für: Flyer Verteilung</h5>
+        <p class="text-muted">Konfigurator für Verteilung demnächst verfügbar.</p>
+      </div>
+
+      <div *ngIf="isFieldInvalid('selectedSolutions')" class="alert alert-danger mt-4 small">
         Bitte wählen Sie mindestens eine Dienstleistung aus.
+      </div>
+      <div *ngIf="solutionsForm.get('selectedSolutions')?.valid && selectedSolutionsValue.length > 0 && !areSelectedDetailConfigsValid()" class="alert alert-warning mt-3 small">
+        Bitte füllen Sie alle erforderlichen Felder für die ausgewählten Dienstleistungen aus.
       </div>
     </form>
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-outline-secondary" (click)="modal.dismiss('cancel click')">Abbrechen</button>
-    <button type="button" class="btn btn-primary" (click)="onSubmit()" [disabled]="solutionsForm.invalid">Übernehmen</button>
+    <button type="button" class="btn btn-primary"
+            (click)="onSubmit()"
+            [disabled]="solutionsForm.invalid || !areSelectedDetailConfigsValid()">Übernehmen</button>
   </div>
 </ng-template>

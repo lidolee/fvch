@@ -1,0 +1,16 @@
+// Styles für FlyerDruckConfigComponent
+.option-druck label { // Bezieht sich auf die Checkbox-Zeile
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.invalid-feedback {
+  display: block;
+}
+
+// Wenn du spezifische Styles für den äußeren Container der Komponente möchtest:
+// .flyer-druck-config-section {
+//   // deine Styles hier
+// }

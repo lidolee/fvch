@@ -1,68 +1,38 @@
-import { Component, OnInit, Output, EventEmitter, Input } from '@angular/core';
-import { CommonModule } from '@angular/common'; // WICHTIG
+import { Component, OnInit, Output, EventEmitter, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { FlyerDesignPackage } from '../../interfaces/flyer-design-package.interface';
 import { FlyerDesignConfig } from '../../interfaces/flyer-design-config.interface';
-import { PackageCardComponent } from '../package-card/package-card.component'; // WICHTIG
+import { PackageCardComponent } from '../package-card/package-card.component';
 
 const DESIGN_PACKAGES_DATA: FlyerDesignPackage[] = [
   {
-    id: 'silber',
-    name: 'Silber',
-    priceNormal: 449,
-    priceDiscounted: 399,
-    isBestseller: false,
+    id: 'silber', name: 'Silber', priceNormal: 449, priceDiscounted: 399, isBestseller: false,
     features: ['1 Designvorschlag', '1 Korrektur', 'Druckfähiges PDF', 'Swiss Quality-Check'],
-    designProposals: 1,
-    revisions: 1,
-    printablePdf: true,
-    swissQualityCheck: true,
-    sourceFiles: false,
-    logoBrandingConsultation: false,
-    marketingStrategy: false,
+    designProposals: 1, revisions: 1, printablePdf: true, swissQualityCheck: true, sourceFiles: false, logoBrandingConsultation: false, marketingStrategy: false,
   },
   {
-    id: 'gold',
-    name: 'Gold - Bestseller',
-    priceNormal: 999,
-    priceDiscounted: 899,
-    isBestseller: true,
+    id: 'gold', name: 'Gold - Bestseller', priceNormal: 999, priceDiscounted: 899, isBestseller: true,
     features: ['2 Designvorschläge', '3 Korrekturen', 'Druckfähiges PDF', 'Swiss Quality-Check', 'Quelldateien (AI, PSD etc.)'],
-    designProposals: 2,
-    revisions: 3,
-    printablePdf: true,
-    swissQualityCheck: true,
-    sourceFiles: true,
-    logoBrandingConsultation: false,
-    marketingStrategy: false,
+    designProposals: 2, revisions: 3, printablePdf: true, swissQualityCheck: true, sourceFiles: true, logoBrandingConsultation: false, marketingStrategy: false,
   },
   {
-    id: 'platin',
-    name: 'Platin',
-    priceNormal: 2499,
-    priceDiscounted: 1999,
-    isBestseller: false,
+    id: 'platin', name: 'Platin', priceNormal: 2499, priceDiscounted: 1999, isBestseller: false,
     features: ['3 Designvorschläge', '5 Korrekturen', 'Druckfähiges PDF', 'Swiss Quality-Check', 'Quelldateien (AI, PSD etc.)', 'Logo & Branding Beratung', 'Marketing Strategie'],
-    designProposals: 3,
-    revisions: 5,
-    printablePdf: true,
-    swissQualityCheck: true,
-    sourceFiles: true,
-    logoBrandingConsultation: true,
-    marketingStrategy: true,
+    designProposals: 3, revisions: 5, printablePdf: true, swissQualityCheck: true, sourceFiles: true, logoBrandingConsultation: true, marketingStrategy: true,
   }
 ];
 
 @Component({
   selector: 'app-flyer-design-config',
-  standalone: true, // WICHTIG
+  standalone: true,
   imports: [
-    CommonModule,         // WICHTIG
-    PackageCardComponent  // WICHTIG
+    CommonModule,
+    PackageCardComponent
   ],
   templateUrl: './flyer-design-config.component.html',
   styleUrls: ['./flyer-design-config.component.scss']
 })
-export class FlyerDesignConfigComponent implements OnInit {
+export class FlyerDesignConfigComponent implements OnInit, OnChanges {
   @Input() initialConfig?: FlyerDesignConfig;
   @Output() configChanged = new EventEmitter<FlyerDesignConfig>();
 
@@ -82,20 +52,63 @@ export class FlyerDesignConfigComponent implements OnInit {
   constructor() { }
 
   ngOnInit(): void {
-    if (this.initialConfig && this.initialConfig.selectedPackageId) {
-      this.currentSelectedPackageId = this.initialConfig.selectedPackageId;
+    this.updateFromInitialConfig();
+    this.notifyParentAboutChange(); // Wichtig für initialen Zustand an Parent
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['initialConfig']) {
+      this.updateFromInitialConfig();
+      this.notifyParentAboutChange(); // Wichtig nach Änderung von initialConfig
     }
   }
 
-  handlePackageSelection(packageId: string): void {
-    if (packageId === 'silber' || packageId === 'gold' || packageId === 'platin') {
-      this.currentSelectedPackageId = packageId;
-      this.notifyParentAboutChange();
+  private updateFromInitialConfig(): void {
+    if (this.initialConfig && this.initialConfig.selectedPackageId) {
+      this.currentSelectedPackageId = this.initialConfig.selectedPackageId;
+    } else {
+      this.currentSelectedPackageId = null;
     }
+  }
+
+  handlePackageSelection(eventData: any): void {
+    console.log('[FlyerDesignConfigComponent] handlePackageSelection received eventData:', eventData);
+
+    let extractedPackageId: 'silber' | 'gold' | 'platin' | null = null;
+    const validPackageIds = ['silber', 'gold', 'platin'];
+
+    if (typeof eventData === 'string' && validPackageIds.includes(eventData)) {
+      extractedPackageId = eventData as 'silber' | 'gold' | 'platin';
+    } else if (typeof eventData === 'object' && eventData !== null) {
+      if (eventData.id && typeof eventData.id === 'string' && validPackageIds.includes(eventData.id)) {
+        extractedPackageId = eventData.id as 'silber' | 'gold' | 'platin';
+      } else if (eventData.packageId && typeof eventData.packageId === 'string' && validPackageIds.includes(eventData.packageId)) {
+        extractedPackageId = eventData.packageId as 'silber' | 'gold' | 'platin';
+      } else if (eventData.detail && typeof eventData.detail === 'string' && validPackageIds.includes(eventData.detail)) {
+        // Für CustomEvent, falls die ID in event.detail steckt
+        extractedPackageId = eventData.detail as 'silber' | 'gold' | 'platin';
+      }
+    }
+
+    if (extractedPackageId) {
+      this.currentSelectedPackageId = extractedPackageId;
+      console.log('[FlyerDesignConfigComponent] Package selected and ID set to:', this.currentSelectedPackageId);
+    } else {
+      console.warn('[FlyerDesignConfigComponent] Could not extract a valid packageId. currentSelectedPackageId remains:', this.currentSelectedPackageId, '. Received eventData:', eventData);
+      // Optional: Wenn keine gültige ID extrahiert werden kann, Auswahl zurücksetzen oder beibehalten.
+      // Aktuell wird currentSelectedPackageId nicht geändert, wenn die Extraktion fehlschlägt.
+    }
+    this.notifyParentAboutChange();
   }
 
   private notifyParentAboutChange(): void {
-    this.configChanged.emit({ selectedPackageId: this.currentSelectedPackageId });
+    const config: FlyerDesignConfig = {
+      designAktiv: true,
+      selectedPackageId: this.currentSelectedPackageId,
+      isValid: !!this.currentSelectedPackageId // isValid ist true, wenn ein Paket ausgewählt ist
+    };
+    console.log('[FlyerDesignConfigComponent] Notifying parent with config:', config);
+    this.configChanged.emit(config);
   }
 
   getFeatureDisplayValue(pkg: FlyerDesignPackage, featureKey: keyof FlyerDesignPackage): string | number {
@@ -106,10 +119,7 @@ export class FlyerDesignConfigComponent implements OnInit {
     return value as string | number;
   }
 
-  getSelectedPackageName(): string | undefined {
-    if (!this.currentSelectedPackageId) {
-      return undefined;
-    }
-    return this.allPackages.find(p => p.id === this.currentSelectedPackageId)?.name;
+  isSelected(pkgId: 'silber' | 'gold' | 'platin'): boolean {
+    return this.currentSelectedPackageId === pkgId;
   }
 }

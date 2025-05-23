@@ -11,7 +11,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 
 import { OfferteComponent } from './offerte/offerte.component';
-import { ContactdataComponent } from './components/contactdata/contactdata.component';
+import { ContactdataComponent } from './components/contactdata/contact-data.component';
 import { SolutionsComponent } from './components/solutions/solutions.component';
 import { ConfirmationComponent } from './components/confirmation/confirmation.component';
 import { CalculatorComponent } from './components/calculator/calculator.component';

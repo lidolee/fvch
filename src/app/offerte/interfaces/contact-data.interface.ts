@@ -1,11 +1,13 @@
 export interface ContactData {
-  salutation: 'Herr' | 'Frau';
-  name: string;
-  email: string;
-  phone?: string;
-  company?: string;
-  street?: string;
-  postalCode?: string;
-  city?: string;
-  website?: string;
+  gender: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  companyName?: string | null;
+  email: string | null;
+  phone: string | null;
+  street: string | null;
+  houseNumber: string | null;
+  zip: string | null;
+  city: string | null;
+  notes?: string | null;
 }

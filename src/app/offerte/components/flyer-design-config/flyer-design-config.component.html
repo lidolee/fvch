@@ -1,38 +1,48 @@
-<div class="flyer-design-config-container">
-  <h2>Wählen Sie Ihr Flyer-Design Paket</h2>
-
-  <div class="package-cards-area">
-    <app-package-card
-      *ngFor="let pkg of allPackages"
-      [packageData]="pkg"
-      [isSelected]="pkg.id === currentSelectedPackageId"
-      (packageClicked)="handlePackageSelection($event)">
-    </app-package-card>
+<div class="flyer-design-config p-3 border rounded bg-light">
+  <p class="mb-3">Wählen Sie Ihr gewünschtes Design-Paket:</p>
+  <div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
+    <div *ngFor="let pkg of allPackages" class="col">
+      <app-package-card
+        [packageData]="pkg"
+        [isSelected]="isSelected(pkg.id)"
+        (selected)="handlePackageSelection($event)">
+      </app-package-card>
+    </div>
   </div>
 
-  <div *ngIf="currentSelectedPackageId" class="current-selection-info">
-    Ihre Auswahl: <strong>{{ getSelectedPackageName() }}</strong>
+  <div *ngIf="!currentSelectedPackageId" class="alert alert-warning small mt-2">
+    Bitte wählen Sie ein Design-Paket aus.
   </div>
 
-  <div class="comparison-table-area" *ngIf="allPackages.length > 0">
-    <h3>Paketvergleich im Detail</h3>
-    <table>
+  <h5 class="mt-4 mb-3">Paketvergleich</h5>
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover comparison-table">
       <thead>
       <tr>
-        <th>Leistung</th>
-        <th *ngFor="let pkg of allPackages"
-            [class.highlight-col]="pkg.id === currentSelectedPackageId">
+        <th scope="col">Feature</th>
+        <th *ngFor="let pkg of allPackages" scope="col" class="text-center"
+            [class.table-primary]="isSelected(pkg.id)">
           {{ pkg.name }}
-          <span *ngIf="pkg.isBestseller" class="table-bestseller-badge">Bestseller</span>
+          <div *ngIf="pkg.isBestseller && pkg.id !== 'gold'" class="badge bg-success mt-1">Bestseller</div>
+          <div *ngIf="pkg.id === 'gold' && pkg.isBestseller" class="badge bg-warning text-dark mt-1">Bestseller</div>
+
         </th>
       </tr>
       </thead>
       <tbody>
-      <tr *ngFor="let featureDef of comparisonTableFeatures">
-        <td>{{ featureDef.label }}</td>
-        <td *ngFor="let pkg of allPackages"
-            [class.highlight-col]="pkg.id === currentSelectedPackageId">
-          {{ getFeatureDisplayValue(pkg, featureDef.key) }}
+      <tr>
+        <td>Preis</td>
+        <td *ngFor="let pkg of allPackages" class="text-center" [class.table-primary]="isSelected(pkg.id)">
+            <span *ngIf="pkg.priceDiscounted < pkg.priceNormal" class="text-decoration-line-through text-muted me-2">
+              CHF {{ pkg.priceNormal }}
+            </span>
+          <strong>CHF {{ pkg.priceDiscounted }}</strong>
+        </td>
+      </tr>
+      <tr *ngFor="let feature of comparisonTableFeatures">
+        <td>{{ feature.label }}</td>
+        <td *ngFor="let pkg of allPackages" class="text-center" [class.table-primary]="isSelected(pkg.id)">
+          {{ getFeatureDisplayValue(pkg, feature.key) }}
         </td>
       </tr>
       </tbody>

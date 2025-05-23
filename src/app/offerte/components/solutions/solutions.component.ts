@@ -9,29 +9,26 @@ import { take } from 'rxjs/operators';
 import { FlyerDesignConfig } from '../../interfaces/flyer-design-config.interface';
 import { FlyerDesignConfigComponent } from '../flyer-design-config/flyer-design-config.component';
 
-// ANNAHME: SolutionsData Interface ist so oder ähnlich definiert (siehe AKTION 5)
+import { FlyerDruckConfig } from '../../interfaces/flyer-druck-config.interface';
+import { FlyerDruckConfigComponent } from '../flyer-druck-config/flyer-druck-config.component';
+
 interface SolutionsDataFromState {
   selectedSolutions: string[];
   designConfig?: FlyerDesignConfig;
-  // printConfig?: any; // Später
-  // distributionConfig?: any; // Später
+  druckConfig?: FlyerDruckConfig;
 }
 
 interface OverallSolutionConfigs {
   design?: FlyerDesignConfig;
-  // print?: any;
-  // distribution?: any;
+  druck?: FlyerDruckConfig;
 }
 
 @Component({
   selector: 'app-solutions',
   standalone: true,
   imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    NgbModule,
-    CalculatorComponent,
-    FlyerDesignConfigComponent // WICHTIG
+    CommonModule, ReactiveFormsModule, NgbModule, CalculatorComponent,
+    FlyerDesignConfigComponent, FlyerDruckConfigComponent
   ],
   templateUrl: './solutions.component.html',
   styleUrl: './solutions.component.scss'
@@ -55,8 +52,13 @@ export class SolutionsComponent implements OnInit {
     private offerteState: OfferteStateService
   ) {
     this.solutionsForm = this.fb.group({
-      selectedSolutions: [[], [Validators.required, Validators.minLength(1)]],
+      selectedSolutions: [[] as string[], [Validators.required, Validators.minLength(1)]],
     });
+  }
+
+  get selectedSolutionsValue(): string[] {
+    const control = this.solutionsForm.get('selectedSolutions');
+    return control && Array.isArray(control.value) ? control.value : [];
   }
 
   ngOnInit() {
@@ -69,10 +71,32 @@ export class SolutionsComponent implements OnInit {
         this.solutionsForm.patchValue({ selectedSolutions: data.selectedSolutions || [] });
 
         if (this.isSolutionSelectedInternal('design')) {
-          this.currentDetailConfigs.design = data.designConfig || { selectedPackageId: null };
+          this.currentDetailConfigs.design = data.designConfig || { designAktiv: true, selectedPackageId: null, isValid: false };
         }
+        if (this.isSolutionSelectedInternal('druck')) {
+          this.currentDetailConfigs.druck = data.druckConfig || { druckAktiv: true, format: null, grammatur: null, druckart: null, auflage: null, isValid: false };
+        }
+      } else {
+        this.currentDetailConfigs = {
+          design: { designAktiv: true, selectedPackageId: null, isValid: false },
+          druck: { druckAktiv: true, format: null, grammatur: null, druckart: null, auflage: null, isValid: false }
+        };
       }
     });
+  }
+
+  areSelectedDetailConfigsValid(): boolean {
+    if (this.isSolutionSelectedInternal('design')) {
+      if (!this.currentDetailConfigs.design?.isValid) {
+        return false;
+      }
+    }
+    if (this.isSolutionSelectedInternal('druck')) {
+      if (!this.currentDetailConfigs.druck?.isValid) {
+        return false;
+      }
+    }
+    return true;
   }
 
   openSolutionsModal(content: any) {
@@ -81,67 +105,73 @@ export class SolutionsComponent implements OnInit {
         if (data) {
           this.solutionsForm.patchValue({ selectedSolutions: data.selectedSolutions || [] });
           if (this.isSolutionSelectedInternal('design')) {
-            this.currentDetailConfigs.design = data.designConfig || { selectedPackageId: null };
+            this.currentDetailConfigs.design = data.designConfig || { designAktiv: true, selectedPackageId: null, isValid: false };
           } else {
             delete this.currentDetailConfigs.design;
           }
+          if (this.isSolutionSelectedInternal('druck')) {
+            this.currentDetailConfigs.druck = data.druckConfig || { druckAktiv: true, format: null, grammatur: null, druckart: null, auflage: null, isValid: false };
+          } else {
+            delete this.currentDetailConfigs.druck;
+          }
         } else {
           this.solutionsForm.patchValue({ selectedSolutions: [] });
-          this.currentDetailConfigs = {};
+          this.currentDetailConfigs = {
+            design: { designAktiv: true, selectedPackageId: null, isValid: false },
+            druck: { druckAktiv: true, format: null, grammatur: null, druckart: null, auflage: null, isValid: false }
+          };
         }
       });
-
-      this.modalService.open(content, {
-        animation: false,
-        fullscreen: true,
-        windowClass: 'solutions-modal',
-        backdropClass: 'solutions-modal-backdrop'
-      });
+      this.modalService.open(content, { animation: false, fullscreen: true, windowClass: 'solutions-modal', backdropClass: 'solutions-modal-backdrop' });
     }
   }
 
   onSubmit() {
-    const selectedSolutionsValue = this.solutionsForm.get('selectedSolutions')?.value;
-    if (this.solutionsForm.valid && selectedSolutionsValue?.length > 0) {
-      const dataToSave: SolutionsDataFromState = { // Typ hier verwenden
-        selectedSolutions: selectedSolutionsValue,
+    const currentSelectedSolutions = this.selectedSolutionsValue;
+    if (this.solutionsForm.valid && currentSelectedSolutions.length > 0 && this.areSelectedDetailConfigsValid()) {
+      const dataToSave: SolutionsDataFromState = {
+        selectedSolutions: currentSelectedSolutions,
       };
       if (this.isSolutionSelectedInternal('design') && this.currentDetailConfigs.design) {
         dataToSave.designConfig = this.currentDetailConfigs.design;
       }
-
+      if (this.isSolutionSelectedInternal('druck') && this.currentDetailConfigs.druck) {
+        dataToSave.druckConfig = this.currentDetailConfigs.druck;
+      }
       this.offerteState.updateSolutions(dataToSave);
       this.modalService.dismissAll();
     } else {
       this.offerteState.updateSolutions(null);
       this.offerteState.invalidateStep('solutions');
-      Object.keys(this.solutionsForm.controls).forEach(key => {
-        const control = this.solutionsForm.get(key);
-        if (control?.invalid) {
-          control.markAsTouched();
-        }
-      });
+      Object.keys(this.solutionsForm.controls).forEach(key => { this.solutionsForm.get(key)?.markAsTouched(); });
+      if (currentSelectedSolutions.length === 0) {
+        this.solutionsForm.get('selectedSolutions')?.setErrors({ required: true });
+      }
+      if (!this.areSelectedDetailConfigsValid()) {
+        console.warn("Eine oder mehrere Detailkonfigurationen sind ungültig.");
+      }
     }
   }
 
-  // Diese Methode wird vom Template aufgerufen
   toggleSolutionSelection(solutionId: string) {
     const selectedSolutionsControl = this.solutionsForm.get('selectedSolutions');
     if (!selectedSolutionsControl) return;
 
-    const currentSelected: string[] = [...(selectedSolutionsControl.value || [])];
+    const currentSelected: string[] = [...this.selectedSolutionsValue];
     const index = currentSelected.indexOf(solutionId);
 
     if (index === -1) {
       currentSelected.push(solutionId);
       if (solutionId === 'design' && !this.currentDetailConfigs.design) {
-        this.currentDetailConfigs.design = { selectedPackageId: null };
+        this.currentDetailConfigs.design = { designAktiv: true, selectedPackageId: null, isValid: false };
+      }
+      if (solutionId === 'druck' && !this.currentDetailConfigs.druck) {
+        this.currentDetailConfigs.druck = { druckAktiv: true, format: null, grammatur: null, druckart: null, auflage: null, isValid: false };
       }
     } else {
       currentSelected.splice(index, 1);
-      if (solutionId === 'design') {
-        delete this.currentDetailConfigs.design;
-      }
+      if (solutionId === 'design') { delete this.currentDetailConfigs.design; }
+      if (solutionId === 'druck') { delete this.currentDetailConfigs.druck; }
     }
     selectedSolutionsControl.patchValue(currentSelected);
     selectedSolutionsControl.markAsTouched();
@@ -152,18 +182,18 @@ export class SolutionsComponent implements OnInit {
     return field ? field.invalid && (field.dirty || field.touched) : false;
   }
 
-  // Diese Methode wird vom Template aufgerufen
-  isSolutionSelected(solutionId: string): boolean {
-    return this.isSolutionSelectedInternal(solutionId);
-  }
-
-  // Interne Methode, um Konflikte mit der alten Methode zu vermeiden, falls du sie noch irgendwo hattest
-  private isSolutionSelectedInternal(solutionId: string): boolean {
-    const selectedSolutions = this.solutionsForm.get('selectedSolutions')?.value || [];
-    return selectedSolutions.includes(solutionId);
-  }
+  isSolutionSelected(solutionId: string): boolean { return this.isSolutionSelectedInternal(solutionId); }
+  isSolutionSelectedInternal(solutionId: string): boolean { return this.selectedSolutionsValue.includes(solutionId); }
 
   onFlyerDesignConfigChanged(config: FlyerDesignConfig): void {
-    this.currentDetailConfigs.design = config;
+    if (this.isSolutionSelectedInternal('design')) {
+      this.currentDetailConfigs.design = config;
+    }
+  }
+
+  onFlyerDruckConfigChanged(config: FlyerDruckConfig): void {
+    if (this.isSolutionSelectedInternal('druck')) {
+      this.currentDetailConfigs.druck = config;
+    }
   }
 }

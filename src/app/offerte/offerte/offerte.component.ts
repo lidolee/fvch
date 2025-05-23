@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ContactdataComponent } from '../components/contactdata/contactdata.component';
+import { ContactDataComponent } from '../components/contactdata/contact-data.component';
 import { SolutionsComponent } from '../components/solutions/solutions.component';
 import { ConfirmationComponent } from '../components/confirmation/confirmation.component';
 import { OfferteStateService } from '../services/offerte-state.service';
@@ -11,7 +11,7 @@ import { OfferteStepState } from '../interfaces/step-state.interface';
   standalone: true,
   imports: [
     CommonModule,
-    ContactdataComponent,
+    ContactDataComponent,
     SolutionsComponent,
     ConfirmationComponent
   ],
@@ -21,7 +21,7 @@ import { OfferteStepState } from '../interfaces/step-state.interface';
 export class OfferteComponent implements OnInit {
   stepState: OfferteStepState = {
     solutions: { isCompleted: false, isAccessible: true },
-    contactdata: { isCompleted: false, isAccessible: false },
+    contactData: { isCompleted: false, isAccessible: false },
     confirmation: { isCompleted: false, isAccessible: false }
   };
 
