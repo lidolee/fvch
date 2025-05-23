@@ -1,0 +1,30 @@
+<p>package-card works!</p>
+<div class="package-card-wrapper"
+     [class.selected]="isSelected"
+     (click)="onCardClick()">
+
+  <div class="package-name-badge-container">
+    <h3 class="package-name">{{ packageData.name }}</h3>
+    <span *ngIf="packageData.isBestseller" class="bestseller-badge">Bestseller</span>
+  </div>
+
+  <div class="pricing-info">
+    <span class="price-discounted">CHF {{ packageData.priceDiscounted }}</span>
+    <span *ngIf="packageData.priceNormal !== packageData.priceDiscounted" class="price-normal">
+      <s>CHF {{ packageData.priceNormal }}</s>
+    </span>
+    <span *ngIf="savings && savings > 0" class="price-savings">
+      CHF {{ savings }} gespart!
+    </span>
+  </div>
+
+  <ul class="features-list">
+    <li *ngFor="let feature of packageData.features">{{ feature }}</li>
+  </ul>
+
+  <!-- Der Button ist optional, da die ganze Karte klickbar ist. -->
+  <!-- Man könnte ihn auch weglassen und nur die Karte klickbar machen. -->
+  <button type="button" class="select-button">
+    {{ isSelected ? 'Ausgewählt' : 'Wählen' }}
+  </button>
+</div>

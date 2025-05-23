@@ -19,66 +19,70 @@
   </div>
 </div>
 
+<!-- Das Modal-Template -->
 <ng-template #solutionsModal let-modal>
   <div class="modal-header">
-    <h4 class="modal-title">Leistungen auswählen</h4>
-    <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss()"></button>
+    <h4 class="modal-title" id="modal-basic-title">Flyer Dienstleistungen</h4>
+    <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
   </div>
   <div class="modal-body">
+    <form [formGroup]="solutionsForm">
+      <p>Wählen Sie die gewünschten Dienstleistungen für Ihre Flyer:</p>
 
-    <form [formGroup]="solutionsForm" (ngSubmit)="onSubmit()">
-      <div class="row modal-content-spacer">
-        <div class="col-lg-8">
-
-          <fieldset class="mb-4">
-            <legend>Leistungen auswählen</legend>
-
-            <p class="invalid-feedback" [class.d-block]="isFieldInvalid('selectedSolutions')">
-              Bitte wählen Sie mind. eine Dienstleistung aus.
-            </p>
-
-            <p [class.d-none]="isFieldInvalid('selectedSolutions')">
-              Bitte wählen Sie mind. eine Dienstleistung aus.
-            </p>
-
-
-            <div class="solutions-grid">
-              <div class="solution-card"
-                   *ngFor="let solution of availableSolutions"
-                   [class.selected]="isSolutionSelected(solution.id)"
-                   (click)="toggleSolution(solution.id)">
-
-                <div class="solution-icon"><i [ngClass]="['bi', solution.icon]"></i></div>
-                <div class="solution-card-content">
-                  <h5>{{ solution.name }}</h5>
-                  <p>{{ solution.description }}</p>
-                </div>
-
-                <div class="solution-card-check">
-                  <i class="bi"
-                     [class.bi-check-square-fill]="isSolutionSelected(solution.id)"
-                     [class.bi-square]="!isSolutionSelected(solution.id)"></i>
-                </div>
-
-              </div>
-            </div>
-          </fieldset>
-
+      <div *ngFor="let sol of availableSolutions" class="solution-option card mb-3">
+        <div class="card-body d-flex align-items-center"
+             (click)="toggleSolutionSelection(sol.id)"
+             [class.selected]="isSolutionSelected(sol.id)"
+             role="button"
+             tabindex="0"
+             (keydown.enter)="toggleSolutionSelection(sol.id)"
+             (keydown.space)="toggleSolutionSelection(sol.id)">
+          <div class="flex-shrink-0 me-3">
+            <i class="bi {{sol.icon}} h2"></i>
+          </div>
+          <div class="flex-grow-1">
+            <h5 class="card-title mb-1">{{ sol.name }}</h5>
+            <p class="card-text small">{{ sol.description }}</p>
+          </div>
+          <div class="form-check ms-3">
+            <input class="form-check-input"
+                   type="checkbox"
+                   [checked]="isSolutionSelected(sol.id)"
+                   (click)="$event.stopPropagation()"
+                   (change)="toggleSolutionSelection(sol.id)"
+                   [attr.aria-label]="'Select ' + sol.name">
+          </div>
         </div>
-        <div class="col-lg-4">
-          <app-calculator></app-calculator>
+
+        <!-- DESIGN KONFIGURATOR EINFÜGEN -->
+        <div *ngIf="sol.id === 'design' && isSolutionSelected('design')" class="configurator-details card-footer">
+          <h6 class="mt-2 mb-3">Details für: {{ sol.name }}</h6>
+          <app-flyer-design-config
+            [initialConfig]="currentDetailConfigs.design"
+            (configChanged)="onFlyerDesignConfigChanged($event)">
+          </app-flyer-design-config>
         </div>
+
+        <!-- TODO: Hier später die Konfiguratoren für Druck und Verteilung einfügen -->
+        <!--
+        <div *ngIf="sol.id === 'druck' && isSolutionSelected('druck')" class="configurator-details card-footer">
+          <h6 class="mt-2 mb-3">Details für: {{ sol.name }}</h6>
+          <p>Druck-Konfigurator kommt hier hin...</p>
+        </div>
+        <div *ngIf="sol.id === 'verteilung' && isSolutionSelected('verteilung')" class="configurator-details card-footer">
+          <h6 class="mt-2 mb-3">Details für: {{ sol.name }}</h6>
+          <p>Verteilungs-Konfigurator kommt hier hin...</p>
+        </div>
+        -->
       </div>
 
-
-      <div class="modal-footer px-0 pb-0">
-        <button type="button" class="btn btn-outline-secondary" (click)="modal.dismiss()">
-          Abbrechen
-        </button>
-        <button type="submit" class="btn btn-primary">
-          Speichern
-        </button>
+      <div *ngIf="isFieldInvalid('selectedSolutions')" class="alert alert-danger mt-3">
+        Bitte wählen Sie mindestens eine Dienstleistung aus.
       </div>
     </form>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-outline-secondary" (click)="modal.dismiss('cancel click')">Abbrechen</button>
+    <button type="button" class="btn btn-primary" (click)="onSubmit()" [disabled]="solutionsForm.invalid">Übernehmen</button>
   </div>
 </ng-template>

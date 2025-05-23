@@ -1,0 +1,41 @@
+<div class="flyer-design-config-container">
+  <h2>Wählen Sie Ihr Flyer-Design Paket</h2>
+
+  <div class="package-cards-area">
+    <app-package-card
+      *ngFor="let pkg of allPackages"
+      [packageData]="pkg"
+      [isSelected]="pkg.id === currentSelectedPackageId"
+      (packageClicked)="handlePackageSelection($event)">
+    </app-package-card>
+  </div>
+
+  <div *ngIf="currentSelectedPackageId" class="current-selection-info">
+    Ihre Auswahl: <strong>{{ getSelectedPackageName() }}</strong>
+  </div>
+
+  <div class="comparison-table-area" *ngIf="allPackages.length > 0">
+    <h3>Paketvergleich im Detail</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>Leistung</th>
+        <th *ngFor="let pkg of allPackages"
+            [class.highlight-col]="pkg.id === currentSelectedPackageId">
+          {{ pkg.name }}
+          <span *ngIf="pkg.isBestseller" class="table-bestseller-badge">Bestseller</span>
+        </th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr *ngFor="let featureDef of comparisonTableFeatures">
+        <td>{{ featureDef.label }}</td>
+        <td *ngFor="let pkg of allPackages"
+            [class.highlight-col]="pkg.id === currentSelectedPackageId">
+          {{ getFeatureDisplayValue(pkg, featureDef.key) }}
+        </td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

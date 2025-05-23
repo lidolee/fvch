@@ -15,6 +15,10 @@ import { ContactdataComponent } from './components/contactdata/contactdata.compo
 import { SolutionsComponent } from './components/solutions/solutions.component';
 import { ConfirmationComponent } from './components/confirmation/confirmation.component';
 import { CalculatorComponent } from './components/calculator/calculator.component';
+import { PackageCardComponent } from './components/package-card/package-card.component';
+import { FlyerDesignConfigComponent } from './components/flyer-design-config/flyer-design-config.component';
+
+
 
 @NgModule({
   declarations: [
@@ -28,7 +32,9 @@ import { CalculatorComponent } from './components/calculator/calculator.componen
     ContactdataComponent,
     SolutionsComponent,
     ConfirmationComponent,
-    CalculatorComponent
+    CalculatorComponent,
+    PackageCardComponent,
+    FlyerDesignConfigComponent
   ],
   exports: [
     OfferteComponent

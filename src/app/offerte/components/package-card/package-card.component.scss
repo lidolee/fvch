@@ -1,0 +1,109 @@
+.package-card-wrapper {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 10px; // Für Abstand, wenn mehrere Karten untereinander sind
+  cursor: pointer;
+  background-color: #f9f9f9;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease; // Sanfter Übergang für Hover/Selected
+
+  &:hover {
+    border-color: #aaa;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  }
+
+  &.selected {
+    border-color: #007bff; // Blauer Rahmen, wenn ausgewählt
+    background-color: #e7f3ff; // Heller blauer Hintergrund
+    box-shadow: 0 4px 8px rgba(0,123,255,0.2);
+  }
+}
+
+.package-name-badge-container {
+  display: flex;
+  justify-content: space-between; // Name links, Badge rechts
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.package-name {
+  margin: 0; // Standard-Margin von h3 entfernen
+  font-size: 1.4em;
+}
+
+.bestseller-badge {
+  background-color: #ffc107; // Gelb
+  color: #333;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-weight: bold;
+}
+
+.pricing-info {
+  margin-bottom: 15px;
+  font-size: 1.1em;
+
+  .price-discounted {
+    font-weight: bold;
+    color: #28a745; // Grün
+    font-size: 1.3em; // Rabattierter Preis größer
+    margin-right: 8px;
+  }
+
+  .price-normal {
+    color: #6c757d; // Grau
+    font-size: 0.9em; // Normaler Preis kleiner
+    margin-right: 8px;
+    s { // Durchgestrichen
+      text-decoration-color: #dc3545; // Rot
+    }
+  }
+
+  .price-savings {
+    color: #17a2b8; // Türkis
+    font-style: italic;
+    font-size: 0.9em;
+  }
+}
+
+.features-list {
+  list-style: none; // Keine Aufzählungspunkte
+  padding: 0;
+  margin-bottom: 15px;
+
+  li {
+    margin-bottom: 5px;
+    font-size: 0.95em;
+    &::before { // Kleiner Haken vor jedem Feature
+      content: '✓ ';
+      color: #28a745; // Grün
+      margin-right: 5px;
+    }
+  }
+}
+
+.select-button {
+  display: block; // Nimmt volle Breite ein
+  width: 100%;
+  padding: 8px 10px;
+  background-color: #007bff; // Blau
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 1em;
+  text-align: center;
+  cursor: pointer; // Nochmal explizit, obwohl die Karte schon einen hat
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background-color: #0056b3; // Dunkleres Blau
+  }
+
+  .package-card-wrapper.selected & { // Wenn die Karte ausgewählt ist
+    background-color: #28a745; // Grün
+    &:hover {
+      background-color: #1e7e34; // Dunkleres Grün
+    }
+  }
+}

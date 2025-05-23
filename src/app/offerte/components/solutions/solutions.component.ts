@@ -6,10 +6,33 @@ import { OfferteStateService } from '../../services/offerte-state.service';
 import { CalculatorComponent } from '../calculator/calculator.component';
 import { take } from 'rxjs/operators';
 
+import { FlyerDesignConfig } from '../../interfaces/flyer-design-config.interface';
+import { FlyerDesignConfigComponent } from '../flyer-design-config/flyer-design-config.component';
+
+// ANNAHME: SolutionsData Interface ist so oder ähnlich definiert (siehe AKTION 5)
+interface SolutionsDataFromState {
+  selectedSolutions: string[];
+  designConfig?: FlyerDesignConfig;
+  // printConfig?: any; // Später
+  // distributionConfig?: any; // Später
+}
+
+interface OverallSolutionConfigs {
+  design?: FlyerDesignConfig;
+  // print?: any;
+  // distribution?: any;
+}
+
 @Component({
   selector: 'app-solutions',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, NgbModule, CalculatorComponent],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    NgbModule,
+    CalculatorComponent,
+    FlyerDesignConfigComponent // WICHTIG
+  ],
   templateUrl: './solutions.component.html',
   styleUrl: './solutions.component.scss'
 })
@@ -18,22 +41,12 @@ export class SolutionsComponent implements OnInit {
   solutionsForm: FormGroup;
   isStepCompleted = false;
 
+  currentDetailConfigs: OverallSolutionConfigs = {};
+
   availableSolutions = [
-    { id: 'design',
-      name: 'Flyer Design',
-      description: 'Wir gestalten Ihre Flyer professionell',
-      icon: 'bi-palette-fill'
-    },
-    { id: 'druck',
-      name: 'Flyer Druck',
-      description: 'Wir drucken Ihre Flyer in Top-Qualität',
-      icon: 'bi-printer-fill'
-    },
-    { id: 'verteilung',
-      name: 'Flyer Verteilung',
-      description: 'Wir verteilen Ihre Flyer schweizweit',
-      icon: 'bi-mailbox2-flag'
-    },
+    { id: 'design', name: 'Flyer Design', description: 'Wir gestalten Ihre Flyer professionell', icon: 'bi-palette-fill' },
+    { id: 'druck', name: 'Flyer Druck', description: 'Wir drucken Ihre Flyer in Top-Qualität', icon: 'bi-printer-fill' },
+    { id: 'verteilung', name: 'Flyer Verteilung', description: 'Wir verteilen Ihre Flyer schweizweit', icon: 'bi-mailbox2-flag' },
   ];
 
   constructor(
@@ -50,14 +63,31 @@ export class SolutionsComponent implements OnInit {
     this.offerteState.stepState$.subscribe(state => {
       this.isStepCompleted = state.solutions.isCompleted;
     });
+
+    this.offerteState.solutionsData$.pipe(take(1)).subscribe((data: SolutionsDataFromState | null) => {
+      if (data) {
+        this.solutionsForm.patchValue({ selectedSolutions: data.selectedSolutions || [] });
+
+        if (this.isSolutionSelectedInternal('design')) {
+          this.currentDetailConfigs.design = data.designConfig || { selectedPackageId: null };
+        }
+      }
+    });
   }
 
   openSolutionsModal(content: any) {
     if (!this.disabled) {
-      // Lade aktuelle Daten
-      this.offerteState.solutionsData$.pipe(take(1)).subscribe(data => {
+      this.offerteState.solutionsData$.pipe(take(1)).subscribe((data: SolutionsDataFromState | null) => {
         if (data) {
-          this.solutionsForm.patchValue(data);
+          this.solutionsForm.patchValue({ selectedSolutions: data.selectedSolutions || [] });
+          if (this.isSolutionSelectedInternal('design')) {
+            this.currentDetailConfigs.design = data.designConfig || { selectedPackageId: null };
+          } else {
+            delete this.currentDetailConfigs.design;
+          }
+        } else {
+          this.solutionsForm.patchValue({ selectedSolutions: [] });
+          this.currentDetailConfigs = {};
         }
       });
 
@@ -71,16 +101,20 @@ export class SolutionsComponent implements OnInit {
   }
 
   onSubmit() {
-    if (this.solutionsForm.valid &&
-      this.solutionsForm.get('selectedSolutions')?.value?.length > 0) {
-      this.offerteState.updateSolutions(this.solutionsForm.value);
+    const selectedSolutionsValue = this.solutionsForm.get('selectedSolutions')?.value;
+    if (this.solutionsForm.valid && selectedSolutionsValue?.length > 0) {
+      const dataToSave: SolutionsDataFromState = { // Typ hier verwenden
+        selectedSolutions: selectedSolutionsValue,
+      };
+      if (this.isSolutionSelectedInternal('design') && this.currentDetailConfigs.design) {
+        dataToSave.designConfig = this.currentDetailConfigs.design;
+      }
+
+      this.offerteState.updateSolutions(dataToSave);
       this.modalService.dismissAll();
     } else {
-      // Invalidiere den State
       this.offerteState.updateSolutions(null);
       this.offerteState.invalidateStep('solutions');
-
-      // Markiere invalide Felder
       Object.keys(this.solutionsForm.controls).forEach(key => {
         const control = this.solutionsForm.get(key);
         if (control?.invalid) {
@@ -90,18 +124,27 @@ export class SolutionsComponent implements OnInit {
     }
   }
 
-  toggleSolution(solutionId: string) {
-    const selectedSolutions = [...(this.solutionsForm.get('selectedSolutions')?.value || [])];
-    const index = selectedSolutions.indexOf(solutionId);
+  // Diese Methode wird vom Template aufgerufen
+  toggleSolutionSelection(solutionId: string) {
+    const selectedSolutionsControl = this.solutionsForm.get('selectedSolutions');
+    if (!selectedSolutionsControl) return;
+
+    const currentSelected: string[] = [...(selectedSolutionsControl.value || [])];
+    const index = currentSelected.indexOf(solutionId);
 
     if (index === -1) {
-      selectedSolutions.push(solutionId);
+      currentSelected.push(solutionId);
+      if (solutionId === 'design' && !this.currentDetailConfigs.design) {
+        this.currentDetailConfigs.design = { selectedPackageId: null };
+      }
     } else {
-      selectedSolutions.splice(index, 1);
+      currentSelected.splice(index, 1);
+      if (solutionId === 'design') {
+        delete this.currentDetailConfigs.design;
+      }
     }
-
-    this.solutionsForm.patchValue({ selectedSolutions });
-    this.solutionsForm.get('selectedSolutions')?.markAsTouched();
+    selectedSolutionsControl.patchValue(currentSelected);
+    selectedSolutionsControl.markAsTouched();
   }
 
   isFieldInvalid(fieldName: string): boolean {
@@ -109,8 +152,18 @@ export class SolutionsComponent implements OnInit {
     return field ? field.invalid && (field.dirty || field.touched) : false;
   }
 
+  // Diese Methode wird vom Template aufgerufen
   isSolutionSelected(solutionId: string): boolean {
+    return this.isSolutionSelectedInternal(solutionId);
+  }
+
+  // Interne Methode, um Konflikte mit der alten Methode zu vermeiden, falls du sie noch irgendwo hattest
+  private isSolutionSelectedInternal(solutionId: string): boolean {
     const selectedSolutions = this.solutionsForm.get('selectedSolutions')?.value || [];
     return selectedSolutions.includes(solutionId);
+  }
+
+  onFlyerDesignConfigChanged(config: FlyerDesignConfig): void {
+    this.currentDetailConfigs.design = config;
   }
 }
