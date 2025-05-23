@@ -1,35 +1,38 @@
-<div class="card h-100 package-card"
-     [class.selected-package]="isSelected"
-     [class.bestseller-package]="packageData.isBestseller"
-     (click)="onCardClick()"
-     tabindex="0"
-     role="button"
-     [attr.aria-pressed]="isSelected">
+<div
+  class="card h-100 package-card"
+  [class.border-primary]="isSelected"
+  [class.shadow]="isSelected"
+  (click)="onCardClick()"
+  tabindex="0"
+  role="button"
+  [attr.aria-pressed]="isSelected"
+  [attr.aria-label]="'Design-Paket ' + packageData?.name + (isSelected ? ', aktuell ausgewählt' : ', auswählen')">
 
-  <div class="card-header text-center" *ngIf="packageData.name">
-    <h5 class="card-title mb-0">{{ packageData.name }}</h5>
-    <span *ngIf="packageData.isBestseller" class="badge bg-warning text-dark mt-1">Bestseller</span>
+  <div class="card-header d-flex justify-content-between align-items-center" [class.bg-primary]="isSelected" [class.text-white]="isSelected">
+    <h5 class="card-title mb-0">{{ packageData?.name }}</h5>
+    <span *ngIf="packageData?.isBestseller" class="badge bg-danger ms-2">Bestseller</span>
   </div>
 
-  <div class="card-body d-flex flex-column">
-    <div class="price-section text-center mb-3">
-      <span *ngIf="packageData.priceDiscounted < packageData.priceNormal" class="text-decoration-line-through text-muted me-2">
-        CHF {{ packageData.priceNormal }}
-      </span>
-      <span class="h4 fw-bold">CHF {{ packageData.priceDiscounted }}</span>
-      <span class="text-muted d-block small">zzgl. MwSt.</span>
-    </div>
-
-    <ul class="list-unstyled features-list mb-4 flex-grow-1">
-      <li *ngFor="let feature of packageData.features" class="mb-1">
-        <i class="bi bi-check-circle-fill text-success me-2"></i>{{ feature }}
+  <div class="card-body">
+    <ul class="list-unstyled mb-4">
+      <li *ngFor="let feature of packageData?.features" class="mb-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-circle-fill text-success me-2" viewBox="0 0 16 16">
+          <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+        </svg>
+        {{ feature }}
       </li>
     </ul>
+    <div class="price-section text-center">
+      <p class="card-text display-6 fw-bold mb-0">
+        CHF {{ packageData?.priceDiscounted }}
+      </p>
+      <small *ngIf="packageData?.priceNormal !== packageData?.priceDiscounted" class="text-decoration-line-through text-muted d-block">
+        CHF {{ packageData?.priceNormal }}
+      </small>
+    </div>
+  </div>
 
-    <button type="button" class="btn mt-auto w-100"
-            [class.btn-primary]="isSelected"
-            [class.btn-outline-primary]="!isSelected">
-      {{ isSelected ? 'Ausgewählt' : 'Auswählen' }}
-    </button>
+  <div class="card-footer text-center" *ngIf="isSelected">
+    <small class="text-primary fw-bold">Ausgewählt</small>
   </div>
 </div>

@@ -1,20 +1,14 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import { FlyerDesignPackage } from '../interfaces/flyer-design-package.interface'; // Importieren
-import { CalculationItem } from '../components/calculator/calculator.component'; // Importieren für den Rückgabetyp
+import { FlyerDesignPackage } from '../interfaces/flyer-design-package.interface';
+import { CalculationItem } from '../components/calculator/calculator.component';
 
-/**
- * Interface, um ein ausgewähltes Service-Item zu beschreiben.
- * 'id' ist die eindeutige ID des Pakets/der Option.
- * Bei 'id: null' wird das Item des entsprechenden Typs aus der Kalkulation entfernt.
- */
 export interface SelectedService {
-  type: 'design' | 'print' | 'distribution'; // Später ggf. auch 'print', 'distribution'
+  type: 'design' | 'print' | 'distribution';
   id: string | null;
 }
 
-// Die originalen Paketdaten, die jetzt der Service kennt.
-// Die IDs hier sind die Kurzformen ('silber', 'gold', 'platin').
+// SINGLE SOURCE OF TRUTH für Design-Paket-Daten
 const DESIGN_PACKAGES_SERVICE_DATA: FlyerDesignPackage[] = [
   {
     id: 'silber', name: 'Silber', priceNormal: 449, priceDiscounted: 399, isBestseller: false,
@@ -33,12 +27,19 @@ const DESIGN_PACKAGES_SERVICE_DATA: FlyerDesignPackage[] = [
   }
 ];
 
-// Mapping von vollen Calculator-IDs zurück zu Kurz-IDs für den internen Datenzugriff
-const CALCULATOR_ID_TO_SHORT_ID_MAP: { [key: string]: string } = {
+// Mapping von vollen Calculator-IDs (Design) zurück zu Kurz-IDs für den internen Datenzugriff
+const CALCULATOR_DESIGN_ID_TO_SHORT_ID_MAP: { [key: string]: string } = {
   'design_silver': 'silber',
   'design_gold': 'gold',
   'design_platinum': 'platin',
 };
+
+// Daten für Druckoptionen
+const PRINT_OPTIONS_SERVICE_DATA: CalculationItem[] = [
+  { id: 'print_1000_a5', name: 'Druck 1000 Stk. A5', price: 150, type: 'print', options: { quantity: 1000, format: 'A5'} },
+  { id: 'print_5000_a5', name: 'Druck 5000 Stk. A5', price: 450, type: 'print', options: { quantity: 5000, format: 'A5'} },
+  { id: 'print_1000_a4', name: 'Druck 1000 Stk. A4', price: 220, type: 'print', options: { quantity: 1000, format: 'A4'} },
+];
 
 
 @Injectable({
@@ -58,36 +59,43 @@ export class OfferCalculationService {
     this.updateSelectedService({ type: 'design', id: fullPackageId });
   }
 
-  public selectPrintOption(optionId: string | null): void {
-    this.updateSelectedService({ type: 'print', id: optionId });
+  public selectPrintOption(printOptionId: string | null): void {
+    this.updateSelectedService({ type: 'print', id: printOptionId });
   }
 
   /**
-   * Ruft die Details eines Design-Pakets für den Kalkulator ab.
-   * @param fullCalculatorId Die volle ID des Pakets (z.B. 'design_silver')
-   * @returns Ein CalculationItem-Objekt oder null, wenn nicht gefunden.
+   * Gibt die Liste aller verfügbaren Design-Pakete zurück.
+   * Wird von Komponenten wie FlyerDesignConfigComponent verwendet, um Optionen anzuzeigen.
    */
+  public getAvailableDesignPackages(): FlyerDesignPackage[] {
+    return DESIGN_PACKAGES_SERVICE_DATA;
+  }
+
   public getDesignPackageCalculatorItem(fullCalculatorId: string): CalculationItem | null {
-    const shortId = CALCULATOR_ID_TO_SHORT_ID_MAP[fullCalculatorId];
+    const shortId = CALCULATOR_DESIGN_ID_TO_SHORT_ID_MAP[fullCalculatorId];
     if (!shortId) {
-      console.warn(`[OfferCalculationService] Kein Kurz-ID Mapping für ${fullCalculatorId}`);
+      console.warn(`[OfferCalculationService] Kein Kurz-ID Mapping für Design-ID ${fullCalculatorId}`);
       return null;
     }
-
     const packageData = DESIGN_PACKAGES_SERVICE_DATA.find(p => p.id === shortId);
-
     if (packageData) {
       return {
-        id: fullCalculatorId, // Die volle ID für den Kalkulator verwenden
-        name: `Design Paket ${packageData.name}`, // Name für den Kalkulator anpassen
-        price: packageData.priceDiscounted, // Den rabattierten Preis verwenden
+        id: fullCalculatorId,
+        name: `Design Paket ${packageData.name}`,
+        price: packageData.priceDiscounted,
         type: 'design'
       };
     }
-    console.warn(`[OfferCalculationService] Paketdaten für Kurz-ID ${shortId} (von ${fullCalculatorId}) nicht gefunden.`);
+    console.warn(`[OfferCalculationService] Design-Paketdaten für Kurz-ID ${shortId} (von ${fullCalculatorId}) nicht gefunden.`);
     return null;
   }
 
-  // Zukünftig hier auch Methoden für Print-Optionen etc.
-  // public getPrintOptionCalculatorItem(optionId: string): CalculationItem | null { ... }
+  public getPrintOptionCalculatorItem(printOptionId: string): CalculationItem | null {
+    const optionData = PRINT_OPTIONS_SERVICE_DATA.find(p => p.id === printOptionId);
+    if (optionData) {
+      return { ...optionData, type: 'print' };
+    }
+    console.warn(`[OfferCalculationService] Druckoptionsdaten für ID ${printOptionId} nicht gefunden.`);
+    return null;
+  }
 }

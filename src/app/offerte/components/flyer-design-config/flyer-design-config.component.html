@@ -1,51 +1,57 @@
-<div class="flyer-design-config p-3 border rounded bg-light">
-  <p class="mb-3">Wählen Sie Ihr gewünschtes Design-Paket:</p>
-  <div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
-    <div *ngFor="let pkg of allPackages" class="col">
-      <app-package-card
-        [packageData]="pkg"
-        [isSelected]="isSelected(pkg.id)"
-        (selected)="handlePackageSelection($event)">
-      </app-package-card>
+<div class="flyer-design-config-container p-3">
+
+
+  <!-- Bereich für Paketkarten, nur sichtbar wenn Design-Service aktiv ist -->
+  <div *ngIf="designServiceAktiv" class="package-cards-container mt-4">
+    <p *ngIf="!allPackages || allPackages.length === 0" class="text-muted">
+      Keine Design-Pakete verfügbar oder geladen.
+    </p>
+    <div class="row" *ngIf="allPackages && allPackages.length > 0">
+      <div class="col-lg-4 col-md-6 mb-4" *ngFor="let pkg of allPackages">
+        <app-package-card
+          [packageData]="pkg"
+          [isSelected]="isSelected(pkg.id)"
+          (packageSelected)="handlePackageSelection($event)">
+        </app-package-card>
+      </div>
+    </div>
+  </div>
+  <div *ngIf="!designServiceAktiv" class="alert alert-info mt-3" role="alert">
+    Der Flyer Design Service ist aktuell deaktiviert. Aktivieren Sie ihn (über Ihre Checkbox), um ein Design-Paket auszuwählen.
+  </div>
+
+
+  <!-- Optionale Vergleichstabelle (nur sichtbar wenn Design-Service aktiv und Pakete vorhanden) -->
+  <div *ngIf="designServiceAktiv && allPackages && allPackages.length > 0" class="comparison-table-container mt-5">
+    <h5 class="mb-3">Leistungsvergleich der Design-Pakete</h5>
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover align-middle">
+        <thead class="table-light">
+        <tr>
+          <th scope="col" style="min-width: 200px;">Leistung</th>
+          <th *ngFor="let pkg of allPackages" scope="col" class="text-center" [class.table-primary]="isSelected(pkg.id)" style="min-width: 150px;">
+            {{ pkg.name }}
+            <span *ngIf="pkg.isBestseller" class="badge bg-danger ms-2">Bestseller</span>
+          </th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr *ngFor="let feature of comparisonTableFeatures">
+          <td>{{ feature.label }}</td>
+          <td *ngFor="let pkg of allPackages" class="text-center" [class.table-primary]="isSelected(pkg.id)">
+            <span [innerHTML]="getFeatureDisplayValue(pkg, feature.key)"></span>
+          </td>
+        </tr>
+        <tr class="table-group-divider">
+          <td class="fw-bold">Preis (exkl. MwSt.)</td>
+          <td *ngFor="let pkg of allPackages" class="text-center fw-bold" [class.table-primary]="isSelected(pkg.id)">
+            CHF {{ pkg.priceDiscounted }}
+            <small *ngIf="pkg.priceNormal !== pkg.priceDiscounted" class="text-decoration-line-through text-muted d-block">CHF {{ pkg.priceNormal }}</small>
+          </td>
+        </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <div *ngIf="!currentSelectedPackageId" class="alert alert-warning small mt-2">
-    Bitte wählen Sie ein Design-Paket aus.
-  </div>
-
-  <h5 class="mt-4 mb-3">Paketvergleich</h5>
-  <div class="table-responsive">
-    <table class="table table-bordered table-hover comparison-table">
-      <thead>
-      <tr>
-        <th scope="col">Feature</th>
-        <th *ngFor="let pkg of allPackages" scope="col" class="text-center"
-            [class.table-primary]="isSelected(pkg.id)">
-          {{ pkg.name }}
-          <div *ngIf="pkg.isBestseller && pkg.id !== 'gold'" class="badge bg-success mt-1">Bestseller</div>
-          <div *ngIf="pkg.id === 'gold' && pkg.isBestseller" class="badge bg-warning text-dark mt-1">Bestseller</div>
-
-        </th>
-      </tr>
-      </thead>
-      <tbody>
-      <tr>
-        <td>Preis</td>
-        <td *ngFor="let pkg of allPackages" class="text-center" [class.table-primary]="isSelected(pkg.id)">
-            <span *ngIf="pkg.priceDiscounted < pkg.priceNormal" class="text-decoration-line-through text-muted me-2">
-              CHF {{ pkg.priceNormal }}
-            </span>
-          <strong>CHF {{ pkg.priceDiscounted }}</strong>
-        </td>
-      </tr>
-      <tr *ngFor="let feature of comparisonTableFeatures">
-        <td>{{ feature.label }}</td>
-        <td *ngFor="let pkg of allPackages" class="text-center" [class.table-primary]="isSelected(pkg.id)">
-          {{ getFeatureDisplayValue(pkg, feature.key) }}
-        </td>
-      </tr>
-      </tbody>
-    </table>
-  </div>
 </div>
