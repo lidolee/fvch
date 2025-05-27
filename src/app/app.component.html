@@ -1,17 +1,329 @@
-<header>
-  <div class="container-xl">
-    <div class="row align-items-center">
+<!-- Hauptcontainer der Anwendung -->
+<div class="paper-sheet">
+  <!-- Mobiler Header, nur auf kleinen Bildschirmen sichtbar -->
+  <header class="mobile-header">
+    <h1 class="mobile-header__title">{{ title }}</h1>
+    <button class="btn btn--sm btn--outline-secondary" type="button" (click)="toggleOffcanvas(true)">
+      <i class="bi bi-receipt"></i> Offerte
+    </button>
+  </header>
 
-      <div class="col-12 col-lg-8 align-self-center">
-        <h1>Flyer Verteilung</h1>
-        <h2>In 3 Schritten zu Ihrer Offerte</h2>
-      </div>
-      <div class="col-12 col-lg-4 align-self-center order-first order-sm-last">
-        <img class="logo" src="https://www.flyer-verteilen.ch/wp-content/uploads/2025/05/logo-mail-long.svg" alt="Logo">
-      </div>
+  <!-- Innerer Inhaltsbereich des "Papiers" -->
+  <div class="paper-sheet-inner-content">
+    <div class="main-layout-row">
+      <!-- Hauptkonfigurationsbereich (linke Spalte auf Desktop) -->
+      <main class="config-main-wrapper">
+        <!-- Stepper Navigation -->
+        <nav class="stepper-navigation">
+          <div *ngFor="let stepDef of stepDefinitions"
+               class="step-indicator"
+               [class.step-indicator--active]="stepDef.step === currentStep"
+               [class.step-indicator--completed]="stepDef.validationStatus === 'green' && stepDef.step < currentStep"
+               [class.step-indicator--warning]="stepDef.validationStatus === 'orange' && stepDef.step < currentStep"
+               [class.step-indicator--error]="stepDef.validationStatus === 'red' && stepDef.step < currentStep"
+               (click)="goToStep(stepDef.step)"
+               [attr.data-step]="stepDef.step">
+            <div class="step-indicator__label-group">
+              <i class="bi {{ stepDef.icon }} step-indicator__icon"></i>
+              <span class="step-indicator__label">{{ stepDef.label }}</span>
+            </div>
+            <i class="bi {{ getValidationIconClass(stepDef.validationStatus) }}"></i>
+          </div>
+        </nav>
 
-    </div>
+        <!-- Container für die einzelnen Schritte (wird horizontal verschoben) -->
+        <div id="steps-container" [style.transform]="'translateX(-' + (currentStep - 1) * 100 + '%)'">
+
+          <!-- STEP 1: Verteilung -->
+          <section class="step-content">
+            <div class="step-content-inner"
+                 [class.animate-slide-in-from-right]="currentStep === 1 && previousStep < 1"
+                 [style.opacity]="currentStep === 1 ? 1 : 0">
+              <header class="step-header">
+                <h2>Zielgebiete definieren</h2>
+                <p>Bestimmen Sie präzise, wo Ihre Flyer verteilt werden sollen.</p>
+              </header>
+              <div class="map-area-placeholder">Interaktive Karte für PLZ-Auswahl (Platzhalter)</div>
+              <div style="margin-top: 1rem;">
+                <p><strong>Ausgewählt:</strong> {{ summaryVerteilungDetails }}</p>
+                <p><strong>Kosten:</strong> {{ summaryVerteilungKosten | currency:'CHF':'symbol':'1.2-2' }}</p>
+              </div>
+            </div>
+            <div class="step-actions">
+              <button class="btn btn--primary" (click)="nextStep()">Weiter <i class="bi bi-arrow-right"></i></button>
+            </div>
+          </section> <!-- Ende STEP 1 -->
+
+          <!-- STEP 2: Design & Druck -->
+          <section class="step-content">
+            <div class="step-content-inner"
+                 [class.animate-slide-in-from-right]="currentStep === 2 && previousStep < 2"
+                 [class.animate-slide-in-from-left]="currentStep === 2 && previousStep > 2"
+                 [style.opacity]="currentStep === 2 ? 1 : 0"
+                 [formGroup]="fvFlowForm">
+              <header class="step-header">
+                <h2>Gestaltung & Druck Ihrer Flyer</h2>
+                <p>Wählen Sie Design-Optionen und konfigurieren Sie den Druck. (Optional)</p>
+              </header>
+
+              <h5 class="fw-semibold mb-3">Flyer Design</h5>
+              <div class="option-cards-container">
+                <div class="option-card-wrapper option-card-wrapper--design">
+                  <div class="option-card" [class.selected]="selectedDesign?.value === 'eigenes'" (click)="selectDesignOption('eigenes', 'Eigenes Design', 0)">
+                    <div class="option-card__body">
+                      <i class="bi bi-cloud-upload option-card__icon"></i>
+                      <h4 class="option-card__title">Eigenes Design</h4>
+                      <p class="option-card__text">Sie liefern fertige Druckdaten.</p>
+                      <span class="option-card__price-hint">Ohne Zusatzkosten</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="option-card-wrapper option-card-wrapper--design">
+                  <div class="option-card" [class.selected]="selectedDesign?.value === 'basis'" (click)="selectDesignOption('basis', 'Design Basis', 149)"> <!-- Escaped quote entfernt -->
+                    <div class="option-card__body">
+                      <i class="bi bi-pencil-tip option-card__icon"></i>
+                      <h4 class="option-card__title">Design "Basis"</h4>
+                      <p class="option-card__text">Klares Layout, 1 Korrektur.</p>
+                      <span class="option-card__price-hint">ab CHF 149</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="option-card-wrapper option-card-wrapper--design">
+                  <div class="option-card" [class.selected]="selectedDesign?.value === 'premium'" (click)="selectDesignOption('premium', 'Design Premium', 299)"> <!-- Escaped quote entfernt -->
+                    <div class="option-card__body">
+                      <i class="bi bi-gem option-card__icon"></i>
+                      <h4 class="option-card__title">Design "Premium"</h4>
+                      <p class="option-card__text">Individuell, mit Beratung.</p>
+                      <span class="option-card__price-hint">ab CHF 299</span>
+                    </div>
+                  </div>
+                </div>
+              </div> <!-- Ende option-cards-container (Design) -->
+
+              <hr class="my-4">
+              <h5 class="fw-semibold mb-3">Flyer Druck</h5>
+              <div class="option-cards-container">
+                <div class="option-card-wrapper option-card-wrapper--print">
+                  <div class="option-card" [class.selected]="selectedDruck?.value === 'kein_druck'" (click)="selectDruckOption('kein_druck', 'Eigene Flyer anliefern', 0)">
+                    <div class="option-card__body">
+                      <i class="bi bi-send-check option-card__icon"></i>
+                      <h4 class="option-card__title">Eigene Flyer anliefern</h4>
+                      <p class="option-card__text">Sie stellen uns fertige Flyer.</p>
+                      <span class="option-card__price-hint">Ohne Zusatzkosten</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="option-card-wrapper option-card-wrapper--print">
+                  <div class="option-card" [class.selected]="selectedDruck?.value === 'standard_druck'" (click)="selectDruckOption('standard_druck', 'Druckservice nutzen', 0)">
+                    <div class="option-card__body">
+                      <i class="bi bi-layers option-card__icon"></i>
+                      <h4 class="option-card__title">Druckservice nutzen</h4>
+                      <p class="option-card__text">Wir drucken Ihre Flyer.</p>
+                      <span class="option-card__price-hint">Preis nach Konfiguration</span>
+                    </div>
+                  </div>
+                </div>
+              </div> <!-- Ende option-cards-container (Druck) -->
+
+              <div class="form-section mt-3" id="druck-config-details" [class.hidden]="!showDruckConfigDetails">
+                <h6 class="form-section__title fw-semibold mb-3">Druckdetails konfigurieren:</h6>
+                <div class="form-fields-grid">
+                  <div class="form-field-group form-field-group--third">
+                    <label for="flyer-format" class="form-label">Format</label>
+                    <select class="form-select" id="flyer-format" formControlName="flyerFormat">
+                      <option value="A5">A5</option>
+                      <option value="A6">A6</option>
+                    </select>
+                  </div>
+                  <div class="form-field-group form-field-group--third">
+                    <label for="flyer-paper" class="form-label">Papier</label>
+                    <select class="form-select" id="flyer-paper" formControlName="flyerPaper">
+                      <option value="135g matt">135g matt</option>
+                      <option value="170g glanz">170g glanz</option>
+                    </select>
+                  </div>
+                  <div class="form-field-group form-field-group--third">
+                    <label for="flyer-auflage" class="form-label">Auflage</label>
+                    <input type="number" class="form-control" id="flyer-auflage" formControlName="flyerAuflage">
+                    <div *ngIf="isFieldInvalid('flyerAuflage')" class="invalid-feedback" style="display: block;">
+                      <span *ngIf="hasFieldError('flyerAuflage', 'required')">Auflage ist erforderlich.</span>
+                      <span *ngIf="hasFieldError('flyerAuflage', 'min')">Auflage muss mind. 1 sein.</span>
+                    </div>
+                  </div>
+                </div> <!-- Ende form-fields-grid -->
+              </div> <!-- Ende form-section -->
+            </div> <!-- Ende step-content-inner (STEP 2) -->
+            <div class="step-actions step-actions--space-between">
+              <button class="btn btn--secondary" (click)="prevStep()"><i class="bi bi-arrow-left"></i> Zurück</button>
+              <button class="btn btn--primary" (click)="nextStep()">Weiter <i class="bi bi-arrow-right"></i></button>
+            </div>
+          </section> <!-- Ende STEP 2 -->
+
+          <!-- STEP 3: Kontakt -->
+          <section class="step-content">
+            <div class="step-content-inner"
+                 [class.animate-slide-in-from-right]="currentStep === 3 && previousStep < 3"
+                 [class.animate-slide-in-from-left]="currentStep === 3 && previousStep > 3"
+                 [style.opacity]="currentStep === 3 ? 1 : 0">
+              <header class="step-header">
+                <h2>Ihre Kontaktdaten</h2>
+                <p>Bitte teilen Sie uns mit, wie wir Sie erreichen können.</p>
+              </header>
+              <form [formGroup]="fvFlowForm" id="contactForm" novalidate>
+                <div class="form-fields-grid">
+                  <div class="form-field-group form-field-group--half">
+                    <label for="contact-name" class="form-label">Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="contact-name" formControlName="contactName">
+                    <div *ngIf="isFieldInvalid('contactName')" class="invalid-feedback" style="display: block;">
+                      <span *ngIf="hasFieldError('contactName', 'required')">Bitte geben Sie Ihren Namen an.</span>
+                    </div>
+                  </div>
+                  <div class="form-field-group form-field-group--half">
+                    <label for="contact-company" class="form-label">Firma (Optional)</label>
+                    <input type="text" class="form-control" id="contact-company" formControlName="contactCompany">
+                  </div>
+                  <div class="form-field-group form-field-group--half">
+                    <label for="contact-email" class="form-label">E-Mail <span class="text-danger">*</span></label>
+                    <input type="email" class="form-control" id="contact-email" formControlName="contactEmail">
+                    <div *ngIf="isFieldInvalid('contactEmail')" class="invalid-feedback" style="display: block;">
+                      <span *ngIf="hasFieldError('contactEmail', 'required')">Bitte geben Sie Ihre E-Mail an.</span>
+                      <span *ngIf="hasFieldError('contactEmail', 'email')">Bitte geben Sie eine gültige E-Mail an.</span>
+                    </div>
+                  </div>
+                  <div class="form-field-group form-field-group--half">
+                    <label for="contact-phone" class="form-label">Telefon (Optional)</label>
+                    <input type="tel" class="form-control" id="contact-phone" formControlName="contactPhone">
+                  </div>
+                  <div class="form-field-group">
+                    <label for="contact-message" class="form-label">Anmerkungen (Optional)</label>
+                    <textarea class="form-control" id="contact-message" rows="3" formControlName="contactMessage"></textarea>
+                  </div>
+                </div> <!-- Ende form-fields-grid (Kontakt) -->
+              </form>
+            </div> <!-- Ende step-content-inner (STEP 3) -->
+            <div class="step-actions step-actions--space-between">
+              <button class="btn btn--secondary" (click)="prevStep()"><i class="bi bi-arrow-left"></i> Zurück</button>
+              <button class="btn btn--primary" (click)="nextStep()">Weiter <i class="bi bi-arrow-right"></i></button>
+            </div>
+          </section> <!-- Ende STEP 3 -->
+
+          <!-- STEP 4: Übersicht -->
+          <section class="step-content">
+            <div class="step-content-inner"
+                 [class.animate-slide-in-from-right]="currentStep === 4 && previousStep < 4"
+                 [class.animate-slide-in-from-left]="currentStep === 4 && previousStep > 4"
+                 [style.opacity]="currentStep === 4 ? 1 : 0">
+              <header class="step-header">
+                <h2>Ihre Konfiguration</h2>
+                <p>Bitte prüfen Sie alle Angaben und fordern Sie Ihre Offerte an.</p>
+              </header>
+              <div class="summary-overview-placeholder text-center">
+                <i class="bi bi-card-checklist" style="font-size: 3rem; color: #6c757d; margin-bottom: 1rem; display:inline-block;"></i>
+                <p style="color: #495057; margin-bottom:1rem;">
+                  Hier erscheint eine detaillierte Zusammenfassung Ihrer Auswahl<br>
+                  und die Gesamtkosten Ihrer Konfiguration.
+                </p>
+                <div style="text-align: left; border: 1px solid #dee2e6; padding: 1rem; border-radius: 0.25rem;">
+                  <h4>Auswahlübersicht:</h4>
+                  <p><strong>Verteilung:</strong> {{ summaryVerteilungDetails }} ({{ summaryVerteilungKosten | currency:'CHF':'symbol':'1.2-2' }})</p>
+                  <p><strong>Design:</strong> {{ selectedDesign?.text || 'Nicht gewählt' }} ({{ (selectedDesign?.cost || 0) | currency:'CHF':'symbol':'1.2-2' }})</p>
+                  <p><strong>Druck:</strong> {{ selectedDruck?.text || 'Nicht gewählt' }}
+                    <span *ngIf="selectedDruck?.value === 'standard_druck'">
+                             (Format: {{ druckDetails.format }}, Papier: {{ druckDetails.paper }}, Auflage: {{ druckDetails.auflage }})
+                           </span>
+                    ({{ ((selectedDruck?.value === 'standard_druck' ? druckDetails.cost : selectedDruck?.cost) || 0) | currency:'CHF':'symbol':'1.2-2' }})
+                  </p>
+                  <hr>
+                  <p><strong>Kontakt:</strong> {{ fvFlowForm.get('contactName')?.value }} <span *ngIf="fvFlowForm.get('contactCompany')?.value"> ({{ fvFlowForm.get('contactCompany')?.value }})</span>, {{ fvFlowForm.get('contactEmail')?.value }}</p>
+                  <hr>
+                  <h4>Gesamtkosten:</h4>
+                  <p>Netto: {{ summaryNetto | currency:'CHF':'symbol':'1.2-2' }}</p>
+                  <p>MwSt. (7.7%): {{ summaryMwst | currency:'CHF':'symbol':'1.2-2' }}</p>
+                  <p><strong>Total Brutto: {{ summaryBrutto | currency:'CHF':'symbol':'1.2-2' }}</strong></p>
+                </div>
+              </div>
+            </div> <!-- Ende step-content-inner (STEP 4) -->
+            <div class="step-actions step-actions--space-between">
+              <button class="btn btn--secondary" (click)="prevStep()"><i class="bi bi-arrow-left"></i> Zurück</button>
+              <button class="btn btn--primary" (click)="submitOfferRequest()">Offerte anfordern <i class="bi bi-send"></i></button>
+            </div>
+          </section> <!-- Ende STEP 4 -->
+        </div> <!-- Ende #steps-container -->
+      </main> <!-- Ende .config-main-wrapper -->
+
+      <!-- DESKTOP SUMMARY SIDEBAR (rechte Spalte auf Desktop) -->
+      <aside class="summary-sidebar-wrapper">
+        <h3 class="summary-title">Ihre Offerte</h3>
+        <table class="summary-table">
+          <thead><tr><th>Leistung</th><th>Details</th><th class="text-end">Betrag</th></tr></thead>
+          <tbody>
+          <tr>
+            <td>Verteilung</td>
+            <td>{{ summaryVerteilungDetails }}</td>
+            <td class="text-end">{{ summaryVerteilungKosten | currency:'CHF':'symbol':'1.2-2' }}</td>
+          </tr>
+          <tr [class.placeholder]="!selectedDesign">
+            <td>Gestaltung</td>
+            <td>{{ selectedDesign?.text || 'Nicht gewählt' }}</td>
+            <td class="text-end">{{ (selectedDesign?.cost || 0) | currency:'CHF':'symbol':'1.2-2' }}</td>
+          </tr>
+          <tr [class.placeholder]="!selectedDruck">
+            <td>Druck</td>
+            <td>{{ selectedDruck?.text || 'Nicht gewählt' }}</td>
+            <td class="text-end">{{ ((selectedDruck?.value === 'standard_druck' ? druckDetails.cost : selectedDruck?.cost) || 0) | currency:'CHF':'symbol':'1.2-2' }}</td>
+          </tr>
+          <tr class="details-sub-row" [class.hidden]="!(selectedDruck?.value === 'standard_druck' && selectedDruck)">
+            <td colspan="2" class="ps-3">Format: <span>{{ druckDetails.format }}</span>, Papier: <span>{{ druckDetails.paper }}</span>, Auflage: <span>{{ druckDetails.auflage }}</span></td>
+            <td></td>
+          </tr>
+          </tbody>
+          <tfoot>
+          <tr><td colspan="2">Netto</td><td class="text-end fw-bold">{{ summaryNetto | currency:'CHF':'symbol':'1.2-2' }}</td></tr>
+          <tr><td colspan="2">MwSt. (7.7%)</td><td class="text-end">{{ summaryMwst | currency:'CHF':'symbol':'1.2-2' }}</td></tr>
+          <tr class="grand-total-row"><td colspan="2" class="fw-bold grand-total-label">Total Brutto</td><td class="text-end fw-bolder grand-total-value">{{ summaryBrutto | currency:'CHF':'symbol':'1.2-2' }}</td></tr>
+          </tfoot>
+        </table>
+      </aside> <!-- Ende .summary-sidebar-wrapper -->
+    </div> <!-- Ende .main-layout-row -->
+  </div> <!-- Ende .paper-sheet-inner-content -->
+</div> <!-- Ende .paper-sheet -->
+
+<!-- OFFCANVAS (MOBILE SUMMARY) -->
+<div class="offcanvas-backdrop" [class.is-visible]="isOffcanvasOpen" (click)="toggleOffcanvas(false)"></div>
+<div class="summary-offcanvas" [class.is-open]="isOffcanvasOpen">
+  <div class="summary-offcanvas__header">
+    <h5 class="summary-offcanvas__title">Ihre Offerte</h5>
+    <button type="button" class="summary-offcanvas__close-btn" (click)="toggleOffcanvas(false)" aria-label="Close"><i class="bi bi-x-lg"></i></button>
   </div>
-</header>
-
-<router-outlet />
+  <div class="summary-offcanvas__body">
+    <table class="summary-table">
+      <thead><tr><th>Leistung</th><th>Details</th><th class="text-end">Betrag</th></tr></thead>
+      <tbody>
+      <tr>
+        <td>Verteilung</td>
+        <td>{{ summaryVerteilungDetails }}</td>
+        <td class="text-end">{{ summaryVerteilungKosten | currency:'CHF':'symbol':'1.2-2' }}</td>
+      </tr>
+      <tr [class.placeholder]="!selectedDesign">
+        <td>Gestaltung</td>
+        <td>{{ selectedDesign?.text || 'Nicht gewählt' }}</td>
+        <td class="text-end">{{ (selectedDesign?.cost || 0) | currency:'CHF':'symbol':'1.2-2' }}</td>
+      </tr>
+      <tr [class.placeholder]="!selectedDruck">
+        <td>Druck</td>
+        <td>{{ selectedDruck?.text || 'Nicht gewählt' }}</td>
+        <td class="text-end">{{ ((selectedDruck?.value === 'standard_druck' ? druckDetails.cost : selectedDruck?.cost) || 0) | currency:'CHF':'symbol':'1.2-2' }}</td>
+      </tr>
+      <tr class="details-sub-row" [class.hidden]="!(selectedDruck?.value === 'standard_druck' && selectedDruck)">
+        <td colspan="2" class="ps-3">Format: <span>{{ druckDetails.format }}</span>, Papier: <span>{{ druckDetails.paper }}</span>, Auflage: <span>{{ druckDetails.auflage }}</span></td>
+        <td></td>
+      </tr>
+      </tbody>
+      <tfoot>
+      <tr><td colspan="2">Netto</td><td class="text-end fw-bold">{{ summaryNetto | currency:'CHF':'symbol':'1.2-2' }}</td></tr>
+      <tr><td colspan="2">MwSt. (7.7%)</td><td class="text-end">{{ summaryMwst | currency:'CHF':'symbol':'1.2-2' }}</td></tr>
+      <tr class="grand-total-row"><td colspan="2" class="fw-bold grand-total-label">Total Brutto</td><td class="text-end fw-bolder grand-total-value">{{ summaryBrutto | currency:'CHF':'symbol':'1.2-2' }}</td></tr>
+      </tfoot>
+    </table>
+  </div> <!-- Ende .summary-offcanvas__body -->
+</div> <!-- Ende .summary-offcanvas -->

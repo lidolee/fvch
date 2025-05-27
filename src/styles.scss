@@ -1,2 +1,17 @@
-@import "scss/custom-bootstrap";
-@import "bootstrap-icons/font/bootstrap-icons.css";
+
+// MAIN ////////////////////////////////////////////////////////////////////////////////////////////
+
+@import 'styles/variables';
+@import 'styles/mixins';
+
+@import 'styles/base';
+@import 'styles/layout';
+@import 'styles/animations';
+@import 'styles/buttons';
+@import 'styles/cards';
+@import 'styles/forms';
+@import 'styles/stepper';
+@import 'styles/summary';
+@import 'styles/mobile-header';
+@import 'styles/offcanvas';
+@import 'styles/utilities';

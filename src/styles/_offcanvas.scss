@@ -1,0 +1,78 @@
+
+// OFFCANVAS ///////////////////////////////////////////////////////////////////////////////////////
+
+// OFFCANVAS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.offcanvas-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0,0,0,0.5);
+  z-index: 1040;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+
+  &.is-visible {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+.summary-offcanvas {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 90%;
+  max-width: 400px;
+  height: 100vh;
+  background-color: $color-paper-bg;
+  box-shadow: -5px 0 15px rgba(0,0,0,0.1);
+  z-index: 1045;
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+  display: flex;
+  flex-direction: column;
+
+  &.is-open {
+    transform: translateX(0);
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: $spacing-unit;
+    border-bottom: 1px solid $color-border-subtle;
+    flex-shrink: 0;
+  }
+
+  &__title {
+    font-size: $font-size-h3-summary * 0.9;
+    font-weight: 700;
+    margin-bottom: 0;
+  }
+
+  &__close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    padding: $spacing-unit * 0.5;
+    line-height: 1;
+    cursor: pointer;
+    color: $color-text-secondary;
+
+    &:hover {
+      color: $color-text-primary;
+    }
+  }
+
+  &__body {
+    padding: $spacing-unit * 1.5;
+    overflow-y: auto;
+    flex-grow: 1;
+    min-height: 0;
+  }
+}
