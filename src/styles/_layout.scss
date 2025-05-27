@@ -1,0 +1,149 @@
+
+// LAYOUT //////////////////////////////////////////////////////////////////////////////////////////
+
+// LAYOUT STYLES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.paper-sheet {
+  background-color: $color-paper-bg;
+  border-radius: $border-radius-paper;
+  box-shadow: $paper-shadow;
+  transition: box-shadow 0.3s ease-out;
+  width: 100%;
+  max-width: 1500px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: calc(100vh - #{$spacing-unit * 2});
+  &:focus-within {
+    box-shadow: $paper-shadow-focus;
+  }
+}
+
+.paper-sheet-inner-content {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-height: 0;
+}
+
+// CUSTOM GRID ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.layout-row {
+  display: flex;
+  flex-wrap: wrap;
+  // Negative Margins, um Gutter von äußeren Spalten zu kompensieren (optional, wenn Padding auf Parent)
+  // margin-right: ($grid-gutter-width / -2);
+  // margin-left: ($grid-gutter-width / -2);
+}
+
+[class^="layout-col-"],
+.layout-col {
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  // Padding für Gutter
+  // padding-right: ($grid-gutter-width / 2);
+  // padding-left: ($grid-gutter-width / 2);
+}
+
+// COL & ROW DESIGN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.main-layout-row { // Die Reihe, die .config-main-wrapper und .summary-sidebar enthält
+  display: flex;
+  flex-grow: 1;
+  min-height: 0;
+  flex-direction: column; // Mobile first: main über aside
+
+  @include screen(lg) {
+    flex-direction: row; // Desktop: main neben aside
+  }
+}
+
+.config-main-wrapper { // Ersetzt .col-12 .col-lg-7
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex-grow: 1; // Nimmt mehr Platz auf Desktop, wenn Sidebar kleiner ist
+
+  @include screen(lg) {
+    flex: 0 0 60%; // Beispiel: 60% Breite auf Desktop
+    max-width: 60%;
+  }
+  @media (min-width: 1200px) { // Feinabstimmung für grössere Desktops
+    flex: 0 0 65%;
+    max-width: 65%;
+  }
+}
+
+.summary-sidebar-wrapper { // Ersetzt .d-none .d-lg-block .col-lg-5
+  display: none; // Standardmässig versteckt auf Mobile
+  background-color: rgba(0,0,0,0.01);
+  padding: $spacing-unit * 1.75 $spacing-unit * 1.5;
+  overflow-y: auto;
+  min-height: 0; // Wichtig für Flex-Kinder
+
+  @include screen(lg) {
+    display: flex; // Sichtbar auf Desktop
+    flex-direction: column;
+    flex: 0 0 40%; // Beispiel: 40% Breite auf Desktop
+    max-width: 40%;
+  }
+  @media (min-width: 1200px) { // Feinabstimmung
+    flex: 0 0 35%;
+    max-width: 35%;
+  }
+}
+
+// STEPS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.stepper-navigation {
+  flex-shrink: 0;
+  padding: ($spacing-unit * 1.25) ($spacing-unit * 1.5) ($spacing-unit * 0.75) ($spacing-unit * 1.5);
+  border-bottom: 1px solid $color-border-subtle;
+  display: flex; // Für die Step-Indikatoren
+  justify-content: space-around; // Gleichmässige Verteilung der Indikatoren
+}
+
+#steps-container {
+  display: flex;
+  flex-grow: 1;
+  min-height: 0;
+  transition: transform $slide-duration $slide-timing-function;
+}
+
+.step-content {
+  min-width: 100%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.step-content-inner {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: ($spacing-unit * 2) ($spacing-unit * 2.5);
+  opacity: 0;
+  transform: translateX(0);
+  min-height: 0;
+  @media (max-width: $breakpoint-sm - 1px) {
+    padding: ($spacing-unit * 1.5) $spacing-unit;
+  }
+}
+
+.step-actions {
+  margin-top: auto;
+  padding: ($spacing-unit * 1.75) ($spacing-unit * 2);
+  border-top: 1px solid $color-border-subtle;
+  flex-shrink: 0;
+  display: flex; // Für Button-Layout (z.B. space-between)
+  justify-content: flex-end; // Standard: Buttons rechts
+
+  &--space-between { // Modifikator für "Zurück" und "Weiter"
+    justify-content: space-between;
+  }
+
+  @media (max-width: $breakpoint-sm - 1px) {
+    padding: ($spacing-unit * 1.25) $spacing-unit;
+  }
+}

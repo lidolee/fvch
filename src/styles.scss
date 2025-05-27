@@ -1,4 +1,17 @@
-/* You can add global styles to this file, and also import other style files */
 
-/* Importing Bootstrap SCSS file. */
-@import 'bootstrap/scss/bootstrap';
+// MAIN ////////////////////////////////////////////////////////////////////////////////////////////
+
+@import 'styles/variables';
+@import 'styles/mixins';
+
+@import 'styles/base';
+@import 'styles/layout';
+@import 'styles/animations';
+@import 'styles/buttons';
+@import 'styles/cards';
+@import 'styles/forms';
+@import 'styles/stepper';
+@import 'styles/summary';
+@import 'styles/mobile-header';
+@import 'styles/offcanvas';
+@import 'styles/utilities';

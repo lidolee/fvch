@@ -1,0 +1,75 @@
+
+// BUTTONS /////////////////////////////////////////////////////////////////////////////////////////
+
+// BUTTONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.btn {
+  display: inline-block;
+  font-family: $font-family-sans-serif;
+  font-size: $font-size-minimal;
+  font-weight: 700;
+  line-height: $line-height-base;
+  color: $color-text-primary;
+  text-align: center;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+  background-color: transparent;
+  border: 1px solid transparent;
+  padding: ($spacing-unit * 0.75) ($spacing-unit * 1.5);
+  border-radius: $border-radius-base;
+  transition: $micro-transition;
+
+  i {
+    margin-left: $spacing-unit * 0.25;
+    margin-right: $spacing-unit * 0.25;
+    vertical-align: middle;
+  }
+
+  &:hover {
+    text-decoration: none;
+  }
+
+  &:focus, &.focus {
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem $color-accent-primary-light;
+  }
+
+  &--primary {
+    color: $color-paper-bg;
+    background-color: $color-accent-primary;
+    border-color: $color-accent-primary;
+
+    &:hover {
+      color: $color-paper-bg;
+      background-color: $color-accent-primary-hover;
+      border-color: $color-accent-primary-hover;
+    }
+  }
+
+  &--secondary {
+    color: $color-text-secondary;
+    background-color: transparent;
+    border-color: $color-border-strong;
+
+    &:hover {
+      color: $color-text-primary;
+      background-color: $color-border-subtle;
+      border-color: $color-border-strong;
+    }
+  }
+
+  &--outline-secondary {
+    color: $color-text-secondary;
+    border-color: $color-border-strong;
+    &:hover {
+      color: $color-text-primary;
+      background-color: $color-border-subtle;
+    }
+  }
+
+  &--sm {
+    padding: ($spacing-unit * 0.35) ($spacing-unit * 0.75);
+    font-size: $font-size-minimal * 0.9;
+  }
+}

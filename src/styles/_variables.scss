@@ -1,0 +1,70 @@
+
+// VARIABLES ///////////////////////////////////////////////////////////////////////////////////////
+
+// FONTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+$font-family-sans-serif: 'Nunito Sans', sans-serif;
+
+// COLORS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+$color-bg-desk:                                                                 #F0F0F0;
+$color-paper-bg:                                                                #FFFFFF;
+$color-text-primary:                                                            #212529;
+$color-text-secondary:                                                          #495057;
+$color-text-tertiary:                                                           #ADB5BD;
+$color-text-danger:                                                             #DC3545;
+
+$color-accent-primary:                                                          #007AFF;
+$color-accent-primary-hover:                                                    #0066CC;
+$color-accent-primary-light:                                                    rgba(0, 122, 255, 0.08);
+
+$color-border-strong:                                                           #CED4DA;
+$color-border-subtle:                                                           #DEE2E6;
+
+$color-validation-gray:                                                         #CED4DA;
+$color-validation-green:                                                        #198754;
+$color-validation-orange:                                                       #FD7E14;
+$color-validation-red:                                                          #DC3545;
+
+// SHADOWS & BORDERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+$paper-shadow:                                                                  0 5px 20px rgba(0,0,0,0.08);
+$paper-shadow-focus:                                                            0 8px 30px rgba(0,0,0,0.1);
+$border-radius-base:                                                            4px;
+$border-radius-paper:                                                           0px;
+
+// ANIMATIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+$slide-duration:                                                                0.5s;
+$slide-timing-function:                                                         ease-in-out;
+$micro-transition:                                                              all 0.2s ease-out;
+
+// TYPOGRAPHY ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+$font-size-root:                                                                16px;
+$font-size-body:                                                                18px;
+$font-size-minimal:                                                             16px;
+
+$font-size-h2-header:                                                           32px;
+$font-size-h3-summary:                                                          24px;
+$font-size-h4-card:                                                             18px;
+$font-size-h5-section:                                                          16px;
+$font-size-h6-detail:                                                           14px;
+
+$line-height-base:                                                              1.5;
+
+// SPACING ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+$spacing-unit:                                                                  16px;
+
+// GRID ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+$grid-columns:                                                                  12;
+$grid-gutter-width:                                                             16px;
+
+// BREAKPOINTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+$breakpoint-sm:                                                                 576px;
+$breakpoint-md:                                                                 768px;
+$breakpoint-lg:                                                                 992px;
+$breakpoint-xl:                                                                 1200px;
