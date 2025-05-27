@@ -33,7 +33,6 @@
               }
             ],
             "styles": [
-              "src/scss/_custom-bootstrap.scss",
               "node_modules/bootstrap-icons/font/bootstrap-icons.css",
               "src/styles.scss"
             ],
