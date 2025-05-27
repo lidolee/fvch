@@ -1,0 +1,53 @@
+<div class="step-content-inner p-3 p-md-4" [formGroup]="formGroup">
+  <header class="step-header"> <!-- Klasse aus deinem MVP CSS -->
+    <h2>Ihre Kontaktdaten</h2>
+    <p>Bitte teilen Sie uns mit, wie wir Sie erreichen können.</p>
+  </header>
+
+  <form novalidate> <!-- novalidate, da Angular die Validierung übernimmt -->
+    <div class="row g-3">
+      <div class="col-md-6 mb-3">
+        <label for="contact-name" class="form-label">Name <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="contact-name" formControlName="name"
+               [class.is-invalid]="isControlInvalid('name')">
+        <div *ngIf="isControlInvalid('name')" class="invalid-feedback">
+          Bitte geben Sie Ihren Namen an.
+        </div>
+      </div>
+
+      <div class="col-md-6 mb-3">
+        <label for="contact-company" class="form-label">Firma (Optional)</label>
+        <input type="text" class="form-control" id="contact-company" formControlName="company">
+      </div>
+
+      <div class="col-md-6 mb-3">
+        <label for="contact-email" class="form-label">E-Mail <span class="text-danger">*</span></label>
+        <input type="email" class="form-control" id="contact-email" formControlName="email"
+               [class.is-invalid]="isControlInvalid('email')">
+        <div *ngIf="isControlInvalid('email')" class="invalid-feedback">
+          <span *ngIf="formGroup.get('email')?.errors?.['required']">Bitte geben Sie eine E-Mail-Adresse an.</span>
+          <span *ngIf="formGroup.get('email')?.errors?.['email']">Bitte geben Sie eine gültige E-Mail-Adresse an.</span>
+        </div>
+      </div>
+
+      <div class="col-md-6 mb-3">
+        <label for="contact-phone" class="form-label">Telefon (Optional)</label>
+        <input type="tel" class="form-control" id="contact-phone" formControlName="phone">
+      </div>
+
+      <div class="col-12 mb-3">
+        <label for="contact-message" class="form-label">Anmerkungen (Optional)</label>
+        <textarea class="form-control" id="contact-message" rows="3" formControlName="message"></textarea>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="step-actions p-3 p-md-4 border-top d-flex justify-content-between">
+  <button type="button" class="btn btn-outline-secondary" (click)="onPrevious()">
+    <i class="bi bi-arrow-left-short"></i> Zurück zu Design & Druck
+  </button>
+  <button type="button" class="btn btn-primary" (click)="onNext()">
+    Weiter zu Übersicht <i class="bi bi-arrow-right-short"></i>
+  </button>
+</div>

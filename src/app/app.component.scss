@@ -1,10 +1,50 @@
-:host {
-  display: block;
+// ... (deine bisherigen Styles für #steps-container etc.)
+
+// SCSS für das Custom Offcanvas
+.custom-offcanvas {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: -350px; // Startposition außerhalb des sichtbaren Bereichs (Breite anpassen)
+  width: 350px;  // Breite des Offcanvas (anpassen)
+  background-color: white;
+  z-index: 1050; // Ähnlich wie Bootstrap Offcanvas z-index
+  transition: right 0.3s ease-in-out;
+  box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+
+  &.open {
+    right: 0; // Endposition, wenn geöffnet
+  }
+
+  .custom-offcanvas-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    // border-bottom: 1px solid #dee2e6; // Bereits im HTML als Klasse
+  }
+
+  .custom-offcanvas-body {
+    padding: 1rem;
+    overflow-y: auto;
+    flex-grow: 1;
+  }
 }
 
-.step-content-inner {
-  transition: opacity 0.3s ease-in-out;
+.custom-offcanvas-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0,0,0,0.5);
+  z-index: 1040; // Unter dem Offcanvas, aber über dem Rest
 }
 
-#steps-container {
+// Stelle sicher, dass deine .summary-sidebar Styles auch im Offcanvas gut aussehen
+.summary-sidebar {
+  // Deine bestehenden Styles für .summary-sidebar
+  // Eventuell Anpassungen für den Offcanvas-Kontext
 }

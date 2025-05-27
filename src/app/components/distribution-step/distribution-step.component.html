@@ -1,0 +1,38 @@
+<div class="step-content-inner p-3 p-md-4" [formGroup]="formGroup">
+  <h2 class="step-title h4 mb-4">1. Verteilgebiet wählen</h2>
+
+  <div class="mb-3">
+    <label for="selectedAreas" class="form-label">Verteilgebiet</label>
+    <select id="selectedAreas" class="form-select" formControlName="selectedAreas"
+            [class.is-invalid]="formGroup.get('selectedAreas')?.invalid && formGroup.get('selectedAreas')?.touched">
+      <option [ngValue]="null" disabled>Bitte wählen...</option>
+      <option *ngFor="let area of plzAreas" [ngValue]="area.name">{{ area.name }}</option>
+    </select>
+    <div *ngIf="formGroup.get('selectedAreas')?.invalid && formGroup.get('selectedAreas')?.touched" class="invalid-feedback">
+      Bitte wählen Sie ein Verteilgebiet aus.
+    </div>
+  </div>
+
+  <div class="mb-4">
+    <label for="households" class="form-label">Anzahl Haushalte (ca.)</label>
+    <input type="number" id="households" class="form-control" formControlName="households"
+           [class.is-invalid]="formGroup.get('households')?.invalid && formGroup.get('households')?.touched"
+           placeholder="Wird automatisch gefüllt oder manuell anpassen">
+    <div *ngIf="formGroup.get('households')?.invalid && formGroup.get('households')?.touched" class="invalid-feedback">
+      Die Anzahl der Haushalte muss eine gültige Zahl sein.
+    </div>
+    <div class="form-text">
+      Die Anzahl wird basierend auf dem Gebiet geschätzt, kann aber manuell angepasst werden.
+    </div>
+  </div>
+
+  <!-- Hier könnten weitere Optionen für die Verteilung stehen -->
+  <!-- z.B. Art der Verteilung, gewünschte Tage etc. -->
+
+</div>
+
+<div class="step-actions p-3 p-md-4 border-top">
+  <button type="button" class="btn btn-primary w-100" (click)="onNext()">
+    Weiter zu Design & Druck <i class="bi bi-arrow-right-short"></i>
+  </button>
+</div>

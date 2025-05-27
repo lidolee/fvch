@@ -1,0 +1,95 @@
+<div class="step-content-inner p-3 p-md-4" [formGroup]="formGroup">
+  <h2 class="step-title h4 mb-4">2. Design & Druck (Optional)</h2>
+  <p class="text-muted mb-4">Wählen Sie optional unsere Design- und/oder Druckservices. Sie können auch eigene Flyer anliefern oder den Druck selbst organisieren.</p>
+
+  <!-- Design Optionen -->
+  <fieldset class="mb-4">
+    <legend class="h5 mb-3">Designservice</legend>
+    <div class="row row-cols-1 row-cols-md-3 g-3">
+      <div *ngFor="let option of designOptions" class="col">
+        <div class="card h-100 clickable-card"
+             [class.selected]="formGroup.get('designOption')?.value === option.id"
+             (click)="selectCard('designOption', option.id)">
+          <div class="card-body">
+            <h5 class="card-title">{{ option.name }}</h5>
+            <p class="card-text small">{{ option.description }}</p>
+            <p class="card-text fw-bold mt-auto">
+              <span *ngIf="option.cost > 0; else noCostDesign">CHF {{ option.cost | number:'1.2-2':'de-CH' }}</span>
+              <ng-template #noCostDesign>Kostenlos</ng-template>
+            </p>
+          </div>
+          <div *ngIf="formGroup.get('designOption')?.value === option.id" class="selected-indicator">
+            <i class="bi bi-check-circle-fill"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </fieldset>
+
+  <!-- Druck Optionen -->
+  <fieldset class="mb-4">
+    <legend class="h5 mb-3">Druckservice</legend>
+    <div class="row row-cols-1 row-cols-md-2 g-3">
+      <div *ngFor="let option of printOptions" class="col">
+        <div class="card h-100 clickable-card"
+             [class.selected]="formGroup.get('printOption')?.value === option.id"
+             (click)="selectCard('printOption', option.id)">
+          <div class="card-body">
+            <h5 class="card-title">{{ option.name }}</h5>
+            <p class="card-text small">{{ option.description }}</p>
+          </div>
+          <div *ngIf="formGroup.get('printOption')?.value === option.id" class="selected-indicator">
+            <i class="bi bi-check-circle-fill"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </fieldset>
+
+  <!-- Druck Details (nur sichtbar, wenn Druckservice gewählt) -->
+  <div *ngIf="printSelected" class="border p-3 rounded mt-4">
+    <h5 class="mb-3">Details für den Druck:</h5>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label for="flyerFormat" class="form-label">Format</label>
+        <select id="flyerFormat" class="form-select" formControlName="flyerFormat"
+                [class.is-invalid]="isControlInvalid('flyerFormat')">
+          <option *ngFor="let format of flyerFormats" [ngValue]="format">{{ format }}</option>
+        </select>
+        <div *ngIf="isControlInvalid('flyerFormat')" class="invalid-feedback">
+          Bitte ein Format wählen.
+        </div>
+      </div>
+      <div class="col-md-6">
+        <label for="flyerPaper" class="form-label">Papier</label>
+        <select id="flyerPaper" class="form-select" formControlName="flyerPaper"
+                [class.is-invalid]="isControlInvalid('flyerPaper')">
+          <option *ngFor="let paper of flyerPapers" [ngValue]="paper">{{ paper }}</option>
+        </select>
+        <div *ngIf="isControlInvalid('flyerPaper')" class="invalid-feedback">
+          Bitte eine Papiersorte wählen.
+        </div>
+      </div>
+      <div class="col-12">
+        <label for="flyerQuantity" class="form-label">Auflage (Stück)</label>
+        <input type="number" id="flyerQuantity" class="form-control" formControlName="flyerQuantity"
+               placeholder="z.B. 5000" min="100" max="200000"
+               [class.is-invalid]="isControlInvalid('flyerQuantity')">
+        <div *ngIf="isControlInvalid('flyerQuantity')" class="invalid-feedback">
+          <span *ngIf="formGroup.get('flyerQuantity')?.errors?.['required']">Auflage ist erforderlich.</span>
+          <span *ngIf="formGroup.get('flyerQuantity')?.errors?.['min']">Mindestauflage ist 100 Stück.</span>
+          <span *ngIf="formGroup.get('flyerQuantity')?.errors?.['max']">Maximalauflage ist 200.000 Stück.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="step-actions p-3 p-md-4 border-top d-flex justify-content-between">
+  <button type="button" class="btn btn-outline-secondary" (click)="onPrevious()">
+    <i class="bi bi-arrow-left-short"></i> Zurück zu Verteilung
+  </button>
+  <button type="button" class="btn btn-primary" (click)="onNext()">
+    Weiter zu Kontakt <i class="bi bi-arrow-right-short"></i>
+  </button>
+</div>
