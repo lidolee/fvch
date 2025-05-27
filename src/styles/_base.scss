@@ -3,54 +3,11 @@
 
 // BASE STYLES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html {
-  height: 100%;
-  font-size: $font-size-root;
-  -webkit-tap-highlight-color: transparent;
-}
 
 body {
-  font-family: $font-family-sans-serif;
-  font-size: $font-size-body;
-  background-color: $color-bg-desk;
-  color: $color-text-primary;
-  line-height: $line-height-base;
-  padding: $spacing-unit;
-  min-height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-family: "Nunito Sans", sans-serif;
+  font-size: 18px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  margin: 0;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  margin-top: 0;
-  margin-bottom: $spacing-unit * 0.5;
-  font-weight: 700;
-}
-
-p {
-  margin-top: 0;
-  margin-bottom: $spacing-unit;
-}
-
-a {
-  color: $color-accent-primary;
-  text-decoration: none;
-  &:hover {
-    color: $color-accent-primary-hover;
-    text-decoration: underline;
-  }
-}
-
-img, svg {
-  vertical-align: middle;
-}

@@ -1,66 +1,59 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy } from '@angular/core';
-import { FormGroup, ReactiveFormsModule, Validators } from '@angular/forms'; // Validators importiert
+import { Component, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Subscription } from 'rxjs';
+import { FormsModule } from '@angular/forms'; // Falls du Template-Driven Forms verwendest
+// import { ReactiveFormsModule } from '@angular/forms'; // Falls du Reactive Forms verwendest
+import { ValidationStatus } from '../../app.component'; // Pfad anpassen
 
 @Component({
   selector: 'app-contact-step',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule /* oder ReactiveFormsModule */],
   templateUrl: './contact-step.component.html',
-  styleUrls: ['./contact-step.component.scss'] // Eigene SCSS-Datei, falls spezifische Styles benötigt werden
+  styleUrls: ['./contact-step.component.scss']
 })
-export class ContactStepComponent implements OnInit, OnDestroy {
-  @Input() formGroup!: FormGroup;
-  @Output() formValid = new EventEmitter<boolean>();
-  @Output() next = new EventEmitter<void>();
-  @Output() previous = new EventEmitter<void>();
+export class ContactStepComponent {
+  @Output() prevStepRequest = new EventEmitter<void>();
+  @Output() nextStepRequest = new EventEmitter<void>();
+  @Output() validationChange = new EventEmitter<ValidationStatus>();
 
-  private statusSubscription!: Subscription;
+  // Beispiel für Template-Driven Forms
+  contactData = {
+    email: '',
+    name: ''
+  };
+  private currentStatus: ValidationStatus = 'invalid'; // Form ist oft initial ungültig
 
-  constructor() {}
-
-  ngOnInit(): void {
-    if (!this.formGroup) {
-      console.error("ContactStepComponent: formGroup is not initialized!");
-      // Fallback, sollte aber durch AppComponent sichergestellt sein
-      this.formGroup = new FormGroup({
-        name: new FormGroup('', Validators.required),
-        company: new FormGroup(''),
-        email: new FormGroup('', [Validators.required, Validators.email]),
-        phone: new FormGroup(''),
-        message: new FormGroup('')
-      });
-    }
-
-    this.statusSubscription = this.formGroup.statusChanges.subscribe(status => {
-      this.formValid.emit(status === 'VALID');
-    });
-    // Initialen Status senden
-    this.formValid.emit(this.formGroup.valid);
+  constructor() {
+    // Sende initialen Status, da Formulare oft required Felder haben
+    // this.validationChange.emit(this.currentStatus);
   }
 
-  onNext(): void {
-    if (this.formGroup.valid) {
-      this.next.emit();
+  // Diese Methode würde aufgerufen, wenn sich Formularwerte ändern
+  // (z.B. durch (ngModelChange) oder Wertänderungen in Reactive Forms)
+  validateForm() {
+    // Deine Validierungslogik für das Formular
+    if (this.contactData.email && this.contactData.email.includes('@') && this.contactData.name) {
+      this.currentStatus = 'valid';
+    } else if (this.contactData.email || this.contactData.name) {
+      this.currentStatus = 'pending'; // Teilweise ausgefüllt
     } else {
-      this.formGroup.markAllAsTouched(); // Zeige Validierungsfehler an
+      this.currentStatus = 'invalid';
     }
+    this.validationChange.emit(this.currentStatus);
   }
 
-  onPrevious(): void {
-    this.previous.emit();
+  goBack() {
+    this.prevStepRequest.emit();
   }
 
-  ngOnDestroy(): void {
-    if (this.statusSubscription) {
-      this.statusSubscription.unsubscribe();
+  // Wird aufgerufen, wenn das Formular (im Template) gesendet wird
+  submitForm() {
+    this.validateForm(); // Stelle sicher, dass der Status aktuell ist
+    if (this.currentStatus === 'valid') {
+      this.nextStepRequest.emit();
+    } else {
+      console.warn('Contact step: Form is not valid.');
+      // Optional: Markiere Formularfelder als "touched", um Fehler anzuzeigen
     }
-  }
-
-  // Hilfsmethode für das Template
-  isControlInvalid(controlName: string): boolean {
-    const control = this.formGroup.get(controlName);
-    return !!control && control.invalid && (control.touched || control.dirty);
   }
 }

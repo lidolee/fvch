@@ -1,0 +1,72 @@
+// Globale Stile, die vorher im <style>-Tag waren
+:host {
+  display: block; // Stellt sicher, dass die Komponente Platz einnimmt
+  width: 100%;
+  height: auto; // Oder eine feste Höhe, falls gewünscht
+}
+
+.map-main-container {
+  display: flex;
+  width: 100%;
+  height: 75vh; // Höhe anpassen nach Bedarf
+  position: relative; // Für den Ladeindikator
+}
+
+#map-container-angular {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#map-angular {
+  height: 100%;
+  width: 100%;
+}
+
+#loading-indicator-angular {
+  position: absolute;
+  top: 50%;
+  left: 35%; // Ungefähr die Mitte des Kartenbereichs
+  transform: translate(-50%, -50%);
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.25);
+  z-index: 10000; // Über der Karte
+  font-size: 1.2em;
+  display: none; // Wird per Code gesteuert
+  text-align: center;
+}
+
+
+#hover-plz-display-angular {
+  position: fixed; // Bleibt relativ zum Viewport beim Scrollen der Karte
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  z-index: 10010; // Über dem Ladeindikator und der Karte
+  font-size: 0.9em;
+  display: none; // Wird per Code gesteuert
+  pointer-events: none; // Damit Klicks durchgehen zur Karte
+  white-space: nowrap;
+}
+
+#selected-plz-info-angular {
+  padding: 5px 15px 10px 15px;
+  font-size: 0.9em;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 5px;
+
+  span {
+    font-weight: bold;
+  }
+}
+
+.navigation-buttons {
+  padding: 15px;
+  border-top: 1px solid #eee;
+  text-align: right;
+}

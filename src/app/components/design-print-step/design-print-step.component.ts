@@ -1,166 +1,73 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy } from '@angular/core';
-import { FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
-import { DesignPrintSummaryPayload } from '../../app.component'; // Import from app.component
-import { CalculatorService } from '../../services/calculator.service';
+import { FormsModule } from '@angular/forms'; // Hinzugefügt für ngModel
+import { ValidationStatus } from '../../app.component'; // Pfad anpassen
 
 @Component({
   selector: 'app-design-print-step',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule], // FormsModule hinzugefügt
   templateUrl: './design-print-step.component.html',
   styleUrls: ['./design-print-step.component.scss']
 })
-export class DesignPrintStepComponent implements OnInit, OnDestroy {
-  @Input() formGroup!: FormGroup;
-  @Output() formValid = new EventEmitter<boolean>();
-  @Output() next = new EventEmitter<void>();
-  @Output() previous = new EventEmitter<void>();
-  @Output() updateSummary = new EventEmitter<DesignPrintSummaryPayload>();
+export class DesignPrintStepComponent {
+  @Output() prevStepRequest = new EventEmitter<void>();
+  @Output() nextStepRequest = new EventEmitter<void>();
+  @Output() validationChange = new EventEmitter<ValidationStatus>();
 
-  private subscriptions = new Subscription();
+  selectedDesignOption: string = ''; // Um die Auswahl der Radio-Buttons zu speichern
+  expressDruckSelected: boolean = false; // Um die Auswahl der Checkbox zu speichern
 
-  // Beispielhafte Optionen (könnten aus einem Service/Konfig kommen)
-  designOptions = [
-    { id: 'eigenes', name: 'Eigenes Design anliefern', cost: 0, description: 'Sie liefern uns eine druckfertige PDF-Datei.' },
-    { id: 'basis', name: 'Design "Basis"', cost: 149, description: 'Einfaches Layout mit Ihrem Logo, Text & Bildern.' },
-    { id: 'premium', name: 'Design "Premium"', cost: 299, description: 'Individuelles Design inkl. Bildrecherche & 2 Korrekturläufen.' }
-  ];
+  private currentStatus: ValidationStatus = 'neutral';
 
-  printOptions = [
-    { id: 'kein_druck', name: 'Kein Druckservice', description: 'Sie kümmern sich selbst um den Druck Ihrer Flyer.' },
-    { id: 'standard_druck', name: 'Standard Druckservice', description: 'Wir drucken Ihre Flyer auf hochwertigem Papier.' }
-  ];
-
-  flyerFormats = ['A6', 'A5', 'A4', 'DL (Langformat)'];
-  flyerPapers = ['135g Bilderdruck matt', '170g Bilderdruck matt', '250g Bilderdruck matt', '80g Recyclingpapier'];
-
-  constructor(private calculatorService: CalculatorService) {}
-
-  ngOnInit(): void {
-    if (!this.formGroup) {
-      console.error("DesignPrintStepComponent: formGroup is not initialized!");
-      // Fallback, sollte aber durch AppComponent sichergestellt sein
-      this.formGroup = new FormGroup({
-        designOption: new FormGroup(null),
-        printOption: new FormGroup(null),
-        flyerFormat: new FormGroup('A5'),
-        flyerPaper: new FormGroup('135g Bilderdruck matt'),
-        flyerQuantity: new FormGroup(5000)
-      });
-    }
-
-    // Validierung und Summary-Updates bei Wertänderungen
-    this.subscriptions.add(
-      this.formGroup.valueChanges.pipe(
-        debounceTime(50), // Kleine Verzögerung um nicht bei jeder Tasten Eingabe zu feuern.
-        distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)) // Nur feuern wenn sich wirklich was geändert hat
-      ).subscribe(() => {
-        this.updateConditionalValidators();
-        this.triggerSummaryUpdate();
-        this.formValid.emit(this.formGroup.valid); // Gesamtgültigkeit des Formularteils
-      })
-    );
-
-    // Initialen Status setzen
-    this.updateConditionalValidators();
-    this.triggerSummaryUpdate();
-    this.formValid.emit(this.formGroup.valid);
+  constructor() {
+    // Initialen Status senden, wenn die Komponente geladen wird.
+    // Da initial nichts ausgewählt ist, könnte es 'invalid' oder 'pending' sein,
+    // je nach deinen Anforderungen.
+    this.determineAndEmitValidationStatus();
   }
 
-  updateConditionalValidators(): void {
-    const printOptionControl = this.formGroup.get('printOption');
-    const quantityControl = this.formGroup.get('flyerQuantity');
-    const formatControl = this.formGroup.get('flyerFormat');
-    const paperControl = this.formGroup.get('flyerPaper');
+  // Diese Methode wird aufgerufen, wenn sich eine Auswahl ändert
+  onSelectionChange() {
+    this.determineAndEmitValidationStatus();
+  }
 
-    if (printOptionControl?.value === 'standard_druck') {
-      quantityControl?.setValidators([Validators.required, Validators.min(100), Validators.max(200000)]); // Beispiel: Mindestmenge 100
-      formatControl?.setValidators(Validators.required);
-      paperControl?.setValidators(Validators.required);
+  private determineAndEmitValidationStatus() {
+    if (this.selectedDesignOption) {
+      // Wenn eine Design-Option gewählt ist, ist es mindestens 'valid' oder 'pending'
+      // (je nachdem, ob Express-Druck eine Bedingung für 'valid' ist, falls gewählt)
+      this.currentStatus = 'valid'; // Vereinfacht: Sobald Design gewählt, ist es valide
     } else {
-      quantityControl?.clearValidators();
-      formatControl?.clearValidators();
-      paperControl?.clearValidators();
-      // Wenn kein Druck, dann sind die Werte nicht relevant für die Validierung, können aber für die Anzeige bleiben
-      // quantityControl?.setValue(null, {emitEvent: false}); // Optional: Felder zurücksetzen
+      // Wenn keine Design-Option gewählt ist
+      this.currentStatus = 'pending'; // Oder 'invalid', wenn Design eine harte Anforderung ist
     }
-    quantityControl?.updateValueAndValidity({ emitEvent: false });
-    formatControl?.updateValueAndValidity({ emitEvent: false });
-    paperControl?.updateValueAndValidity({ emitEvent: false });
+    // Hier könntest du noch die Logik für expressDruckSelected einbauen,
+    // falls das den Status weiter beeinflusst (z.B. wenn es Pflicht wäre, falls eine andere Option gewählt ist)
+    this.validationChange.emit(this.currentStatus);
   }
 
-  triggerSummaryUpdate(): void {
-    const designOptionId = this.formGroup.get('designOption')?.value;
-    const printOptionId = this.formGroup.get('printOption')?.value;
-    const format = this.formGroup.get('flyerFormat')?.value;
-    const paper = this.formGroup.get('flyerPaper')?.value;
-    const quantity = this.formGroup.get('flyerQuantity')?.value;
 
-    const selectedDesign = this.designOptions.find(opt => opt.id === designOptionId);
-    const designCost = selectedDesign ? selectedDesign.cost : 0;
-    const designPackageName = selectedDesign ? selectedDesign.name : 'Kein Designpaket';
-
-    let printCost = 0;
-    let printDetails;
-    let printServiceName = 'Kein Druckservice';
-    const selectedPrint = this.printOptions.find(opt => opt.id === printOptionId);
-    if (selectedPrint && selectedPrint.id === 'standard_druck') {
-      printServiceName = selectedPrint.name;
-      if (quantity && quantity > 0 && format && paper && this.formGroup.get('flyerQuantity')?.valid) { // Nur berechnen wenn gültig
-        printCost = this.calculatorService.calculatePrintCost(format, paper, quantity);
-        printDetails = { format, paper, quantity };
-      } else {
-        // Ungültige Druckdetails, Kosten sind 0, aber Service ist gewählt
-        printDetails = { format, paper, quantity: 0 }; // Sende trotzdem die Details
-      }
-    }
-
-
-    this.updateSummary.emit({
-      designPackage: designPackageName,
-      designCost: designCost,
-      printService: printServiceName,
-      printCost: printCost,
-      printDetails: printDetails
-    });
+  updateLocalValidationStatus(newStatus: ValidationStatus) {
+    this.currentStatus = newStatus;
+    this.validationChange.emit(this.currentStatus);
   }
 
-  // Hilfsmethode, um Karten-Auswahl zu verwalten (optional, je nach UI)
-  selectCard(groupName: 'designOption' | 'printOption', value: string | null): void {
-    const currentControl = this.formGroup.get(groupName);
-    if (currentControl?.value === value) {
-      currentControl?.setValue(null); // Deselektieren, wenn dieselbe Karte geklickt wird
+  goBack() {
+    this.prevStepRequest.emit();
+  }
+
+  proceedToNextStep() {
+    this.determineAndEmitValidationStatus(); // Sicherstellen, dass der Status aktuell ist
+
+    if (this.currentStatus === 'valid' || this.currentStatus === 'pending') { // Anpassen, falls 'pending' nicht erlaubt
+      this.nextStepRequest.emit();
     } else {
-      currentControl?.setValue(value);
+      console.warn('Design & Print step: Validation failed.');
     }
   }
 
-  onNext(): void {
-    if (this.formGroup.valid) {
-      this.next.emit();
-    } else {
-      this.formGroup.markAllAsTouched();
-    }
-  }
-
-  onPrevious(): void {
-    this.previous.emit();
-  }
-
-  ngOnDestroy(): void {
-    this.subscriptions.unsubscribe();
-  }
-
-  // Getter für Template, um leichter auf Controls zuzugreifen und Touched/Error-Status zu prüfen
-  isControlInvalid(controlName: string): boolean {
-    const control = this.formGroup.get(controlName);
-    return !!control && control.invalid && (control.touched || control.dirty);
-  }
-
-  get printSelected(): boolean {
-    return this.formGroup.get('printOption')?.value === 'standard_druck';
+  // Nur für Testzwecke, kann entfernt werden
+  setExampleStatus(status: ValidationStatus) {
+    this.updateLocalValidationStatus(status);
   }
 }

@@ -1,53 +1,40 @@
-<div class="step-content-inner p-3 p-md-4" [formGroup]="formGroup">
-  <header class="step-header"> <!-- Klasse aus deinem MVP CSS -->
-    <h2>Ihre Kontaktdaten</h2>
-    <p>Bitte teilen Sie uns mit, wie wir Sie erreichen können.</p>
-  </header>
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title">Schritt 3: Kontaktdaten</h5>
+    <p class="card-text">Bitte geben Sie Ihre Kontaktdaten ein.</p>
 
-  <form novalidate> <!-- novalidate, da Angular die Validierung übernimmt -->
-    <div class="row g-3">
-      <div class="col-md-6 mb-3">
-        <label for="contact-name" class="form-label">Name <span class="text-danger">*</span></label>
-        <input type="text" class="form-control" id="contact-name" formControlName="name"
-               [class.is-invalid]="isControlInvalid('name')">
-        <div *ngIf="isControlInvalid('name')" class="invalid-feedback">
-          Bitte geben Sie Ihren Namen an.
+    <form #contactForm="ngForm" (ngSubmit)="submitForm()">
+      <div class="mb-3">
+        <label for="contactName" class="form-label">Name <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="contactName" name="name"
+               [(ngModel)]="contactData.name" required #nameCtrl="ngModel"
+               (ngModelChange)="validateForm()">
+        <div *ngIf="nameCtrl.invalid && (nameCtrl.dirty || nameCtrl.touched)" class="text-danger small mt-1">
+          <div *ngIf="nameCtrl.errors?.['required']">Name ist ein Pflichtfeld.</div>
         </div>
       </div>
 
-      <div class="col-md-6 mb-3">
-        <label for="contact-company" class="form-label">Firma (Optional)</label>
-        <input type="text" class="form-control" id="contact-company" formControlName="company">
-      </div>
-
-      <div class="col-md-6 mb-3">
-        <label for="contact-email" class="form-label">E-Mail <span class="text-danger">*</span></label>
-        <input type="email" class="form-control" id="contact-email" formControlName="email"
-               [class.is-invalid]="isControlInvalid('email')">
-        <div *ngIf="isControlInvalid('email')" class="invalid-feedback">
-          <span *ngIf="formGroup.get('email')?.errors?.['required']">Bitte geben Sie eine E-Mail-Adresse an.</span>
-          <span *ngIf="formGroup.get('email')?.errors?.['email']">Bitte geben Sie eine gültige E-Mail-Adresse an.</span>
+      <div class="mb-3">
+        <label for="contactEmail" class="form-label">E-Mail <span class="text-danger">*</span></label>
+        <input type="email" class="form-control" id="contactEmail" name="email"
+               [(ngModel)]="contactData.email" required email #emailCtrl="ngModel"
+               (ngModelChange)="validateForm()">
+        <div *ngIf="emailCtrl.invalid && (emailCtrl.dirty || emailCtrl.touched)" class="text-danger small mt-1">
+          <div *ngIf="emailCtrl.errors?.['required']">E-Mail ist ein Pflichtfeld.</div>
+          <div *ngIf="emailCtrl.errors?.['email']">Bitte geben Sie eine gültige E-Mail-Adresse ein.</div>
         </div>
       </div>
 
-      <div class="col-md-6 mb-3">
-        <label for="contact-phone" class="form-label">Telefon (Optional)</label>
-        <input type="tel" class="form-control" id="contact-phone" formControlName="phone">
-      </div>
+      <!-- Weitere Formularfelder hier -->
 
-      <div class="col-12 mb-3">
-        <label for="contact-message" class="form-label">Anmerkungen (Optional)</label>
-        <textarea class="form-control" id="contact-message" rows="3" formControlName="message"></textarea>
+      <div class="d-flex justify-content-between mt-4">
+        <button type="button" class="btn btn-secondary" (click)="goBack()">
+          <i class="bi bi-arrow-left me-1"></i> Zurück zu Design & Druck
+        </button>
+        <button type="submit" class="btn btn-primary" [disabled]="!contactForm.valid">
+          Weiter zur Übersicht <i class="bi bi-arrow-right ms-1"></i>
+        </button>
       </div>
-    </div>
-  </form>
-</div>
-
-<div class="step-actions p-3 p-md-4 border-top d-flex justify-content-between">
-  <button type="button" class="btn btn-outline-secondary" (click)="onPrevious()">
-    <i class="bi bi-arrow-left-short"></i> Zurück zu Design & Druck
-  </button>
-  <button type="button" class="btn btn-primary" (click)="onNext()">
-    Weiter zu Übersicht <i class="bi bi-arrow-right-short"></i>
-  </button>
+    </form>
+  </div>
 </div>

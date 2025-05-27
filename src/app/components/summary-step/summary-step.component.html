@@ -1,0 +1,36 @@
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title">Schritt 4: Übersicht & Abschluss</h5>
+    <p class="card-text">Bitte überprüfen Sie Ihre Angaben, bevor Sie die Offerte anfordern.</p>
+
+    <div class="alert alert-info" role="alert">
+      Hier werden die gesammelten Daten aus den vorherigen Schritten und dem Calculator Service angezeigt.
+      <!-- Beispiel: <p>Gewähltes Gebiet: {{ summaryData?.gebiet }}</p> -->
+    </div>
+
+    <!-- Hier die Zusammenfassung der Daten anzeigen -->
+    <!-- z.B. aus einem `summaryData`-Objekt, das vom Service befüllt wird -->
+    <div class="mb-3">
+      <h6>Ihre Auswahl:</h6>
+      <ul>
+        <li>Verteilgebiet: <em>(Daten hier einfügen)</em></li>
+        <li>Design: <em>(Daten hier einfügen)</em></li>
+        <li>Kontaktdaten: <em>(Daten hier einfügen)</em></li>
+      </ul>
+    </div>
+    <div class="mb-3">
+      <h6>Kostenübersicht:</h6>
+      <p>Gesamtkosten: <em>(Daten vom Calculator Service hier einfügen)</em></p>
+    </div>
+
+
+    <div class="d-flex justify-content-between mt-4">
+      <button type="button" class="btn btn-secondary" (click)="goBack()">
+        <i class="bi bi-arrow-left me-1"></i> Zurück zu Kontaktdaten
+      </button>
+      <button type="button" class="btn btn-success" (click)="finalizeOrder()">
+        <i class="bi bi-check-lg me-1"></i> Offerte jetzt anfordern
+      </button>
+    </div>
+  </div>
+</div>

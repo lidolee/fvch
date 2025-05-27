@@ -1,83 +1,94 @@
-<div class="paper-sheet">
-  <header class="mobile-header p-3 border-bottom d-lg-none">
-    <div class="d-flex justify-content-between align-items-center">
-      <h1 class="h5 mb-0 fw-bold">ChartaFlow</h1>
-      <button class="btn btn-sm btn-outline-secondary" type="button" (click)="toggleSummaryOffcanvas()">
-        <i class="bi bi-receipt"></i> Offerte
-      </button>
-    </div>
-  </header>
+<div class="container-fluid vh-100 d-flex flex-column p-0">
+  <div class="row g-0 flex-grow-1">
+    <main class="col-lg-8 d-flex flex-column">
 
-  <div class="paper-sheet-inner-content">
-    <div class="row g-0">
-      <main class="col-12 col-lg-7 config-main-wrapper">
-        <nav class="stepper-navigation d-flex justify-content-around" id="stepper">
-          <div *ngFor="let step of stepsConfiguration"
-               class="step-indicator"
-               [class.active]="step.number === currentStep"
-               [class.completed]="step.number < currentStep && step.validationState !== 'red'"
-               [attr.data-step]="step.number"
-               [attr.data-validation]="step.validationState"
-               (click)="canNavigateToStep(step.number) && navigateToStep(step.number)">
-            <div class="step-label-group">
-              <i class="icon bi {{step.icon}}"></i>
-              <span class="label">{{step.label}}</span>
-            </div>
-            <i class="validation-icon bi {{getValidationIconClass(step.validationState)}}"></i>
-          </div>
-        </nav>
-
-        <div id="steps-container" [style.transform]="'translateX(' + currentStepTransform + '%)'">
-          <ng-container [ngSwitch]="currentStep">
-            <app-distribution-step *ngSwitchCase="1" class="step-content" [ngClass]="getAnimationClass(1)"
-                                   [formGroup]="distributionForm"
-                                   (formValid)="updateStepValidation(1, $event)"
-                                   (next)="navigateToStep(2)"
-                                   (updateSummary)="updateDistributionSummary($event)">
-            </app-distribution-step>
-
-            <app-design-print-step *ngSwitchCase="2" class="step-content" [ngClass]="getAnimationClass(2)"
-                                   [formGroup]="designPrintForm"
-                                   (formValid)="updateStepValidation(2, $event)"
-                                   (next)="navigateToStep(3)" (previous)="navigateToStep(1)"
-                                   (updateSummary)="updateDesignPrintSummary($event)">
-            </app-design-print-step>
-
-            <app-contact-step *ngSwitchCase="3" class="step-content" [ngClass]="getAnimationClass(3)"
-                              [formGroup]="contactForm"
-                              (formValid)="updateStepValidation(3, $event)"
-                              (next)="navigateToStep(4)" (previous)="navigateToStep(2)">
-            </app-contact-step>
-
-            <app-overview-step *ngSwitchCase="4" class="step-content" [ngClass]="getAnimationClass(4)"
-                               [formData]="fvFlowForm.value"
-                               [summaryData]="currentSummaryData"
-                               (submitOffer)="submitOffer()" (previous)="navigateToStep(3)">
-            </app-overview-step>
-          </ng-container>
+      <header class="d-lg-none p-3 border-bottom">
+        <div class="d-flex justify-content-between align-items-center">
+          <h1 class="h5 mb-0 fw-bold">ChartaFlow</h1>
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="offcanvas" data-bs-target="#summaryOffcanvas" aria-controls="summaryOffcanvas">
+            <i class="bi bi-receipt"></i> Offerte
+          </button>
         </div>
-      </main>
+      </header>
 
-      <aside class="d-none d-lg-block col-lg-5 summary-sidebar">
-        <app-summary [summaryData]="currentSummaryData" [showTitle]="true"></app-summary>
-      </aside>
-    </div>
+      <ul ngbNav #nav="ngbNav" [(activeId)]="activeStepId" (navChange)="onNavChange($event)" class="nav-tabs nav-fill p-2 border-bottom" role="tablist">
+        <li [ngbNavItem]="1">
+          <button ngbNavLink class="d-flex align-items-center justify-content-center py-2">
+            <i class="bi bi-bounding-box-circles me-2"></i> Verteilung
+            <i class="validation-icon ms-2 bi" [ngClass]="getValidationIconClass(1)"></i>
+          </button>
+          <ng-template ngbNavContent>
+            <div class="p-3 p-md-4 h-100 overflow-auto">
+              <app-distribution-step
+                (nextStepRequest)="navigateToStep(2)"
+                (validationChange)="updateValidationStatus(1, $event)">
+              </app-distribution-step>
+            </div>
+          </ng-template>
+        </li>
+        <li [ngbNavItem]="2">
+          <button ngbNavLink class="d-flex align-items-center justify-content-center py-2">
+            <i class="bi bi-palette2 me-2"></i> Design & Druck
+            <i class="validation-icon ms-2 bi" [ngClass]="getValidationIconClass(2)"></i>
+          </button>
+          <ng-template ngbNavContent>
+            <div class="p-3 p-md-4 h-100 overflow-auto">
+              <app-design-print-step
+                (prevStepRequest)="navigateToStep(1)"
+                (nextStepRequest)="navigateToStep(3)"
+                (validationChange)="updateValidationStatus(2, $event)">
+              </app-design-print-step>
+            </div>
+          </ng-template>
+        </li>
+        <li [ngbNavItem]="3">
+          <button ngbNavLink class="d-flex align-items-center justify-content-center py-2">
+            <i class="bi bi-person-lines-fill me-2"></i> Kontakt
+            <i class="validation-icon ms-2 bi" [ngClass]="getValidationIconClass(3)"></i>
+          </button>
+          <ng-template ngbNavContent>
+            <div class="p-3 p-md-4 h-100 overflow-auto">
+              <app-contact-step
+                (prevStepRequest)="navigateToStep(2)"
+                (nextStepRequest)="navigateToStep(4)"
+                (validationChange)="updateValidationStatus(3, $event)">
+              </app-contact-step>
+            </div>
+          </ng-template>
+        </li>
+        <li [ngbNavItem]="4">
+          <button ngbNavLink class="d-flex align-items-center justify-content-center py-2">
+            <i class="bi bi-check2-all me-2"></i> Übersicht
+            <i class="validation-icon ms-2 bi" [ngClass]="getValidationIconClass(4)"></i>
+          </button>
+          <ng-template ngbNavContent>
+            <div class="p-3 p-md-4 h-100 overflow-auto">
+              <app-summary-step
+                (prevStepRequest)="navigateToStep(3)"
+                (submitRequest)="navigateToStep(1)"
+                (validationChange)="updateValidationStatus(4, $event)">
+              </app-summary-step>
+            </div>
+          </ng-template>
+        </li>
+      </ul>
+
+      <div [ngbNavOutlet]="nav" class="flex-grow-1 bg-light"></div>
+
+    </main>
+
+    <aside class="col-lg-4 border-start d-none d-lg-flex flex-column">
+      <app-calculator class="flex-grow-1 overflow-auto p-3"></app-calculator>
+    </aside>
   </div>
 </div>
 
-<!-- Offcanvas für mobile Zusammenfassung -->
-<!-- Entferne Bootstrap-spezifische Klassen wie 'offcanvas', 'offcanvas-end', 'tabindex', 'id' (es sei denn, du nutzt sie für dein eigenes CSS) -->
-<!-- Füge [ngClass] hinzu, um das Öffnen/Schließen zu steuern -->
-<div class="custom-offcanvas" [class.open]="isSummaryOffcanvasOpen">
-  <div class="custom-offcanvas-header border-bottom">
-    <h5 class="custom-offcanvas-title">Ihre Offerte</h5>
-    <!-- data-bs-dismiss entfernt, da wir es selbst steuern -->
-    <button type="button" class="btn-close" (click)="toggleSummaryOffcanvas()" aria-label="Close"></button>
+<div class="offcanvas offcanvas-end" tabindex="-1" id="summaryOffcanvas" aria-labelledby="summaryOffcanvasLabel">
+  <div class="offcanvas-header border-bottom">
+    <h5 class="offcanvas-title" id="summaryOffcanvasLabel">Ihre Offerte</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
   </div>
-  <div class="custom-offcanvas-body summary-sidebar">
-    <app-summary [summaryData]="currentSummaryData" [showTitle]="false"></app-summary>
+  <div class="offcanvas-body p-0 d-flex">
+    <app-calculator class="flex-grow-1"></app-calculator>
   </div>
 </div>
-
-<!-- Optional: Backdrop für das Offcanvas -->
-<div class="custom-offcanvas-backdrop" *ngIf="isSummaryOffcanvasOpen" (click)="toggleSummaryOffcanvas()"></div>
