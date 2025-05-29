@@ -3,11 +3,24 @@
 
 // BASE STYLES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+@import "bootstrap/scss/mixins";
 
 body {
   font-family: "Nunito Sans", sans-serif;
   font-size: 18px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  //background-color: $gray-100;
 }
+
+.sheet-container {
+  background-color: $white;
+}
+
+.calculator-container {
+  background-color: transparent;
+}
+
 

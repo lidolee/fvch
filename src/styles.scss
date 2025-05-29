@@ -18,26 +18,23 @@
 @import 'styles/utilities';
 */
 
-$container-max-widths: (
-  sm: 540px,
-  md: 720px,
-  lg: 960px,
-  xl: 1140px,
-  xxl: 1440px
-) !default;
+// BOOTSTRAP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 @import "bootstrap/scss/mixins/banner";
 @include bsBanner("");
 
+@import "bootstrap/scss/functions";                                             // BOOTSTRAP FUNCTIONS
 
-@import "bootstrap/scss/functions";
-@import "bootstrap/scss/variables";
-@import "bootstrap/scss/variables-dark";
-@import "bootstrap/scss/maps";
-@import "bootstrap/scss/mixins";
-@import "bootstrap/scss/utilities";
+@import 'styles/variables';                                                     // FV-THEME VARIABLES
 
-// Layout & components
+@import "bootstrap/scss/variables";                                             // BOOTSTRAP VARIABLES
+@import "bootstrap/scss/variables-dark";                                        // BOOTSTRAP DARK VARIABLES
+@import "bootstrap/scss/maps";                                                  // BOOTSTRAP MAPS
+@import "bootstrap/scss/mixins";                                                // BOOTSTRAP MIXINS
+@import "bootstrap/scss/utilities";                                             // BOOTSTRAP UTILITIES
+
+// LAYOUT & COMPONENTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 @import "bootstrap/scss/root";
 @import "bootstrap/scss/reboot";
 @import "bootstrap/scss/type";
@@ -70,13 +67,15 @@ $container-max-widths: (
 @import "bootstrap/scss/offcanvas";
 @import "bootstrap/scss/placeholders";
 
-// Helpers
+// HELPERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 @import "bootstrap/scss/helpers";
 
-// Utilities
+// UTILITIES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 @import "bootstrap/scss/utilities/api";
 
-// _________________________
+
 @import "styles/base";
 
 // hide the bundled control of google maps

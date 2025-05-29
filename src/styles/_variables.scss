@@ -1,70 +1,76 @@
 
 // VARIABLES ///////////////////////////////////////////////////////////////////////////////////////
 
+
 // FONTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 $font-family-sans-serif: 'Nunito Sans', sans-serif;
 
+
 // COLORS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-$color-bg-desk:                                                                 #F0F0F0;
-$color-paper-bg:                                                                #FFFFFF;
-$color-text-primary:                                                            #212529;
-$color-text-secondary:                                                          #495057;
-$color-text-tertiary:                                                           #ADB5BD;
-$color-text-danger:                                                             #DC3545;
+$white:                                                                         #fff;
+$gray-100:                                                                      #f8f9fa;
+$gray-200:                                                                      #e9ecef;
+$gray-300:                                                                      #dee2e6;
+$gray-400:                                                                      #ced4da;
+$gray-500:                                                                      #adb5bd;
+$gray-600:                                                                      #6c757d;
+$gray-700:                                                                      #495057;
+$gray-800:                                                                      #343a40;
+$gray-900:                                                                      #212529;
+$black:                                                                         #000;
 
-$color-accent-primary:                                                          #007AFF;
-$color-accent-primary-hover:                                                    #0066CC;
-$color-accent-primary-light:                                                    rgba(0, 122, 255, 0.08);
+$blue:                                                                          #0063D6;
+$indigo:                                                                        #6610f2;
+$purple:                                                                        #6f42c1;
+$pink:                                                                          #d63384;
+$red:                                                                           #dc3545;
+$orange:                                                                        #fd7e14;
+$yellow:                                                                        #ffc107;
+$green:                                                                         #198754;
+$teal:                                                                          #20c997;
+$cyan:                                                                          #0dcaf0;
 
-$color-border-strong:                                                           #CED4DA;
-$color-border-subtle:                                                           #DEE2E6;
+$primary:                                                                       $blue;
+$secondary:                                                                     $gray-600;
+$success:                                                                       $green;
+$info:                                                                          $cyan;
+$warning:                                                                       $yellow;
+$danger:                                                                        $red;
+$light:                                                                         $gray-100;
+$dark:                                                                          $gray-900;
 
-$color-validation-gray:                                                         #CED4DA;
-$color-validation-green:                                                        #198754;
-$color-validation-orange:                                                       #FD7E14;
-$color-validation-red:                                                          #DC3545;
 
-// SHADOWS & BORDERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// THEME ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-$paper-shadow:                                                                  0 5px 20px rgba(0,0,0,0.08);
-$paper-shadow-focus:                                                            0 8px 30px rgba(0,0,0,0.1);
-$border-radius-base:                                                            4px;
-$border-radius-paper:                                                           0px;
-
-// ANIMATIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-$slide-duration:                                                                0.5s;
-$slide-timing-function:                                                         ease-in-out;
-$micro-transition:                                                              all 0.2s ease-out;
+$theme-colors: (
+  "primary":                                                                    $primary,
+  "secondary":                                                                  $secondary,
+  "success":                                                                    $success,
+  "info":                                                                       $info,
+  "warning":                                                                    $warning,
+  "danger":                                                                     $danger,
+  "light":                                                                      $light,
+  "dark":                                                                       $dark
+);
 
 // TYPOGRAPHY ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-$font-size-root:                                                                16px;
-$font-size-body:                                                                18px;
-$font-size-minimal:                                                             16px;
+$headings-font-weight:                                                          600;
 
-$font-size-h2-header:                                                           32px;
-$font-size-h3-summary:                                                          24px;
-$font-size-h4-card:                                                             18px;
-$font-size-h5-section:                                                          16px;
-$font-size-h6-detail:                                                           14px;
-
-$line-height-base:                                                              1.5;
-
-// SPACING ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-$spacing-unit:                                                                  16px;
 
 // GRID ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-$grid-columns:                                                                  12;
-$grid-gutter-width:                                                             16px;
+$grid-gutter-width:                                                             2.25rem;
+
 
 // BREAKPOINTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-$breakpoint-sm:                                                                 576px;
-$breakpoint-md:                                                                 768px;
-$breakpoint-lg:                                                                 992px;
-$breakpoint-xl:                                                                 1200px;
+$container-max-widths: (
+  sm:                                                                           540px,
+  md:                                                                           720px,
+  lg:                                                                           960px,
+  xl:                                                                           1140px,
+  xxl:                                                                          1440px
+);
