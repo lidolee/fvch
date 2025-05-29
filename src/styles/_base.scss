@@ -16,6 +16,7 @@ body {
   background-repeat: no-repeat;
   background-size: cover;
   background-color: transparent;
+  background-attachment: fixed;
 }
 
 .sheet-container {
@@ -39,4 +40,8 @@ body {
     color: $secondary;
     font-weight: bold;
   }
+}
+
+.lead {
+  font-weight: normal;
 }
