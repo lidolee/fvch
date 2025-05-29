@@ -8,33 +8,41 @@
 .map-main-container {
   display: flex;
   width: 100%;
-  height: 75vh; // Höhe anpassen nach Bedarf
+  // height: 75vh; // Entfernt, um das Seitenverhältnis zu ermöglichen
   position: relative; // Für den Ladeindikator
 }
 
 #map-container-angular {
   position: relative;
   width: 100%;
-  height: 100%;
+  height: 0; // Wichtig für den Aspect-Ratio-Trick
+  padding-bottom: 75%; // Erzeugt ein 4:3 Seitenverhältnis (3 / 4 * 100%)
 }
 
 #map-angular {
-  height: 100%;
-  width: 100%;
+  position: absolute; // Positioniert die Karte innerhalb des Containers
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 100%; // Füllt den Container in der Höhe
+  width: 100%;  // Füllt den Container in der Breite
 }
 
 #loading-indicator-angular {
   position: absolute;
   top: 50%;
-  left: 35%; // Ungefähr die Mitte des Kartenbereichs
+  left: 50%;
   transform: translate(-50%, -50%);
   background-color: rgba(255, 255, 255, 0.95);
-  padding: 25px;
-  border-radius: 8px;
+  padding: 16px;
+  border-radius: 4px;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.25);
-  z-index: 10000; // Über der Karte
-  font-size: 1.2em;
-  display: none; // Wird per Code gesteuert
+  z-index: 10000;
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+  display: none;
   text-align: center;
 }
 

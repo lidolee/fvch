@@ -18,6 +18,14 @@
 @import 'styles/utilities';
 */
 
+$container-max-widths: (
+  sm: 540px,
+  md: 720px,
+  lg: 960px,
+  xl: 1140px,
+  xxl: 1440px
+) !default;
+
 @import "bootstrap/scss/mixins/banner";
 @include bsBanner("");
 
@@ -71,3 +79,7 @@
 // _________________________
 @import "styles/base";
 
+// hide the bundled control of google maps
+.gmnoprint.gm-bundled-control {
+  display: none !important;
+}

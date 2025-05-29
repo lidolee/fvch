@@ -1,21 +1,21 @@
-<div class="container-fluid vh-100 d-flex flex-column p-0">
+<div class="container-xxl vh-100 d-flex flex-column p-0">
   <div class="row g-0 flex-grow-1">
-    <main class="col-lg-8 d-flex flex-column">
+    <main class="col-xl-7 d-flex flex-column">
 
-      <header class="d-lg-none p-3 border-bottom">
+      <header class="d-xl-none p-3 border-bottom">
         <div class="d-flex justify-content-between align-items-center">
-          <h1 class="h5 mb-0 fw-bold">ChartaFlow</h1>
+          <h1 class="h5 mb-0 fw-bold">Flyer Verteilen</h1>
           <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="offcanvas" data-bs-target="#summaryOffcanvas" aria-controls="summaryOffcanvas">
             <i class="bi bi-receipt"></i> Offerte
           </button>
         </div>
       </header>
 
-      <ul ngbNav #nav="ngbNav" [(activeId)]="activeStepId" (navChange)="onNavChange($event)" class="nav-tabs nav-fill p-2 border-bottom" role="tablist">
+      <ul ngbNav #nav="ngbNav" [(activeId)]="activeStepId" (navChange)="onNavChange($event)" class="nav-tabs nav-fill" role="tablist">
         <li [ngbNavItem]="1">
           <button ngbNavLink class="d-flex align-items-center justify-content-center py-2">
-            <i class="bi bi-bounding-box-circles me-2"></i> Verteilung
-            <i class="validation-icon ms-2 bi" [ngClass]="getValidationIconClass(1)"></i>
+            <i class="mdi mdi-truck-delivery me-2"></i> Verteilung
+            <i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(1)"></i>
           </button>
           <ng-template ngbNavContent>
             <div class="p-3 p-md-4 h-100 overflow-auto">
@@ -29,7 +29,7 @@
         <li [ngbNavItem]="2">
           <button ngbNavLink class="d-flex align-items-center justify-content-center py-2">
             <i class="bi bi-palette2 me-2"></i> Design & Druck
-            <i class="validation-icon ms-2 bi" [ngClass]="getValidationIconClass(2)"></i>
+            <i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(2)"></i>
           </button>
           <ng-template ngbNavContent>
             <div class="p-3 p-md-4 h-100 overflow-auto">
@@ -44,7 +44,7 @@
         <li [ngbNavItem]="3">
           <button ngbNavLink class="d-flex align-items-center justify-content-center py-2">
             <i class="bi bi-person-lines-fill me-2"></i> Kontakt
-            <i class="validation-icon ms-2 bi" [ngClass]="getValidationIconClass(3)"></i>
+            <i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(3)"></i>
           </button>
           <ng-template ngbNavContent>
             <div class="p-3 p-md-4 h-100 overflow-auto">
@@ -59,7 +59,7 @@
         <li [ngbNavItem]="4">
           <button ngbNavLink class="d-flex align-items-center justify-content-center py-2">
             <i class="bi bi-check2-all me-2"></i> Übersicht
-            <i class="validation-icon ms-2 bi" [ngClass]="getValidationIconClass(4)"></i>
+            <i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(4)"></i>
           </button>
           <ng-template ngbNavContent>
             <div class="p-3 p-md-4 h-100 overflow-auto">
@@ -73,12 +73,12 @@
         </li>
       </ul>
 
-      <div [ngbNavOutlet]="nav" class="flex-grow-1 bg-light"></div>
+      <div [ngbNavOutlet]="nav" class="flex-grow-1"></div>
 
     </main>
 
-    <aside class="col-lg-4 border-start d-none d-lg-flex flex-column">
-      <app-calculator class="flex-grow-1 overflow-auto p-3"></app-calculator>
+    <aside class="col-xl-5 border-start border-end d-none d-xl-flex flex-column">
+      <app-calculator class="flex-grow-1 overflow-x-auto"></app-calculator>
     </aside>
   </div>
 </div>

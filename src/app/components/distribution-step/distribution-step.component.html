@@ -3,11 +3,64 @@
 <p>Definieren Sie hier Ihre Zielgebiete für die Flyerverteilung.</p>
 
 <div class="mb-3">
-  <label for="distributionArea" class="form-label">Zielgebiet (PLZ oder Region)</label>
-  <input type="text" class="form-control" id="distributionArea"
-         placeholder="z.B. 8001, Zürich Kreis 5"
-         (input)="updateLocalValidationStatus($any($event.target).value ? ($any($event.target).value.length > 2 ? 'valid' : 'pending') : 'invalid')">
-  <div class="form-text">Geben Sie mindestens 3 Zeichen ein, um den Status als "gültig" zu markieren.</div>
+  <label for="distributionArea" class="form-label">Geben Sie die gewünschte Postleitzahl, den gewünschten Postleitzahlenbereich oder den Ortsnamen ein</label>
+
+  <div class="input-group flex-nowrap">
+    <span class="input-group-text" id="search"><i class="mdi mdi-magnify"></i></span>
+    <input type="text"
+           id="distributionArea"
+           class="form-control"
+           placeholder="8001 oder 8001-8004 oder Zürich"
+           aria-label="Suche"
+           (input)="updateLocalValidationStatus($any($event.target).value ? ($any($event.target).value.length > 2 ? 'valid' : 'pending') : 'invalid')">
+    <button class="btn btn-primary" type="button">Hinzufügen</button>
+    <button class="btn btn-outline-secondary" type="button"><i class="mdi mdi-delete"></i>&nbsp;Liste löschen</button>
+  </div>
+</div>
+
+<div class="plz-table table-responsive">
+  <table class="table table-responsive-sm">
+    <thead>
+    <tr>
+      <th scope="col">PLZ</th>
+      <th scope="col">Ort</th>
+      <th scope="col">Kanton</th>
+      <th scope="col">Flyer</th>
+      <th scope="col">Anpassen</th>
+      <th scope="col">Map</th>
+      <th scope="col">&nbsp;</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td>8001</td>
+      <td>Zürich</td>
+      <td>ZH</td>
+      <td>2100</td>
+      <td><input type="number" value="2100"></td>
+      <td><i class="mdi mdi-crosshairs-gps"></i></td>
+      <td><i class="mdi mdi-delete"></i></td>
+    </tr>
+    <tr>
+      <td>8002</td>
+      <td>Zürich</td>
+      <td>ZH</td>
+      <td>2100</td>
+      <td><input type="number" value="2100"></td>
+      <td><i class="mdi mdi-crosshairs-gps"></i></td>
+      <td><i class="mdi mdi-delete"></i></td>
+    </tr>
+    <tr>
+      <td>8003</td>
+      <td>Zürich</td>
+      <td>ZH</td>
+      <td>2100</td>
+      <td><input type="number" value="2100"></td>
+      <td><i class="mdi mdi-crosshairs-gps"></i></td>
+      <td><i class="mdi mdi-delete"></i></td>
+    </tr>
+    </tbody>
+  </table>
 </div>
 
 <div class="map-main-container">
@@ -16,7 +69,7 @@
     <div #hoverPlzDisplay id="hover-plz-display-angular">PLZ: --</div>
   </div>
 
-  <div #loadingIndicator id="loading-indicator-angular">Lade KML-Daten...</div>
+  <div #loadingIndicator id="loading-indicator-angular">Loading KML...</div>
 </div>
 
 <div class="mt-4 navigation-buttons">

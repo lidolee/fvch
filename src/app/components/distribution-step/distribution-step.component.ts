@@ -281,8 +281,7 @@ export class DistributionStepComponent implements AfterViewInit, OnDestroy {
       this.map = new google.maps.Map(mapDivEl, {
         center: this.initialMapCenter,
         zoom: this.initialMapZoom,
-        mapTypeControl: true,
-        mapTypeControlOptions: { style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR, position: google.maps.ControlPosition.TOP_RIGHT },
+        mapTypeControl: false,
         fullscreenControl: false,
         streetViewControl: false,
         styles: this.mapStyleWithCorrectedFeatures
@@ -290,7 +289,7 @@ export class DistributionStepComponent implements AfterViewInit, OnDestroy {
       console.log(`${timestamp} DistributionStep: this.map object after initialization:`, this.map ? 'Map object created' : 'Map object FAILED to create');
     });
 
-    if (this.loadingIndicatorDiv && this.loadingIndicatorDiv.nativeElement) this.loadingIndicatorDiv.nativeElement.style.display = 'block';
+    if (this.loadingIndicatorDiv && this.loadingIndicatorDiv.nativeElement) this.loadingIndicatorDiv.nativeElement.style.display = 'flex';
 
     const kmlFileUrl = 'assets/ch_plz.kml';
     console.log(`${timestamp} DistributionStep: Attempting to parse KML from:`, kmlFileUrl);

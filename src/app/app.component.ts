@@ -52,13 +52,13 @@ export class AppComponent {
     const status = this.stepValidationStatus[stepId];
     switch (status) {
       case 'valid':
-        return 'bi-check-circle-fill text-success';
+        return 'mdi-check-circle text-success';
       case 'invalid':
-        return 'bi-x-circle-fill text-danger';
+        return 'mdi-alert-circle text-danger';
       case 'pending':
-        return 'bi-exclamation-triangle-fill text-warning';
+        return 'mdi-alert-circle text-warning';
       default:
-        return 'bi-circle text-secondary';
+        return 'mdi-circle-outline text-secondary';
     }
   }
 
