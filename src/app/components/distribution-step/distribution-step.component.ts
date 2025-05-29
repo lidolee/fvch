@@ -1,18 +1,40 @@
-import { Component, Output, EventEmitter, AfterViewInit, OnDestroy, ViewChild, ElementRef, NgZone, Inject, PLATFORM_ID } from '@angular/core';
+import { Component, Output, EventEmitter, AfterViewInit, OnDestroy, ViewChild, ElementRef, NgZone, Inject, PLATFORM_ID, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { NgbTypeaheadModule, NgbTypeaheadSelectItemEvent, NgbAlertModule } from '@ng-bootstrap/ng-bootstrap';
+import { Observable, of, Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, catchError, takeUntil, tap } from 'rxjs/operators';
+
 import { ValidationStatus } from '../../app.component';
+import { PlzDataService, PlzEntry } from '../../services/plz-data.service'; // Stelle sicher, dass PlzEntry mfh und efh hat
+import { SelectionService } from '../../services/selection.service';
 
 declare var google: any;
 declare var geoXML3: any;
 
+const LOG_PREFIX_DIST = '[DistributionStep]';
+
+const KML_FILE_PATH = 'assets/ch_plz.kml';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc';
+
+const MAP_INIT_TIMEOUT = 200;
+const MAP_RETRY_INIT_TIMEOUT = 100;
+const MAP_STATE_UPDATE_TIMEOUT = 50;
+const WINDOW_RESIZE_DEBOUNCE = 250;
+
+// Typ für Zielgruppen-Optionen für bessere Typsicherheit
+export type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
+
+
 @Component({
   selector: 'app-distribution-step',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule, NgbTypeaheadModule, NgbAlertModule],
   templateUrl: './distribution-step.component.html',
-  styleUrls: ['./distribution-step.component.scss']
+  styleUrls: ['./distribution-step.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DistributionStepComponent implements AfterViewInit, OnDestroy {
+export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestroy {
   @Output() nextStepRequest = new EventEmitter<void>();
   @Output() validationChange = new EventEmitter<ValidationStatus>();
 
@@ -21,278 +43,270 @@ export class DistributionStepComponent implements AfterViewInit, OnDestroy {
   @ViewChild('loadingIndicator') loadingIndicatorDiv!: ElementRef<HTMLElement>;
   @ViewChild('selectedPlzInfoSpan') selectedPlzInfoSpan!: ElementRef<HTMLElement>;
 
-  private map: any = null;
+  map: any = null;
   private geoXmlParser: any;
-  private allPlacemarks: any[] = [];
-  public selectedPolygons = new Map<number, any>();
-  public selectedPlzIdentifiers: string[] = [];
+  allPlacemarks: any[] = [];
 
-  private textInputStatus: ValidationStatus = 'invalid';
+  private destroy$ = new Subject<void>();
+
+  typeaheadSearchTerm: string = '';
+  currentTypeaheadSelection: PlzEntry | null = null;
+  searching: boolean = false;
+  searchFailed: boolean = false;
+
+  selectedEntries$: Observable<PlzEntry[]>;
+
+  currentVerteilungTyp: 'Nach PLZ' | 'Nach Perimeter' = 'Nach PLZ';
+  showPlzUiContainer: boolean = true;
+  showPerimeterUiContainer: boolean = false;
+
+  // NEUES FEATURE: Zielgruppen-Variable
+  currentZielgruppe: ZielgruppeOption = 'Alle Haushalte'; // Default-Wert
+
+  textInputStatus: ValidationStatus = 'invalid';
 
   private readonly initialMapCenter = { lat: 46.8182, lng: 8.2275 };
   private readonly initialMapZoom = 8;
-  private singlePolygonZoomAdjustListener: any = null;
+  private readonly mapStyleWithCorrectedFeatures: any[];
 
   private readonly defaultPolygonOptions = { strokeColor: "#0063d6", strokeOpacity: 0.1, strokeWeight: 1.5, fillColor: "#0063d6", fillOpacity: 0.02 };
   private readonly highlightedPolygonOptions = { strokeColor: "#0063d6", strokeOpacity: 0.6, strokeWeight: 2, fillColor: "#0063d6", fillOpacity: 0.3 };
   private readonly selectedPolygonOptions = { strokeColor: "#D60096", strokeOpacity: 0.8, strokeWeight: 2, fillColor: "#D60096", fillOpacity: 0.4 };
   private readonly selectedHighlightedPolygonOptions = { strokeColor: "#D60096", strokeOpacity: 0.9, strokeWeight: 2.5, fillColor: "#D60096", fillOpacity: 0.6 };
 
-  private readonly mapStyleWithCorrectedFeatures: any[];
-  private readonly googleMapsApiKey = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc'; // Ersetze dies mit deinem API-Schlüssel
-
-  private resizeTimeout: any; // Für Debouncing des Resize-Events
-  private readonly debouncedResizeHandler = () => {
-    if (!this.map || !isPlatformBrowser(this.platformId)) {
-      return;
-    }
-    const timestamp = `[${new Date().toLocaleTimeString()}]`;
-    console.log(`${timestamp} DistributionStep: Window resized, re-zooming map.`);
-    // Google Maps kann manchmal die aktuelle Center-Position benötigen, um resize korrekt zu handhaben
-    const center = this.map.getCenter();
-    google.maps.event.trigger(this.map, 'resize');
-    if (center) {
-      this.map.setCenter(center);
-    }
-    this.zoomToSelectedPolygons(); // Oder eine andere Logik zum Anpassen des Zooms/Zentrums
-  };
+  private singlePolygonZoomAdjustListener: any = null;
+  private resizeTimeout: any;
 
   constructor(
     private ngZone: NgZone,
-    @Inject(PLATFORM_ID) private platformId: Object
+    @Inject(PLATFORM_ID) private platformId: Object,
+    private plzDataService: PlzDataService,
+    public selectionService: SelectionService,
+    private cdr: ChangeDetectorRef
   ) {
-    this.mapStyleWithCorrectedFeatures = [
-      { "stylers": [ { "saturation": -60 } ] },
-      { "featureType": "water", "elementType": "geometry", "stylers": [ { "visibility": "on" }, { "color": "#66ccff" } ] },
-      { "featureType": "landscape.natural", "elementType": "geometry", "stylers": [ { "color": "#f0f0f0" } ] },
-      { "featureType": "landscape.natural", "elementType": "labels", "stylers": [ { "visibility": "off" } ] },
-      { "featureType": "landscape.man_made", "elementType": "geometry.fill", "stylers": [ { "visibility": "on" }, { "color": "#e0e0e0" } ]},
-      { "featureType": "landscape.man_made", "elementType": "geometry.stroke", "stylers": [ { "visibility": "on" }, { "color": "#c9c9c9" } ]},
-      { "featureType": "road", "elementType": "geometry", "stylers": [ { "color": "#ffffff" } ] },
-      { "featureType": "road", "elementType": "labels.text.fill", "stylers": [ { "color": "#525252" }, {"visibility": "on"} ] },
-      { "featureType": "administrative", "elementType": "labels.text.fill", "stylers": [ { "color": "#525252" }, {"visibility": "on"} ]},
-      { "elementType": "labels.icon", "stylers": [ { "visibility": "off" } ] },
-      { "featureType": "administrative", "elementType": "geometry.stroke", "stylers": [ { "visibility": "off" } ] },
-      { "featureType": "administrative.country", "elementType": "geometry.stroke", "stylers": [ { "color": "#777777" }, { "weight": 1.8 }, { "visibility": "on" } ]},
-      { "featureType": "administrative.province", "elementType": "geometry.stroke", "stylers": [ { "color": "#999999" }, { "weight": 1.2 }, { "visibility": "on" } ]},
-      { "featureType": "poi", "stylers": [ { "visibility": "off" } ] },
-      { "featureType": "transit", "stylers": [ { "visibility": "off" } ] }
-    ];
+    const constructorTime = "2025-05-29 19:23:29";
+    console.log(`${LOG_PREFIX_DIST} Component instantiated by lidolee at ${constructorTime}`);
+    this.selectedEntries$ = this.selectionService.selectedEntries$;
+    this.mapStyleWithCorrectedFeatures = [ /* DEINE MAP STYLES HIER */ ];
+    this.updateUiFlags(this.currentVerteilungTyp);
+  }
+
+  ngOnInit(): void {
+    console.log(`${LOG_PREFIX_DIST} ngOnInit called. Initial currentVerteilungTyp: ${this.currentVerteilungTyp}, showPlzUiContainer: ${this.showPlzUiContainer}, currentZielgruppe: ${this.currentZielgruppe}`);
+    this.selectedEntries$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(entries => {
+        console.log(`${LOG_PREFIX_DIST} Selection changed in service, ${entries.length} entries. Will sync map if visible and map exists.`);
+        if (this.showPlzUiContainer && this.map) {
+          this.synchronizeMapSelectionWithService(entries);
+        }
+        // Wichtig: Bei jeder Änderung der Auswahl auch die Validierung prüfen, da die Tabelle sich ändert
+        this.updateOverallValidationState();
+        this.cdr.markForCheck();
+      });
   }
 
   ngAfterViewInit(): void {
-    const timestamp = `[${new Date().toLocaleTimeString()}]`;
-    console.log(`${timestamp} DistributionStep: ngAfterViewInit. User: lidolee. Platform is browser: ${isPlatformBrowser(this.platformId)}`);
+    console.log(`${LOG_PREFIX_DIST} ngAfterViewInit called. IsBrowser: ${isPlatformBrowser(this.platformId)}, current showPlzUiContainer: ${this.showPlzUiContainer}`);
     if (isPlatformBrowser(this.platformId)) {
-      setTimeout(() => {
-        this.ngZone.run(() => {
-          console.log(`${timestamp} DistributionStep: Attempting map setup after timeout.`);
-          this.initializeMapAndGeoXml();
-        });
-      }, 150);
-      // Resize-Listener hinzufügen
-      window.addEventListener('resize', this.onWindowResize.bind(this));
+      if (this.showPlzUiContainer) {
+        console.log(`${LOG_PREFIX_DIST} ngAfterViewInit: PLZ UI is visible, scheduling map initialization.`);
+        this.scheduleMapInitialization();
+      }
+      window.addEventListener('resize', this.onWindowResize);
     }
     Promise.resolve().then(() => {
-      this.ngZone.run(() => {
-        this.updateOverallValidationState();
-      });
+      this.updateOverallValidationState();
+      this.cdr.markForCheck();
     });
   }
 
-  private onWindowResize(): void {
-    clearTimeout(this.resizeTimeout);
-    this.resizeTimeout = setTimeout(this.debouncedResizeHandler, 250); // 250ms debounce time
+  ngOnDestroy(): void {
+    console.log(`${LOG_PREFIX_DIST} ngOnDestroy called.`);
+    this.destroy$.next(); this.destroy$.complete();
+    this.destroyMap();
+    if (isPlatformBrowser(this.platformId)) {
+      window.removeEventListener('resize', this.onWindowResize);
+      clearTimeout(this.resizeTimeout);
+      if (typeof (window as any).angularGoogleMapsCallback === 'function') {
+        delete (window as any).angularGoogleMapsCallback;
+      }
+      if ((window as any).googleMapsScriptLoadingPromise) {
+        delete (window as any).googleMapsScriptLoadingPromise;
+      }
+    }
+  }
+
+  // --- UI MODE HANDLING (Verteilungstyp & Zielgruppe) ---
+
+  onVerteilungTypChangeFromTemplate(newVerteilungTyp: 'Nach PLZ' | 'Nach Perimeter'): void {
+    console.log(`${LOG_PREFIX_DIST} onVerteilungTypChangeFromTemplate called. New value from template: ${newVerteilungTyp}. Internal this.currentVerteilungTyp is already: ${this.currentVerteilungTyp}`);
+    this.updateUiFlagsAndMapState();
+  }
+
+  // NEUES FEATURE: Handler für Zielgruppen-Änderung
+  onZielgruppeChange(): void {
+    console.log(`${LOG_PREFIX_DIST} onZielgruppeChange called. New Zielgruppe: ${this.currentZielgruppe}`);
+    // Da sich die anzuzeigenden Flyer Max Werte ändern, muss die View aktualisiert werden.
+    // Das Observable selectedEntries$ an sich ändert sich nicht, nur wie seine Elemente *interpretiert* werden.
+    // Ein einfaches markForCheck sollte ausreichen, da getFlyerMaxForEntry in der nächsten CD-Runde neu ausgewertet wird.
+    this.cdr.markForCheck();
+    this.updateOverallValidationState(); // Validierung könnte von Flyer Max abhängen, falls Geschäftsregeln dies erfordern
+  }
+
+  private updateUiFlags(verteilungTyp: 'Nach PLZ' | 'Nach Perimeter'): void {
+    this.showPlzUiContainer = verteilungTyp === 'Nach PLZ';
+    this.showPerimeterUiContainer = verteilungTyp === 'Nach Perimeter';
+    console.log(`${LOG_PREFIX_DIST} updateUiFlags: Set showPlzUiContainer=${this.showPlzUiContainer}, showPerimeterUiContainer=${this.showPerimeterUiContainer} based on ${verteilungTyp}`);
+  }
+
+  private updateUiFlagsAndMapState(): void {
+    console.log(`${LOG_PREFIX_DIST} updateUiFlagsAndMapState called. Effective Verteilungstyp: ${this.currentVerteilungTyp}. Current map: ${!!this.map}`);
+
+    const oldShowPlzUiContainer = this.showPlzUiContainer;
+    this.updateUiFlags(this.currentVerteilungTyp);
+
+    this.cdr.detectChanges();
+
+    if (isPlatformBrowser(this.platformId)) {
+      if (!this.showPlzUiContainer && oldShowPlzUiContainer && this.map) {
+        console.log(`${LOG_PREFIX_DIST} Map state logic: Switched AWAY from PLZ UI. Destroying map.`);
+        this.destroyMap();
+      } else if (this.showPlzUiContainer && !this.map) {
+        console.log(`${LOG_PREFIX_DIST} Map state logic: Switched TO PLZ UI and no map exists. Scheduling initialization.`);
+        this.scheduleMapInitialization();
+      } else if (this.showPlzUiContainer && this.map) {
+        console.log(`${LOG_PREFIX_DIST} Map state logic: PLZ UI active and map exists. Ensuring map is responsive (resize/zoom).`);
+        this.ngZone.runOutsideAngular(() => {
+          setTimeout(() => {
+            if (this.map && typeof google !== 'undefined' && google.maps) {
+              google.maps.event.trigger(this.map, 'resize');
+              this.zoomMapToSelectedEntries(this.selectionService.getSelectedEntries());
+            }
+          }, MAP_STATE_UPDATE_TIMEOUT);
+        });
+      } else if (!this.showPlzUiContainer && !this.map) {
+        console.log(`${LOG_PREFIX_DIST} Map state logic: Not in PLZ UI and no map. Correct state.`);
+      }
+    }
+    this.updateOverallValidationState();
+    this.cdr.markForCheck();
+  }
+
+  // --- GOOGLE MAPS API & KML HANDLING ---
+
+  private scheduleMapInitialization(): void {
+    if (!this.showPlzUiContainer) {
+      console.log(`${LOG_PREFIX_DIST} scheduleMapInitialization: Aborted, PLZ UI not visible.`);
+      return;
+    }
+    if (this.map) {
+      console.log(`${LOG_PREFIX_DIST} scheduleMapInitialization: Map instance already exists. Triggering resize/zoom instead of re-init.`);
+      this.ngZone.runOutsideAngular(() => {
+        if (typeof google !== 'undefined' && google.maps && this.map) {
+          google.maps.event.trigger(this.map, 'resize');
+          this.zoomMapToSelectedEntries(this.selectionService.getSelectedEntries());
+        }
+      });
+      return;
+    }
+
+    console.log(`${LOG_PREFIX_DIST} Scheduling map initialization (map is currently null and PLZ UI is visible).`);
+    setTimeout(() => {
+      if (this.showPlzUiContainer && this.mapDiv?.nativeElement && !this.map) {
+        console.log(`${LOG_PREFIX_DIST} Timeout: DOM ready for map. Attempting actual map initialization.`);
+        const rect = this.mapDiv.nativeElement.getBoundingClientRect();
+        console.log(`${LOG_PREFIX_DIST} mapDiv details INSIDE setTimeout, BEFORE init: offsetWidth=${this.mapDiv.nativeElement.offsetWidth}, offsetHeight=${this.mapDiv.nativeElement.offsetHeight}, visible=${rect.width > 0 && rect.height > 0}`);
+        if (rect.width === 0 || rect.height === 0) {
+          console.warn(`${LOG_PREFIX_DIST} mapDiv has zero dimensions right before map init. Map might not be visible. Check CSS for #map-container-angular and #map-angular.`);
+        }
+        this.ngZone.run(() => this.initializeMapAndGeoXml());
+      } else {
+        console.log(`${LOG_PREFIX_DIST} Timeout: Conditions for map init NOT met (showPlzUiContainer: ${this.showPlzUiContainer}, mapDiv: ${!!this.mapDiv?.nativeElement}, map: ${!!this.map})`);
+      }
+    }, MAP_INIT_TIMEOUT);
+  }
+
+  private destroyMap(): void {
+    console.log(`${LOG_PREFIX_DIST} destroyMap: Attempting to destroy existing map instance.`);
+    if (this.map && typeof google !== 'undefined' && google.maps) {
+      console.log(`${LOG_PREFIX_DIST} destroyMap: Clearing map instance listeners.`);
+      google.maps.event.clearInstanceListeners(this.map);
+
+      if (this.allPlacemarks && this.allPlacemarks.length > 0) {
+        console.log(`${LOG_PREFIX_DIST} destroyMap: Clearing ${this.allPlacemarks.length} placemark listeners.`);
+        this.allPlacemarks.forEach(p => {
+          const actualPolygon = p.polygon || p.gObject;
+          if (actualPolygon) {
+            google.maps.event.clearInstanceListeners(actualPolygon);
+          }
+        });
+      }
+    }
+    this.allPlacemarks = [];
+    this.map = null;
+    this.geoXmlParser = null;
+    console.log(`${LOG_PREFIX_DIST} destroyMap: Map instance set to null, placemarks and parser cleared.`);
+    this.cdr.markForCheck();
   }
 
   private initializeMapAndGeoXml(): void {
-    const timestamp = `[${new Date().toLocaleTimeString()}]`;
-    console.log(`${timestamp} DistributionStep: initializeMapAndGeoXml called.`);
-    if (this.map) {
-      console.warn(`${timestamp} DistributionStep: Map already initialized. Skipping.`);
-      return;
-    }
+    if (!this.showPlzUiContainer) { console.log(`${LOG_PREFIX_DIST} initializeMapAndGeoXml: Not in PLZ mode. Aborting.`); return; }
+    if (this.map) { console.warn(`${LOG_PREFIX_DIST} initializeMapAndGeoXml: Map already initialized. Skipping.`); return; }
 
+    console.log(`${LOG_PREFIX_DIST} initializeMapAndGeoXml called to load script and init map.`);
     this.loadGoogleMapsScript().then(() => {
-      console.log(`${timestamp} DistributionStep: Google Maps script reported as loaded.`);
       if (typeof google !== 'undefined' && google.maps && typeof geoXML3 !== 'undefined' && geoXML3.parser) {
-        console.log(`${timestamp} DistributionStep: google.maps and geoXML3.parser confirmed. Proceeding with initMapInternal.`);
+        console.log(`${LOG_PREFIX_DIST} Google Maps script and geoXML3 ready. Proceeding to initMapInternal.`);
         this.initMapInternal();
-      } else {
-        let errorMsg = `${timestamp} DistributionStep: Pre-init check failed. `;
-        if (!(typeof google !== 'undefined' && google.maps)) errorMsg += 'google.maps not available. ';
-        if (!(typeof geoXML3 !== 'undefined' && geoXML3.parser)) errorMsg += 'geoXML3.parser not available. ';
-        console.error(errorMsg, 'Current google:', (window as any).google, 'Current geoXML3:', (window as any).geoXML3);
-      }
-    }).catch(err => {
-      console.error(`${timestamp} DistributionStep: Error loading Google Maps script:`, err);
-    });
-  }
-
-  updateLocalValidationStatus(statusFromInput: ValidationStatus): void {
-    this.textInputStatus = statusFromInput;
-    this.updateOverallValidationState();
-  }
-
-  setExampleStatus(status: ValidationStatus): void {
-    if (status === 'valid') {
-      this.textInputStatus = 'valid';
-    } else if (status === 'pending') {
-      this.textInputStatus = 'pending';
-    } else {
-      this.textInputStatus = 'invalid';
-    }
-    this.updateOverallValidationState();
-  }
-
-  private updateOverallValidationState(): void {
-    const mapHasSelection = this.selectedPlzIdentifiers.length > 0;
-    let newOverallStatus: ValidationStatus = 'invalid';
-
-    if (this.textInputStatus === 'valid' || mapHasSelection) {
-      newOverallStatus = 'valid';
-    } else if (this.textInputStatus === 'pending' && !mapHasSelection) {
-      newOverallStatus = 'pending';
-    }
-    this.validationChange.emit(newOverallStatus);
-  }
-
-  proceedToNextStep(): void {
-    const mapHasSelection = this.selectedPlzIdentifiers.length > 0;
-    let currentOverallStatus: ValidationStatus = 'invalid';
-
-    if (this.textInputStatus === 'valid' || mapHasSelection) {
-      currentOverallStatus = 'valid';
-    } else if (this.textInputStatus === 'pending' && !mapHasSelection) {
-      currentOverallStatus = 'pending';
-    }
-
-    this.validationChange.emit(currentOverallStatus);
-
-    if (currentOverallStatus === 'valid') {
-      this.nextStepRequest.emit();
-    } else {
-      const message = currentOverallStatus === 'pending' ?
-        "Bitte vervollständigen Sie Ihre Eingabe für das Zielgebiet oder wählen Sie PLZ-Gebiete auf der Karte aus, um fortzufahren." :
-        "Eingabe für Zielgebiet ist ungültig und keine PLZ-Gebiete auf der Karte ausgewählt. Bitte korrigieren Sie Ihre Eingabe.";
-
-      if (isPlatformBrowser(this.platformId)) {
-        alert(message);
-      } else {
-        console.warn("SSR Warning:", message);
-      }
-    }
-  }
-
-  private loadGoogleMapsScript(): Promise<void> {
-    const timestamp = `[${new Date().toLocaleTimeString()}]`;
-    console.log(`${timestamp} DistributionStep: loadGoogleMapsScript called.`);
-    return new Promise((resolve, reject) => {
-      if (!isPlatformBrowser(this.platformId)) {
-        console.log(`${timestamp} DistributionStep: Not in browser, resolving loadGoogleMapsScript immediately.`);
-        resolve();
-        return;
-      }
-      if (typeof google !== 'undefined' && google.maps) {
-        console.log(`${timestamp} DistributionStep: Google Maps API already loaded.`);
-        resolve();
-        return;
-      }
-      if ((window as any).googleMapsScriptLoading) {
-        console.warn(`${timestamp} DistributionStep: Google Maps script is already in the process of loading. Waiting for existing load to complete.`);
-        if ((window as any).resolveGoogleMapsPromise && (window as any).rejectGoogleMapsPromise) {
-          (window as any).resolveGoogleMapsPromise = resolve;
-          (window as any).rejectGoogleMapsPromise = reject;
-        } else {
-          console.error(`${timestamp} DistributionStep: Inconsistent state for googleMapsScriptLoading.`);
-          reject(new Error("Inconsistent state for Google Maps script loading."));
-        }
-        return;
-      }
-
-      (window as any).googleMapsScriptLoading = true;
-      (window as any).resolveGoogleMapsPromise = resolve;
-      (window as any).rejectGoogleMapsPromise = reject;
-
-      (window as any).angularGoogleMapsCallback = () => {
-        const cbTimestamp = `[${new Date().toLocaleTimeString()}]`;
-        console.log(`${cbTimestamp} DistributionStep: angularGoogleMapsCallback fired.`);
-        delete (window as any).googleMapsScriptLoading;
-        if ((window as any).google && (window as any).google.maps) {
-          console.log(`${cbTimestamp} DistributionStep: google.maps confirmed in callback.`);
-          if((window as any).resolveGoogleMapsPromise) (window as any).resolveGoogleMapsPromise();
-        } else {
-          console.error(`${cbTimestamp} DistributionStep: Google Maps API script loaded, but google.maps not found in callback.`);
-          if((window as any).rejectGoogleMapsPromise) (window as any).rejectGoogleMapsPromise(new Error("Google Maps API script loaded, but google.maps not found in callback."));
-        }
-        delete (window as any).angularGoogleMapsCallback;
-        delete (window as any).resolveGoogleMapsPromise;
-        delete (window as any).rejectGoogleMapsPromise;
-      };
-
-      console.log(`${timestamp} DistributionStep: Appending Google Maps script to head.`);
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${this.googleMapsApiKey}&callback=angularGoogleMapsCallback&libraries=visualization,geometry`;
-      script.async = true;
-      script.defer = true;
-      script.onerror = (e) => {
-        const errTimestamp = `[${new Date().toLocaleTimeString()}]`;
-        delete (window as any).googleMapsScriptLoading;
-        console.error(`${errTimestamp} DistributionStep: Google Maps script loading error:`, e);
-        if((window as any).rejectGoogleMapsPromise) (window as any).rejectGoogleMapsPromise(e);
-        delete (window as any).angularGoogleMapsCallback;
-        delete (window as any).resolveGoogleMapsPromise;
-        delete (window as any).rejectGoogleMapsPromise;
-      };
-      document.head.appendChild(script);
-    });
+      } else { console.error(`${LOG_PREFIX_DIST} Google Maps API or geoXML3 not ready after script load attempt.`); }
+    }).catch(err => console.error(`${LOG_PREFIX_DIST} Error loading Google Maps script:`, err));
   }
 
   private initMapInternal(): void {
-    const timestamp = `[${new Date().toLocaleTimeString()}]`;
-    console.log(`${timestamp} DistributionStep: initMapInternal called.`);
-    if (!isPlatformBrowser(this.platformId) || !this.mapDiv || !this.mapDiv.nativeElement) {
-      console.error(`${timestamp} DistributionStep: initMapInternal - cannot proceed. Not browser or mapDiv not ready. mapDiv:`, this.mapDiv);
-      return;
-    }
-    if (typeof google === 'undefined' || !google.maps) {
-      console.error(`${timestamp} DistributionStep: initMapInternal - google.maps not available at time of map instantiation.`);
-      return;
-    }
-    if (typeof geoXML3 === 'undefined' || !geoXML3.parser) {
-      console.error(`${timestamp} DistributionStep: initMapInternal - geoXML3.parser not available at time of KML parsing setup.`);
-      return;
-    }
-    if (this.map) {
-      console.warn(`${timestamp} DistributionStep: Map is already initialized. Skipping.`);
+    if (!this.showPlzUiContainer) { console.log(`${LOG_PREFIX_DIST} initMapInternal: Not in PLZ mode. Aborting.`); return; }
+    if (!isPlatformBrowser(this.platformId)) { console.warn(`${LOG_PREFIX_DIST} initMapInternal: Not in browser, cannot init map.`); return; }
+    if (!this.mapDiv?.nativeElement) { console.error(`${LOG_PREFIX_DIST} initMapInternal: mapDiv.nativeElement is NULL. Cannot create map.`); return; }
+    if (this.map) { console.warn(`${LOG_PREFIX_DIST} initMapInternal: Map object ALREADY EXISTS. Skipping creation.`); return; }
+
+    const mapDivElement = this.mapDiv.nativeElement;
+    const rect = mapDivElement.getBoundingClientRect();
+    console.log(`${LOG_PREFIX_DIST} initMapInternal: mapDiv details JUST BEFORE new google.maps.Map(): offsetWidth=${mapDivElement.offsetWidth}, offsetHeight=${mapDivElement.offsetHeight}, clientWidth=${mapDivElement.clientWidth}, clientHeight=${mapDivElement.clientHeight}, visible=${rect.width > 0 && rect.height > 0}`);
+
+    if (!(rect.width > 0 && rect.height > 0)) {
+      console.warn(`${LOG_PREFIX_DIST} initMapInternal: mapDiv has no dimensions (width/height is 0). Map might not be visible. Retrying in ${MAP_RETRY_INIT_TIMEOUT}ms if still in PLZ mode.`);
+      setTimeout(() => {
+        if (this.showPlzUiContainer && !this.map && this.mapDiv?.nativeElement) {
+          const currentRect = this.mapDiv.nativeElement.getBoundingClientRect();
+          if(currentRect.width === 0 || currentRect.height === 0) {
+            console.error(`${LOG_PREFIX_DIST} initMapInternal: mapDiv STILL has no dimensions after retry. Check CSS affecting #map-container-angular and #map-angular visibility and sizing. Map initialization aborted.`);
+          } else {
+            console.log(`${LOG_PREFIX_DIST} initMapInternal: Retrying map creation after small delay as dimensions are now valid.`);
+            this.initMapInternal();
+          }
+        }
+      }, MAP_RETRY_INIT_TIMEOUT);
       return;
     }
 
-    const mapDivEl = this.mapDiv.nativeElement;
-    const mapDivStyle = window.getComputedStyle(mapDivEl);
-    if (parseInt(mapDivStyle.height, 10) === 0 || parseInt(mapDivStyle.width, 10) === 0) {
-      console.warn(`${timestamp} DistributionStep: mapDiv (#${mapDivEl.id || 'map-angular'}) has zero height or width. Height: ${mapDivStyle.height}, Width: ${mapDivStyle.width}. Map may not be visible. Ensure CSS provides dimensions.`);
-    } else {
-      console.log(`${timestamp} DistributionStep: mapDiv dimensions: Height: ${mapDivStyle.height}, Width: ${mapDivStyle.width}`);
-    }
-
+    console.log(`${LOG_PREFIX_DIST} initMapInternal: Creating Google Map instance...`);
     this.ngZone.runOutsideAngular(() => {
-      console.log(`${timestamp} DistributionStep: Initializing Google Map in div:`, this.mapDiv.nativeElement);
-      this.map = new google.maps.Map(mapDivEl, {
-        center: this.initialMapCenter,
-        zoom: this.initialMapZoom,
-        mapTypeControl: false,
-        fullscreenControl: false,
-        streetViewControl: false,
-        styles: this.mapStyleWithCorrectedFeatures
-      });
-      console.log(`${timestamp} DistributionStep: this.map object after initialization:`, this.map ? 'Map object created' : 'Map object FAILED to create');
+      try {
+        this.map = new google.maps.Map(mapDivElement, {
+          center: this.initialMapCenter,
+          zoom: this.initialMapZoom,
+          mapTypeControl: false,
+          fullscreenControl: false,
+          streetViewControl: false,
+          styles: this.mapStyleWithCorrectedFeatures.length > 0 ? this.mapStyleWithCorrectedFeatures : undefined
+        });
+        console.log(`${LOG_PREFIX_DIST} initMapInternal: Google Map instance CREATED.`);
+      } catch (e) { console.error(`${LOG_PREFIX_DIST} initMapInternal: ERROR creating Google Map instance:`, e); this.map = null; return; }
     });
 
-    if (this.loadingIndicatorDiv && this.loadingIndicatorDiv.nativeElement) this.loadingIndicatorDiv.nativeElement.style.display = 'flex';
+    if (!this.map) { console.error(`${LOG_PREFIX_DIST} initMapInternal: Map is null after creation attempt. Aborting KML load.`); return; }
 
-    const kmlFileUrl = 'assets/ch_plz.kml';
-    console.log(`${timestamp} DistributionStep: Attempting to parse KML from:`, kmlFileUrl);
+    if (this.loadingIndicatorDiv?.nativeElement) this.loadingIndicatorDiv.nativeElement.style.display = 'flex';
 
     this.geoXmlParser = new geoXML3.parser({
       map: this.map,
@@ -300,159 +314,51 @@ export class DistributionStepComponent implements AfterViewInit, OnDestroy {
       singleInfoWindow: true,
       processStyles: true,
       afterParse: (docs: any) => this.ngZone.run(() => {
-        const cbTimestamp = `[${new Date().toLocaleTimeString()}]`;
-        console.log(`${cbTimestamp} DistributionStep: KML afterParse. Docs found:`, docs && docs.length > 0 && docs[0].placemarks ? docs[0].placemarks.length : 0);
-        if (this.loadingIndicatorDiv && this.loadingIndicatorDiv.nativeElement) this.loadingIndicatorDiv.nativeElement.style.display = 'none';
-        if (docs && docs.length > 0 && docs[0].placemarks) {
+        if (this.loadingIndicatorDiv?.nativeElement) this.loadingIndicatorDiv.nativeElement.style.display = 'none';
+        if (docs?.[0]?.placemarks?.length > 0) {
           this.allPlacemarks = docs[0].placemarks;
+          console.log(`${LOG_PREFIX_DIST} KML afterParse: ${this.allPlacemarks.length} placemarks parsed. Setting up interactions.`);
           this.setupPlacemarkInteractions(this.allPlacemarks, this.hoverPlzDisplayDiv?.nativeElement);
+          this.synchronizeMapSelectionWithService(this.selectionService.getSelectedEntries());
         } else {
-          console.error(`${cbTimestamp} DistributionStep: KML-Parse-Fehler oder keine Placemarks (Browser).`);
+          console.error(`${LOG_PREFIX_DIST} KML afterParse: KML parse error or no placemarks found.`);
+          this.allPlacemarks = [];
         }
         this.updateOverallValidationState();
+        this.cdr.markForCheck();
       }),
       failedParse: (error: any) => this.ngZone.run(() => {
-        const cbTimestamp = `[${new Date().toLocaleTimeString()}]`;
-        if (this.loadingIndicatorDiv && this.loadingIndicatorDiv.nativeElement) this.loadingIndicatorDiv.nativeElement.style.display = 'none';
-        console.error(`${cbTimestamp} DistributionStep: KML failedParse. Error:`, error, 'URL:', kmlFileUrl);
+        if (this.loadingIndicatorDiv?.nativeElement) this.loadingIndicatorDiv.nativeElement.style.display = 'none';
+        console.error(`${LOG_PREFIX_DIST} KML failedParse:`, error);
+        this.allPlacemarks = [];
         this.updateOverallValidationState();
+        this.cdr.markForCheck();
       }),
       polygonOptions: this.defaultPolygonOptions
     });
-    this.geoXmlParser.parse(kmlFileUrl);
-  }
 
-  private extractPlzInfoFromPlacemark(placemark: any, forDisplay = true): string | null {
-    let plz: string | null = null;
-    if (!placemark) {
-      return forDisplay ? "N/A" : null;
+    try {
+      console.log(`${LOG_PREFIX_DIST} initMapInternal: Calling geoXmlParser.parse('${KML_FILE_PATH}')`);
+      this.geoXmlParser.parse(KML_FILE_PATH);
     }
-
-    if (placemark.name) {
-      plz = String(placemark.name).trim();
-    }
-
-    if (forDisplay) {
-      let displayText = "PLZ: N/A";
-      if (plz) {
-        if (plz.length === 6 && /^\d+$/.test(plz)) {
-          displayText = `PLZ: ${plz.substring(0, 4)}`;
-        } else {
-          displayText = `PLZ: ${plz}`;
-        }
-      } else if (placemark.description) {
-        displayText = `Beschreibung: ${placemark.description.substring(0, 30)}`;
-      }
-      return displayText;
-    } else {
-      return plz;
-    }
-  }
-
-  private updateSelectedPlzInfo(): void {
-    if (!isPlatformBrowser(this.platformId) || !this.selectedPlzInfoSpan || !this.selectedPlzInfoSpan.nativeElement) return;
-    this.selectedPlzInfoSpan.nativeElement.textContent = this.selectedPlzIdentifiers.length === 0 ?
-      "Keine" : this.selectedPlzIdentifiers.sort().join(', ');
-  }
-
-  private getPolygonBounds(polygon: any): google.maps.LatLngBounds | null {
-    if (!isPlatformBrowser(this.platformId) || typeof google === 'undefined' || !google.maps) return null;
-    const bounds = new google.maps.LatLngBounds();
-    const paths = polygon.getPaths();
-    paths.forEach((path: any) => {
-      const ar = path.getArray();
-      for (let i = 0, l = ar.length; i < l; i++) {
-        bounds.extend(ar[i]);
-      }
-    });
-    return bounds;
-  }
-
-  private zoomToSelectedPolygons(): void {
-    if (!isPlatformBrowser(this.platformId) || !this.map || typeof google === 'undefined' || !google.maps) return;
-
-    this.ngZone.runOutsideAngular(() => {
-      if (this.singlePolygonZoomAdjustListener) {
-        google.maps.event.removeListener(this.singlePolygonZoomAdjustListener);
-        this.singlePolygonZoomAdjustListener = null;
-      }
-
-      const totalBounds = new google.maps.LatLngBounds();
-      let hasSelected = false;
-
-      this.selectedPolygons.forEach(placemark => {
-        const actualPolygon = placemark.polygon || placemark.gObject;
-        if (actualPolygon) {
-          const bounds = this.getPolygonBounds(actualPolygon);
-          if (bounds) {
-            totalBounds.union(bounds);
-            hasSelected = true;
-          }
-        }
-      });
-
-      if (hasSelected && !totalBounds.isEmpty()) {
-        this.map.fitBounds(totalBounds);
-        if (this.selectedPolygons.size === 1) {
-          this.singlePolygonZoomAdjustListener = google.maps.event.addListenerOnce(this.map, 'idle', () => {
-            let currentZoom = this.map.getZoom();
-            if (currentZoom !== undefined) {
-              this.map.setZoom(Math.max(0, currentZoom - 2));
-            }
-            this.singlePolygonZoomAdjustListener = null;
-          });
-        }
-      } else {
-        this.map.setCenter(this.initialMapCenter);
-        this.map.setZoom(this.initialMapZoom);
-      }
-    });
-  }
-
-  private togglePolygonSelection(placemark: any, placemarkIndex: number): void {
-    if (!isPlatformBrowser(this.platformId) || typeof google === 'undefined' || !google.maps) return;
-
-    const actualPolygon = placemark.polygon || placemark.gObject;
-    if (!actualPolygon) return;
-
-    const plzIdentifier = this.extractPlzInfoFromPlacemark(placemark, false);
-    if (!plzIdentifier) return;
-
-    this.ngZone.runOutsideAngular(() => {
-      if (this.selectedPolygons.has(placemarkIndex)) {
-        this.selectedPolygons.delete(placemarkIndex);
-        actualPolygon.setOptions(this.defaultPolygonOptions);
-        const indexInArray = this.selectedPlzIdentifiers.indexOf(plzIdentifier);
-        if (indexInArray > -1) this.selectedPlzIdentifiers.splice(indexInArray, 1);
-      } else {
-        this.selectedPolygons.set(placemarkIndex, placemark);
-        actualPolygon.setOptions(this.selectedPolygonOptions);
-        if (!this.selectedPlzIdentifiers.includes(plzIdentifier)) {
-          this.selectedPlzIdentifiers.push(plzIdentifier);
-        }
-      }
-    });
-
-    this.ngZone.run(() => {
-      this.updateSelectedPlzInfo();
-      this.updateOverallValidationState();
-    });
+    catch (e) { console.error(`${LOG_PREFIX_DIST} initMapInternal: ERROR during geoXmlParser.parse():`, e); }
   }
 
   private setupPlacemarkInteractions(placemarks: any[], hoverPlzDisplayElement?: HTMLElement): void {
     if (!isPlatformBrowser(this.platformId) || typeof google === 'undefined' || !google.maps) return;
-    const timestamp = `[${new Date().toLocaleTimeString()}]`;
-    console.log(`${timestamp} DistributionStep: setupPlacemarkInteractions. Placemarks: ${placemarks.length}. Hover element: ${hoverPlzDisplayElement ? 'present' : 'absent'}`);
+    console.log(`${LOG_PREFIX_DIST} setupPlacemarkInteractions for ${placemarks.length} placemarks.`);
 
-    placemarks.forEach((placemark, index) => {
+    placemarks.forEach((placemark) => {
       const actualPolygon = placemark.polygon || placemark.gObject;
       if (actualPolygon && typeof actualPolygon.setOptions === 'function') {
+        const plzIdFromMap = this.extractPlzInfoFromPlacemark(placemark, false);
+
+        google.maps.event.clearInstanceListeners(actualPolygon);
+
         google.maps.event.addListener(actualPolygon, 'mouseover', () => this.ngZone.runOutsideAngular(() => {
-          if (this.selectedPolygons.has(index)) {
-            actualPolygon.setOptions(this.selectedHighlightedPolygonOptions);
-          } else {
-            actualPolygon.setOptions(this.highlightedPolygonOptions);
-          }
+          if (!this.showPlzUiContainer || !this.map) return;
+          const isSelected = plzIdFromMap ? this.selectionService.getSelectedEntries().some(e => e.id === plzIdFromMap) : false;
+          actualPolygon.setOptions(isSelected ? this.selectedHighlightedPolygonOptions : this.highlightedPolygonOptions);
           if (hoverPlzDisplayElement) {
             hoverPlzDisplayElement.textContent = `${this.extractPlzInfoFromPlacemark(placemark, true)}`;
             hoverPlzDisplayElement.style.display = 'block';
@@ -460,63 +366,412 @@ export class DistributionStepComponent implements AfterViewInit, OnDestroy {
         }));
 
         google.maps.event.addListener(actualPolygon, 'mouseout', () => this.ngZone.runOutsideAngular(() => {
-          if (this.selectedPolygons.has(index)) {
-            actualPolygon.setOptions(this.selectedPolygonOptions);
-          } else {
-            actualPolygon.setOptions(this.defaultPolygonOptions);
-          }
-          if (hoverPlzDisplayElement) {
-            hoverPlzDisplayElement.style.display = 'none';
-          }
+          if (!this.showPlzUiContainer || !this.map) return;
+          const isSelected = plzIdFromMap ? this.selectionService.getSelectedEntries().some(e => e.id === plzIdFromMap) : false;
+          actualPolygon.setOptions(isSelected ? this.selectedPolygonOptions : this.defaultPolygonOptions);
+          if (hoverPlzDisplayElement) hoverPlzDisplayElement.style.display = 'none';
         }));
 
         google.maps.event.addListener(actualPolygon, 'mousemove', (event: any) => {
-          if (hoverPlzDisplayElement && hoverPlzDisplayElement.style.display === 'block' && event.domEvent) {
-            let x = event.domEvent.clientX;
-            let y = event.domEvent.clientY;
-            hoverPlzDisplayElement.style.left = (x + 15) + 'px';
-            hoverPlzDisplayElement.style.top = (y + 15) + 'px';
+          if (!this.showPlzUiContainer || !this.map) return;
+          if (hoverPlzDisplayElement?.style.display === 'block' && event.domEvent) {
+            hoverPlzDisplayElement.style.left = (event.domEvent.clientX + 15) + 'px';
+            hoverPlzDisplayElement.style.top = (event.domEvent.clientY + 15) + 'px';
           }
         });
 
         google.maps.event.addListener(actualPolygon, 'click', () => this.ngZone.run(() => {
-          this.togglePolygonSelection(placemark, index);
-          this.zoomToSelectedPolygons();
+          if (this.showPlzUiContainer && this.map) {
+            console.log(`${LOG_PREFIX_DIST} Map polygon clicked. PLZ UI visible and map exists. Handling click for ${plzIdFromMap || 'unknown ID'}`);
+            this.handleMapPolygonClick(placemark);
+          } else {
+            console.log(`${LOG_PREFIX_DIST} Map polygon click IGNORED. PLZ UI not visible (${this.showPlzUiContainer}) or map not initialized (${!!this.map}).`);
+          }
         }));
       }
     });
   }
 
-  ngOnDestroy(): void {
-    const timestamp = `[${new Date().toLocaleTimeString()}]`;
-    console.log(`${timestamp} DistributionStep: ngOnDestroy called.`);
-    if (isPlatformBrowser(this.platformId)) {
-      // Resize-Listener entfernen
-      window.removeEventListener('resize', this.onWindowResize.bind(this)); // Wichtig: .bind(this) verwenden, um die gleiche Referenz zu entfernen
-      clearTimeout(this.resizeTimeout); // Eventuellen laufenden Timeout löschen
+  private handleMapPolygonClick(placemark: any): void {
+    const entryIdFromMap = this.extractPlzInfoFromPlacemark(placemark, false);
+    if (!entryIdFromMap) {
+      console.warn(`${LOG_PREFIX_DIST} handleMapPolygonClick: Could not extract ID from placemark. Click ignored.`);
+      return;
+    }
+    const isCurrentlySelected = this.selectionService.getSelectedEntries().some(e => e.id === entryIdFromMap);
+    if (isCurrentlySelected) {
+      console.log(`${LOG_PREFIX_DIST} handleMapPolygonClick: Removing entry ${entryIdFromMap}`);
+      this.selectionService.removeEntry(entryIdFromMap);
+    } else {
+      console.log(`${LOG_PREFIX_DIST} handleMapPolygonClick: Attempting to add entry ${entryIdFromMap}`);
+      this.plzDataService.getEntryById(entryIdFromMap).subscribe(entry => {
+        if (entry && this.selectionService.validateEntry(entry)) {
+          this.selectionService.addEntry(entry);
+          console.log(`${LOG_PREFIX_DIST} handleMapPolygonClick: Added entry ${entry.id} from PlzDataService.`);
+        } else {
+          const plz6 = entryIdFromMap;
+          const plz4 = plz6.length >= 4 ? plz6.substring(0, 4) : plz6;
+          const pseudoOrt = placemark.name || 'Unbekannt';
+          const pseudoEntry: PlzEntry = { id: entryIdFromMap, plz6, plz4, ort: pseudoOrt, kt: 'N/A', all: 0, mfh: 0, efh: 0 }; // Sicherstellen, dass mfh/efh initialisiert sind
 
-      if (this.singlePolygonZoomAdjustListener && typeof google !== 'undefined' && google.maps) {
-        google.maps.event.removeListener(this.singlePolygonZoomAdjustListener);
-        this.singlePolygonZoomAdjustListener = null;
-      }
-      if (this.map && typeof google !== 'undefined' && google.maps) {
-        console.log(`${timestamp} DistributionStep: Clearing map listeners and nullifying map.`);
-        google.maps.event.clearInstanceListeners(this.map);
-      }
-      this.map = null;
-
-      this.allPlacemarks.forEach(placemark => {
-        const actualPolygon = placemark.polygon || placemark.gObject;
-        if (actualPolygon && typeof google !== 'undefined' && google.maps) {
-          google.maps.event.clearInstanceListeners(actualPolygon);
+          if (this.selectionService.validateEntry(pseudoEntry)) {
+            this.selectionService.addEntry(pseudoEntry);
+            console.log(`${LOG_PREFIX_DIST} handleMapPolygonClick: Added pseudo-entry ${pseudoEntry.id} from KML placemark.`);
+          } else {
+            console.warn(`${LOG_PREFIX_DIST} handleMapPolygonClick: Pseudo-entry ${pseudoEntry.id} not valid or already exists.`);
+          }
         }
+        this.cdr.markForCheck();
       });
-      if ((window as any).googleMapsScriptLoading) {
-        delete (window as any).googleMapsScriptLoading;
-        delete (window as any).angularGoogleMapsCallback;
-        delete (window as any).resolveGoogleMapsPromise;
-        delete (window as any).rejectGoogleMapsPromise;
+    }
+  }
+
+  private extractPlzInfoFromPlacemark(placemark: any, forDisplay = true): string | null {
+    let plz6: string | null = null;
+
+    if (placemark?.name) {
+      const nameMatch = String(placemark.name).trim().match(/^(\d{6})$/);
+      if (nameMatch) plz6 = nameMatch[1];
+    }
+
+    if (!plz6 && placemark?.description) {
+      const descriptionMatch = String(placemark.description).match(/PLZCH:\s*(\d{6})/i);
+      if (descriptionMatch && descriptionMatch[1]) {
+        plz6 = descriptionMatch[1];
       }
     }
+
+    if (!plz6) {
+      return null;
+    }
+
+    if (forDisplay) {
+      const plz4ForDisplay = plz6.substring(0, 4);
+      return `PLZ: ${plz4ForDisplay}`;
+    }
+    return plz6;
+  }
+
+  private getPolygonBounds(polygon: any): google.maps.LatLngBounds | null {
+    if (!isPlatformBrowser(this.platformId) || typeof google === 'undefined' || !google.maps) return null;
+    const bounds = new google.maps.LatLngBounds();
+
+    if (polygon && typeof polygon.getPaths === 'function') {
+      polygon.getPaths().forEach((path: any) => {
+        if (path && typeof path.getArray === 'function') {
+          path.getArray().forEach((latLng: any) => bounds.extend(latLng));
+        }
+      });
+    } else if (polygon && typeof polygon.getPath === 'function') {
+      const path = polygon.getPath();
+      if (path && typeof path.getArray === 'function') {
+        path.getArray().forEach((latLng: any) => bounds.extend(latLng));
+      }
+    } else {
+      console.warn(`${LOG_PREFIX_DIST} getPolygonBounds: Polygon object does not have getPaths or getPath method.`);
+      return null;
+    }
+    return bounds.isEmpty() ? null : bounds;
+  }
+
+  // --- TYPEAHEAD METHODS ---
+
+  searchPlzTypeahead = (text$: Observable<string>): Observable<PlzEntry[]> =>
+    text$.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      tap(() => { this.searching = true; this.searchFailed = false; this.cdr.markForCheck(); }),
+      switchMap(term => {
+        if (term.length < 2) {
+          this.searching = false;
+          if (!this.currentTypeaheadSelection) this.textInputStatus = 'invalid';
+          this.updateOverallValidationState(); this.cdr.markForCheck(); return of([]);
+        }
+        return this.plzDataService.search(term).pipe(
+          tap((results) => {
+            this.searching = false; this.searchFailed = results.length === 0;
+            this.cdr.markForCheck();
+          }),
+          catchError(() => {
+            this.searching = false; this.searchFailed = true; this.cdr.markForCheck(); return of([]);
+          })
+        );
+      })
+    );
+
+  resultFormatter = (entry: PlzEntry) => `${entry.plz4} ${entry.ort} (${entry.kt})`;
+
+  typeaheadInputFormatter = (entry: PlzEntry | null | undefined): string => {
+    if (entry && entry.plz4 && entry.ort) {
+      return `${entry.plz4} ${entry.ort}`;
+    }
+    return '';
+  };
+
+  typeaheadItemSelected(event: NgbTypeaheadSelectItemEvent<PlzEntry>): void {
+    event.preventDefault();
+    this.currentTypeaheadSelection = event.item;
+    this.typeaheadSearchTerm = this.typeaheadInputFormatter(event.item);
+    this.textInputStatus = 'valid'; this.searchFailed = false;
+    this.updateOverallValidationState(); this.cdr.markForCheck();
+  }
+
+  onTypeaheadInputChange(term: string): void {
+    if (this.currentTypeaheadSelection && this.typeaheadInputFormatter(this.currentTypeaheadSelection) !== term) {
+      this.currentTypeaheadSelection = null;
+    }
+    if (term === '' && !this.currentTypeaheadSelection) { this.searchFailed = false; }
+
+    if (this.currentTypeaheadSelection) { this.textInputStatus = 'valid'; }
+    else if (term.length > 1) { this.textInputStatus = 'pending'; }
+    else { this.textInputStatus = 'invalid'; }
+    this.updateOverallValidationState(); this.cdr.markForCheck();
+  }
+
+  addCurrentTypeaheadSelectionToTable(): void {
+    if (this.currentTypeaheadSelection && this.selectionService.validateEntry(this.currentTypeaheadSelection)) {
+      const added = this.selectionService.addEntry(this.currentTypeaheadSelection);
+      if (added) {
+        this.typeaheadSearchTerm = ''; this.currentTypeaheadSelection = null;
+        this.textInputStatus = 'invalid'; this.searchFailed = false;
+      } else {
+        this.typeaheadSearchTerm = ''; this.currentTypeaheadSelection = null; this.textInputStatus = 'invalid';
+      }
+    }
+    this.updateOverallValidationState(); this.cdr.markForCheck();
+  }
+
+  // --- TABLE & SELECTION METHODS ---
+
+  removePlzFromTable(entry: PlzEntry): void { this.selectionService.removeEntry(entry.id); }
+  clearPlzTable(): void { this.selectionService.clearEntries(); }
+
+  zoomToTableEntryOnMap(entry: PlzEntry): void {
+    if (!this.map || !this.showPlzUiContainer) {
+      console.log(`${LOG_PREFIX_DIST} ZoomToTableEntry: Map not available or not in PLZ mode. Map: ${!!this.map}, ShowPLZ: ${this.showPlzUiContainer}`);
+      return;
+    }
+    const placemarkToZoom = this.allPlacemarks.find(p => this.extractPlzInfoFromPlacemark(p, false) === entry.id);
+    if (placemarkToZoom) {
+      const actualPolygon = placemarkToZoom.polygon || placemarkToZoom.gObject;
+      if (actualPolygon && typeof google !== 'undefined' && google.maps) {
+        const bounds = this.getPolygonBounds(actualPolygon);
+        if (bounds && !bounds.isEmpty()) {
+          this.map.fitBounds(bounds);
+          if (this.singlePolygonZoomAdjustListener) google.maps.event.removeListener(this.singlePolygonZoomAdjustListener);
+          this.singlePolygonZoomAdjustListener = google.maps.event.addListenerOnce(this.map, 'idle', () => {
+            let currentZoom = this.map.getZoom();
+            if (currentZoom !== undefined) this.map.setZoom(Math.max(0, currentZoom - 2));
+            this.singlePolygonZoomAdjustListener = null;
+          });
+        }
+      }
+    }
+  }
+
+  private synchronizeMapSelectionWithService(selectedEntries: PlzEntry[]): void {
+    if (!this.map || !this.showPlzUiContainer || !this.allPlacemarks || this.allPlacemarks.length === 0) {
+      console.log(`${LOG_PREFIX_DIST} SyncMapSelection: Conditions not met. Map: ${!!this.map}, ShowPLZ: ${this.showPlzUiContainer}, Placemarks: ${this.allPlacemarks?.length}`);
+      return;
+    }
+    const selectedEntryIds = new Set(selectedEntries.map(e => e.id));
+    this.allPlacemarks.forEach(placemark => {
+      const actualPolygon = placemark.polygon || placemark.gObject;
+      if (actualPolygon?.setOptions) {
+        const plzIdFromMap = this.extractPlzInfoFromPlacemark(placemark, false);
+        actualPolygon.setOptions(plzIdFromMap && selectedEntryIds.has(plzIdFromMap) ? this.selectedPolygonOptions : this.defaultPolygonOptions);
+      }
+    });
+    if (this.selectedPlzInfoSpan?.nativeElement) {
+      this.updateSelectedPlzInfoText(selectedEntries);
+    }
+    this.zoomMapToSelectedEntries(selectedEntries);
+    this.cdr.markForCheck();
+  }
+
+  private updateSelectedPlzInfoText(currentSelection: PlzEntry[]): void {
+    if (!isPlatformBrowser(this.platformId) || !this.selectedPlzInfoSpan?.nativeElement) return;
+    const displayPlzList = currentSelection.map(entry => entry.plz4).sort();
+    this.selectedPlzInfoSpan.nativeElement.textContent = displayPlzList.length === 0 ? "Keine" : displayPlzList.join(', ');
+  }
+
+  private zoomMapToSelectedEntries(entriesToZoom: PlzEntry[]): void {
+    if (!this.map || !this.showPlzUiContainer || !this.allPlacemarks || this.allPlacemarks.length === 0 || typeof google === 'undefined' || !google.maps) return;
+    this.ngZone.runOutsideAngular(() => {
+      if (this.singlePolygonZoomAdjustListener) google.maps.event.removeListener(this.singlePolygonZoomAdjustListener);
+      this.singlePolygonZoomAdjustListener = null;
+
+      const totalBounds = new google.maps.LatLngBounds();
+      let hasSelected = false;
+      if (entriesToZoom.length > 0) {
+        const selectedEntryIds = new Set(entriesToZoom.map(e => e.id));
+        this.allPlacemarks.forEach(placemark => {
+          const plzIdFromMap = this.extractPlzInfoFromPlacemark(placemark, false);
+          if (plzIdFromMap && selectedEntryIds.has(plzIdFromMap)) {
+            const actualPolygon = placemark.polygon || placemark.gObject;
+            if (actualPolygon) {
+              const bounds = this.getPolygonBounds(actualPolygon);
+              if (bounds) { totalBounds.union(bounds); hasSelected = true; }
+            }
+          }
+        });
+      }
+
+      if (hasSelected && !totalBounds.isEmpty()) {
+        this.map.fitBounds(totalBounds);
+        if (entriesToZoom.length === 1) {
+          this.singlePolygonZoomAdjustListener = google.maps.event.addListenerOnce(this.map, 'idle', () => {
+            let currentZoom = this.map.getZoom();
+            if (currentZoom !== undefined) this.map.setZoom(Math.max(0, currentZoom - 2));
+            this.singlePolygonZoomAdjustListener = null;
+          });
+        }
+      } else {
+        this.map.setCenter(this.initialMapCenter); this.map.setZoom(this.initialMapZoom);
+      }
+    });
+  }
+
+  // NEUES FEATURE: Methoden für Zielgruppen-Logik
+  getFlyerMaxForEntry(entry: PlzEntry): number {
+    if (!entry) return 0;
+    switch (this.currentZielgruppe) {
+      case 'Mehrfamilienhäuser':
+        return entry.mfh ?? 0; // Fallback auf 0, falls mfh nicht definiert ist
+      case 'Ein- und Zweifamilienhäuser':
+        return entry.efh ?? 0; // Fallback auf 0, falls efh nicht definiert ist
+      case 'Alle Haushalte':
+      default:
+        return entry.all ?? 0; // Fallback auf 0, falls all nicht definiert ist
+    }
+  }
+
+  getZielgruppeLabel(): string {
+    // Gibt einen kürzeren Label für den Tabellenkopf zurück
+    switch (this.currentZielgruppe) {
+      case 'Mehrfamilienhäuser': return 'MFH';
+      case 'Ein- und Zweifamilienhäuser': return 'EFH/ZFH';
+      case 'Alle Haushalte':
+      default: return 'Alle';
+    }
+  }
+
+  // --- VALIDATION AND NAVIGATION ---
+
+  setExampleStatus(status: ValidationStatus): void {
+    this.textInputStatus = status;
+    if (status === 'invalid') {
+      this.currentTypeaheadSelection = null; this.typeaheadSearchTerm = ''; this.searchFailed = false;
+    }
+    this.updateOverallValidationState(); this.cdr.markForCheck();
+  }
+
+  private updateOverallValidationState(): void {
+    const mapHasSelection = this.selectionService.getSelectedEntries().length > 0;
+    let newOverallStatus: ValidationStatus = 'invalid';
+
+    if (this.showPlzUiContainer) {
+      if (this.textInputStatus === 'valid' || mapHasSelection) {
+        newOverallStatus = 'valid';
+      } else if (this.textInputStatus === 'pending' && !mapHasSelection) {
+        newOverallStatus = 'pending';
+      }
+    } else if (this.showPerimeterUiContainer) {
+      newOverallStatus = 'valid';
+    }
+
+    if (this.validationChange.observers.length > 0) {
+      this.validationChange.emit(newOverallStatus);
+    }
+  }
+
+  proceedToNextStep(): void {
+    let currentOverallStatus: ValidationStatus = 'invalid';
+    const mapHasSelection = this.selectionService.getSelectedEntries().length > 0;
+
+    if (this.showPlzUiContainer) {
+      if (this.textInputStatus === 'valid' || mapHasSelection) { currentOverallStatus = 'valid'; }
+      else if (this.textInputStatus === 'pending' && !mapHasSelection) { currentOverallStatus = 'pending'; }
+    } else if (this.showPerimeterUiContainer) {
+      currentOverallStatus = 'valid';
+    }
+
+    this.validationChange.emit(currentOverallStatus);
+    if (currentOverallStatus === 'valid') {
+      this.nextStepRequest.emit();
+    } else {
+      const message = currentOverallStatus === 'pending'
+        ? "Bitte vervollständigen Sie Ihre Eingabe im Suchfeld oder wählen Sie PLZ-Gebiete auf der Karte aus, um fortzufahren."
+        : "Die Eingabe im Suchfeld ist ungültig und es sind keine PLZ-Gebiete auf der Karte ausgewählt. Bitte korrigieren Sie Ihre Auswahl.";
+      if (isPlatformBrowser(this.platformId)) alert(message);
+    }
+  }
+
+  // --- GOOGLE MAPS SCRIPT LOADING ---
+
+  private loadGoogleMapsScript(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      if (!isPlatformBrowser(this.platformId)) { resolve(); return; }
+      if (typeof google !== 'undefined' && google.maps) { resolve(); return; }
+
+      if ((window as any).googleMapsScriptLoadingPromise) {
+        return (window as any).googleMapsScriptLoadingPromise;
+      }
+
+      (window as any).googleMapsScriptLoadingPromise = new Promise<void>((innerResolve, innerReject) => {
+        (window as any).angularGoogleMapsCallback = () => {
+          if ((window as any).google?.maps) {
+            console.log(`${LOG_PREFIX_DIST} Google Maps API Callback erfolgreich.`);
+            innerResolve();
+          } else {
+            console.error(`${LOG_PREFIX_DIST} Google Maps API Callback, aber google.maps nicht gefunden.`);
+            innerReject(new Error("Google Maps API geladen, aber google.maps nicht gefunden."));
+          }
+          delete (window as any).angularGoogleMapsCallback;
+          delete (window as any).googleMapsScriptLoadingPromise;
+        };
+
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=angularGoogleMapsCallback&libraries=visualization,geometry`;
+        script.async = true;
+        script.defer = true;
+        script.onerror = (e) => {
+          console.error(`${LOG_PREFIX_DIST} Fehler beim Laden des Google Maps Skript-Tags.`);
+          innerReject(e);
+          delete (window as any).angularGoogleMapsCallback;
+          delete (window as any).googleMapsScriptLoadingPromise;
+        };
+        document.head.appendChild(script);
+        console.log(`${LOG_PREFIX_DIST} Google Maps API Skript-Tag zum head hinzugefügt.`);
+      });
+
+      return (window as any).googleMapsScriptLoadingPromise.then(resolve).catch(reject);
+    });
+  }
+
+  // --- UTILITY METHODS ---
+  private readonly onWindowResize = () => {
+    clearTimeout(this.resizeTimeout);
+    this.resizeTimeout = setTimeout(() => {
+      if (!this.map || !isPlatformBrowser(this.platformId) || !this.showPlzUiContainer) return;
+      const logTime = "2025-05-29 19:23:29";
+      console.log(`${LOG_PREFIX_DIST} Window resized, re-triggering map operations. Current time: ${logTime}`);
+      const center = this.map.getCenter();
+      if (typeof google !== 'undefined' && google.maps && this.map) {
+        google.maps.event.trigger(this.map, 'resize');
+        if (center) {
+          this.map.setCenter(center);
+        }
+        this.zoomMapToSelectedEntries(this.selectionService.getSelectedEntries());
+      }
+    }, WINDOW_RESIZE_DEBOUNCE);
+  };
+
+  highlight(text: string, term: string): string {
+    if (!term || term.length === 0) { return text; }
+    const R_SPECIAL = /[-\/\\^$*+?.()|[\]{}]/g;
+    const safeTerm = term.replace(R_SPECIAL, '\\$&');
+    const regex = new RegExp(`(${safeTerm})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
   }
 }

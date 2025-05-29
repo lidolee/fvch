@@ -148,12 +148,14 @@ table,
       text-align: center;
       box-sizing: border-box;
 
-      a {
+      .btn-link {
+        text-align: center;
+        width: 100%;
         font-size: 21px;
         color: $gray-600;
         cursor: pointer;
         transition: color 0.2s ease-in-out;
-        display: block;
+        display: inline-block;
 
         &:hover {
           color: $primary;
