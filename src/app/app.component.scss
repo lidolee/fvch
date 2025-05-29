@@ -36,6 +36,7 @@
       border-right: 1px solid $border-color;
       border-bottom: 1px solid transparent;
       border-left: 1px solid $border-color;
+      background: linear-gradient(to bottom, $white, mix($primary, $white, 2%));
     }
   }
 }

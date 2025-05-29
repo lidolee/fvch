@@ -1,6 +1,6 @@
 import { Component, Output, EventEmitter, AfterViewInit, OnDestroy, ViewChild, ElementRef, NgZone, Inject, PLATFORM_ID } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { ValidationStatus } from '../../app.component'; // Pfad anpassen
+import { ValidationStatus } from '../../app.component';
 
 declare var google: any;
 declare var geoXML3: any;

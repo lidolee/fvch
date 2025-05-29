@@ -14,7 +14,7 @@ $gray-100:                                                                      
 $gray-200:                                                                      #e9ecef;
 $gray-300:                                                                      #dee2e6;
 $gray-400:                                                                      #ced4da;
-$gray-500:                                                                      #adb5bd;
+$gray-500:                                                                      #a7adb3;
 $gray-600:                                                                      #6c757d;
 $gray-700:                                                                      #495057;
 $gray-800:                                                                      #343a40;
@@ -74,3 +74,8 @@ $container-max-widths: (
   xl:                                                                           1140px,
   xxl:                                                                          1440px
 );
+
+
+$border-radius:                                                                 3px;
+$btn-border-radius:                                                             3px;
+$input-border-color:                                                            $gray-500;

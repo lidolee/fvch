@@ -17,7 +17,7 @@ export class ContactDataComponent {
 
   form: FormGroup;
 
-  salutations = ['Herr', 'Frau', 'Divers'];
+  salutations = ['Herr', 'Frau', 'Divers / Keine Angabe'];
 
   constructor(private fb: FormBuilder) {
     this.form = this.fb.group({
