@@ -8,10 +8,10 @@ fieldset {
   legend {
     text-transform: uppercase;
     font-size: 14px;
-    color: $gray-600;
+    color: $gray-500;
     letter-spacing: 0.3px;
     font-weight: 800;
-    margin-bottom: 32px;
+    margin: 48px 0 36px 0;
     position: relative;
 
     &:before {
@@ -41,6 +41,10 @@ fieldset {
 label,
 .col-form-label {
   font-size: 16px;
+  font-weight: 500;
+}
+
+.form-control {
   font-weight: 500;
 }
 
