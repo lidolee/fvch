@@ -1,32 +1,30 @@
-// Globale Stile, die vorher im <style>-Tag waren
 :host {
-  display: block; // Stellt sicher, dass die Komponente Platz einnimmt
+  display: block;
   width: 100%;
-  height: auto; // Oder eine feste Höhe, falls gewünscht
+  height: auto;
 }
 
 .map-main-container {
   display: flex;
   width: 100%;
-  // height: 75vh; // Entfernt, um das Seitenverhältnis zu ermöglichen
-  position: relative; // Für den Ladeindikator
+  position: relative;
 }
 
 #map-container-angular {
   position: relative;
   width: 100%;
-  height: 0; // Wichtig für den Aspect-Ratio-Trick
-  padding-bottom: 75%; // Erzeugt ein 4:3 Seitenverhältnis (3 / 4 * 100%)
+  height: 0;
+  padding-bottom: 75%;
 }
 
 #map-angular {
-  position: absolute; // Positioniert die Karte innerhalb des Containers
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 100%; // Füllt den Container in der Höhe
-  width: 100%;  // Füllt den Container in der Breite
+  height: 100%;
+  width: 100%;
 }
 
 #loading-indicator-angular {
@@ -48,16 +46,16 @@
 
 
 #hover-plz-display-angular {
-  position: fixed; // Bleibt relativ zum Viewport beim Scrollen der Karte
+  position: fixed;
   background-color: rgba(0, 0, 0, 0.75);
   color: white;
   padding: 5px 10px;
   border-radius: 4px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  z-index: 10010; // Über dem Ladeindikator und der Karte
+  z-index: 10010;
   font-size: 0.9em;
-  display: none; // Wird per Code gesteuert
-  pointer-events: none; // Damit Klicks durchgehen zur Karte
+  display: none;
+  pointer-events: none;
   white-space: nowrap;
 }
 
