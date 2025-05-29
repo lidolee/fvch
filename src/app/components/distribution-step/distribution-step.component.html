@@ -34,86 +34,90 @@
   <strong>Preise ab CHF 250.– pro 1’000 Flyer</strong>
 </div>
 
-<div class="mb-3">
-  <label for="distributionArea" class="form-label">Postleitzahl, Postleitzahl-Bereich oder Ort eingeben</label>
+<div class="plz-container">
+  <div class="mb-3">
+    <label for="distributionArea" class="form-label">Postleitzahl, Postleitzahl-Bereich oder Ort eingeben</label>
 
-  <div class="input-group flex-nowrap">
-    <span class="input-group-text" id="search"><i class="mdi mdi-magnify"></i></span>
-    <input type="text"
-           id="distributionArea"
-           class="form-control"
-           placeholder="8001 oder 8001-8004 oder Zürich"
-           aria-label="Suche"
-           (input)="updateLocalValidationStatus($any($event.target).value ? ($any($event.target).value.length > 2 ? 'valid' : 'pending') : 'invalid')">
-    <button class="btn btn-primary" type="button">Hinzufügen</button>
+    <div class="input-group flex-nowrap">
+      <span class="input-group-text" id="search"><i class="mdi mdi-magnify"></i></span>
+      <input type="text"
+             id="distributionArea"
+             class="form-control"
+             placeholder="8001 oder 8001-8004 oder Zürich"
+             aria-label="Suche"
+             (input)="updateLocalValidationStatus($any($event.target).value ? ($any($event.target).value.length > 2 ? 'valid' : 'pending') : 'invalid')">
+      <button class="btn btn-primary" type="button">Hinzufügen</button>
+    </div>
+  </div>
+
+  <div class="mb-3 text-end">
+    <button class="btn btn-outline-secondary mb-3" type="button"><i class="mdi mdi-delete"></i>&nbsp;Liste löschen</button>
+  </div>
+
+  <div class="plz-table table-responsive">
+    <table class="table table-responsive-sm table-hover">
+      <thead>
+      <tr>
+        <th scope="col" class="plz">PLZ</th>
+        <th scope="col" class="ort">Ort</th>
+        <th scope="col" class="canton">KT.</th>
+        <th scope="col" class="flyer-max">Flyer Max</th>
+        <th scope="col" class="flyer-fix">Flyer Fix</th>
+        <th scope="col" colspan="2" class="text-end">Aktionen</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>8001</td>
+        <td>Zürich</td>
+        <td>ZH</td>
+        <td class="flyer-max">7'120</td>
+        <td><input class="form-control" type="number" value="2100" title="Anzahl Flyer für diese PLZ festlegen"></td>
+        <td class="has-icon"><a href="#"><i class="mdi mdi-crosshairs-gps" title="Auf Karte anzeigen"></i></a></td>
+        <td class="has-icon"><a href="#"><i class="mdi mdi-delete" title="Eintrag löschen"></i></a></td>
+      </tr>
+      <tr>
+        <td>8002</td>
+        <td>Zürich</td>
+        <td>ZH</td>
+        <td class="flyer-max">9'800</td>
+        <td><input class="form-control" type="number" value="2100"></td>
+        <td class="has-icon"><a href="#"><i class="mdi mdi-crosshairs-gps" title="Auf Karte anzeigen"></i></a></td>
+        <td class="has-icon"><a href="#"><i class="mdi mdi-delete" title="Eintrag löschen"></i></a></td>
+      </tr>
+      <tr>
+        <td>4322</td>
+        <td>Rudolfstetten-Friedlisberg</td>
+        <td>AG</td>
+        <td class="flyer-max">14'100</td>
+        <td><input class="form-control" type="number" value="2100"></td>
+        <td class="has-icon"><a href="#"><i class="mdi mdi-crosshairs-gps" title="Auf Karte anzeigen"></i></a></td>
+        <td class="has-icon"><a href="#"><i class="mdi mdi-delete" title="Eintrag löschen"></i></a></td>
+      </tr>
+      <tr>
+        <td>3000</td>
+        <td>Bern</td>
+        <td>BE</td>
+        <td class="flyer-max">2'100</td>
+        <td><input class="form-control" type="number" value="2100"></td>
+        <td class="has-icon"><a href="#"><i class="mdi mdi-crosshairs-gps" title="Auf Karte anzeigen"></i></a></td>
+        <td class="has-icon"><a href="#"><i class="mdi mdi-delete" title="Eintrag löschen"></i></a></td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="map-main-container">
+    <div #mapContainer id="map-container-angular">
+      <div #mapDiv id="map-angular"></div>
+      <div #hoverPlzDisplay id="hover-plz-display-angular">PLZ: --</div>
+    </div>
+
+    <div #loadingIndicator id="loading-indicator-angular">Loading KML...</div>
   </div>
 </div>
 
-<div class="mb-3 text-end">
-  <button class="btn btn-outline-secondary mb-3" type="button"><i class="mdi mdi-delete"></i>&nbsp;Liste löschen</button>
-</div>
 
-<div class="plz-table table-responsive">
-  <table class="table table-responsive-sm table-hover">
-    <thead>
-    <tr>
-      <th scope="col" class="plz">PLZ</th>
-      <th scope="col" class="ort">Ort</th>
-      <th scope="col" class="canton">KT.</th>
-      <th scope="col" class="flyer-max">Flyer Max</th>
-      <th scope="col" class="flyer-fix">Flyer Fix</th>
-      <th scope="col" colspan="2" class="text-end">Aktionen</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-      <td>8001</td>
-      <td>Zürich</td>
-      <td>ZH</td>
-      <td class="flyer-max">7'120</td>
-      <td><input class="form-control" type="number" value="2100" title="Anzahl Flyer für diese PLZ festlegen"></td>
-      <td class="has-icon"><a href="#"><i class="mdi mdi-crosshairs-gps" title="Auf Karte anzeigen"></i></a></td>
-      <td class="has-icon"><a href="#"><i class="mdi mdi-delete" title="Eintrag löschen"></i></a></td>
-    </tr>
-    <tr>
-      <td>8002</td>
-      <td>Zürich</td>
-      <td>ZH</td>
-      <td class="flyer-max">9'800</td>
-      <td><input class="form-control" type="number" value="2100"></td>
-      <td class="has-icon"><a href="#"><i class="mdi mdi-crosshairs-gps" title="Auf Karte anzeigen"></i></a></td>
-      <td class="has-icon"><a href="#"><i class="mdi mdi-delete" title="Eintrag löschen"></i></a></td>
-    </tr>
-    <tr>
-      <td>4322</td>
-      <td>Rudolfstetten-Friedlisberg</td>
-      <td>AG</td>
-      <td class="flyer-max">14'100</td>
-      <td><input class="form-control" type="number" value="2100"></td>
-      <td class="has-icon"><a href="#"><i class="mdi mdi-crosshairs-gps" title="Auf Karte anzeigen"></i></a></td>
-      <td class="has-icon"><a href="#"><i class="mdi mdi-delete" title="Eintrag löschen"></i></a></td>
-    </tr>
-    <tr>
-      <td>3000</td>
-      <td>Bern</td>
-      <td>BE</td>
-      <td class="flyer-max">2'100</td>
-      <td><input class="form-control" type="number" value="2100"></td>
-      <td class="has-icon"><a href="#"><i class="mdi mdi-crosshairs-gps" title="Auf Karte anzeigen"></i></a></td>
-      <td class="has-icon"><a href="#"><i class="mdi mdi-delete" title="Eintrag löschen"></i></a></td>
-    </tr>
-    </tbody>
-  </table>
-</div>
-
-<div class="map-main-container">
-  <div #mapContainer id="map-container-angular">
-    <div #mapDiv id="map-angular"></div>
-    <div #hoverPlzDisplay id="hover-plz-display-angular">PLZ: --</div>
-  </div>
-
-  <div #loadingIndicator id="loading-indicator-angular">Loading KML...</div>
-</div>
 
 <!-- 2. VERTEILUNG ///////////////////////////////////////////////////////// -->
 
