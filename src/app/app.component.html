@@ -22,7 +22,7 @@
 
       <ul ngbNav #nav="ngbNav" [(activeId)]="activeStepId" (navChange)="onNavChange($event)" class="nav-tabs nav-fill" role="tablist">
         <li [ngbNavItem]="1">
-          <button ngbNavLink class="d-flex align-items-center justify-content-center">1. Verteilung<i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(1)"></i></button>
+          <button ngbNavLink class="d-flex align-items-center justify-content-center">1. Flyer Verteilung<i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(1)"></i></button>
           <ng-template ngbNavContent>
             <div>
               <app-distribution-step
@@ -32,8 +32,9 @@
             </div>
           </ng-template>
         </li>
+
         <li [ngbNavItem]="2">
-          <button ngbNavLink class="d-flex align-items-center justify-content-center">2. Design & Druck<i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(2)"></i></button>
+          <button ngbNavLink class="d-flex align-items-center justify-content-center">2. Flyer Design & Druck<i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(2)"></i></button>
           <ng-template ngbNavContent>
             <div>
               <app-design-print-step
@@ -44,26 +45,15 @@
             </div>
           </ng-template>
         </li>
+
         <li [ngbNavItem]="3">
-          <button ngbNavLink class="d-flex align-items-center justify-content-center">3. Kontaktdaten<i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(3)"></i></button>
-          <ng-template ngbNavContent>
-            <div>
-              <app-contact-step
-                (prevStepRequest)="navigateToStep(2)"
-                (nextStepRequest)="navigateToStep(4)"
-                (validationChange)="updateValidationStatus(3, $event)">
-              </app-contact-step>
-            </div>
-          </ng-template>
-        </li>
-        <li [ngbNavItem]="4">
-          <button ngbNavLink class="d-flex align-items-center justify-content-center">Abschluss<i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(4)"></i></button>
+          <button ngbNavLink class="d-flex align-items-center justify-content-center">3. Prüfung & Abschluss<i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(3)"></i></button>
           <ng-template ngbNavContent>
             <div>
               <app-summary-step
-                (prevStepRequest)="navigateToStep(3)"
-                (submitRequest)="navigateToStep(1)"
-                (validationChange)="updateValidationStatus(4, $event)">
+                (prevStepRequest)="navigateToStep(2)"
+                (nextStepRequest)="navigateToStep(4)"
+                (validationChange)="updateValidationStatus(3, $event)">
               </app-summary-step>
             </div>
           </ng-template>

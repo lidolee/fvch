@@ -12,15 +12,31 @@ body {
   font-size: 18px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  //background-color: $gray-100;
+  background-image: url("../assets/img/pattern.png");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-color: transparent;
 }
 
 .sheet-container {
-  background-color: $white;
+  background-color: transparent;
 }
 
 .calculator-container {
   background-color: transparent;
 }
 
+.step-intro {
+  padding-bottom: 16px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid $border-color-translucent;
+  position: relative;
 
+
+  .step-title {
+    text-transform: uppercase;
+    font-size: 16px;
+    color: $secondary;
+    font-weight: bold;
+  }
+}

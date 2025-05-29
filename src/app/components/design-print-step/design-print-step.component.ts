@@ -57,9 +57,9 @@ export class DesignPrintStepComponent {
   }
 
   proceedToNextStep() {
-    this.determineAndEmitValidationStatus(); // Sicherstellen, dass der Status aktuell ist
+    this.determineAndEmitValidationStatus();
 
-    if (this.currentStatus === 'valid' || this.currentStatus === 'pending') { // Anpassen, falls 'pending' nicht erlaubt
+    if (this.currentStatus === 'valid' || this.currentStatus === 'pending') {
       this.nextStepRequest.emit();
     } else {
       console.warn('Design & Print step: Validation failed.');

@@ -4,7 +4,6 @@ import { NgbNavModule, NgbNav } from '@ng-bootstrap/ng-bootstrap';
 
 import { DistributionStepComponent } from './components/distribution-step/distribution-step.component';
 import { DesignPrintStepComponent } from './components/design-print-step/design-print-step.component';
-import { ContactStepComponent } from './components/contact-step/contact-step.component';
 import { SummaryStepComponent } from './components/summary-step/summary-step.component';
 import { CalculatorComponent } from './components/calculator/calculator.component';
 
@@ -18,7 +17,6 @@ export type ValidationStatus = 'valid' | 'invalid' | 'pending' | 'neutral';
     NgbNavModule,
     DistributionStepComponent,
     DesignPrintStepComponent,
-    ContactStepComponent,
     SummaryStepComponent,
     CalculatorComponent
   ],

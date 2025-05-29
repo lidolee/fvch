@@ -1,18 +1,18 @@
 import { Component, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ValidationStatus } from '../../app.component'; // Pfad anpassen
-// Importiere ggf. Services, um Daten für die Zusammenfassung zu laden
+import { ValidationStatus } from '../../app.component';
+import {ContactDataComponent} from '../contact-data/contact-data.component';
 
 @Component({
   selector: 'app-summary-step',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ContactDataComponent],
   templateUrl: './summary-step.component.html',
   styleUrls: ['./summary-step.component.scss']
 })
 export class SummaryStepComponent implements OnInit {
   @Output() prevStepRequest = new EventEmitter<void>();
-  @Output() submitRequest = new EventEmitter<void>();
+  @Output() nextStepRequest = new EventEmitter<void>();
   @Output() validationChange = new EventEmitter<ValidationStatus>();
 
   // Daten für die Zusammenfassung, die du z.B. von einem Service lädst
@@ -31,9 +31,9 @@ export class SummaryStepComponent implements OnInit {
     this.prevStepRequest.emit();
   }
 
-  finalizeOrder() {
+  proceedToNextStep() {
     // Logik zum Absenden der Bestellung/Offerte
     console.log('Order submitted!');
-    this.submitRequest.emit(); // Signalisiert den Abschluss
+    this.nextStepRequest.emit(); // Signalisiert den Abschluss
   }
 }

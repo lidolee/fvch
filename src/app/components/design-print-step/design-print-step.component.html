@@ -1,60 +1,59 @@
-<div class="card">
-  <div class="card-body">
-    <h5 class="card-title">Schritt 2: Design & Druck</h5>
-    <p class="card-text">Wählen Sie Ihre Design- und Druckoptionen.</p>
+<div class="step-intro">
+  <p class="step-title">Flyer Design & Druck</p>
+  <h2>Benötigen Sie Flyer Design und Druck?</h2>
+  <p>Wählen Sie Ihre Design- und Druckoptionen.</p>
+</div>
 
-    <div class="mb-3">
-      <h6>Designoptionen <span class="text-danger">*</span></h6>
-      <div class="form-check">
-        <input class="form-check-input" type="radio" name="designOption" id="designEigenes" value="eigenes"
-               [(ngModel)]="selectedDesignOption" (ngModelChange)="onSelectionChange()">
-        <label class="form-check-label" for="designEigenes">
-          Eigenes Design hochladen
-        </label>
-      </div>
-      <div class="form-check">
-        <input class="form-check-input" type="radio" name="designOption" id="designVorlage" value="vorlage"
-               [(ngModel)]="selectedDesignOption" (ngModelChange)="onSelectionChange()">
-        <label class="form-check-label" for="designVorlage">
-          Designvorlage verwenden
-        </label>
-      </div>
-      <div class="form-check">
-        <input class="form-check-input" type="radio" name="designOption" id="designKeines" value="keines"
-               [(ngModel)]="selectedDesignOption" (ngModelChange)="onSelectionChange()">
-        <label class="form-check-label" for="designKeines">
-          Kein Design benötigt (nur Druck)
-        </label>
-      </div>
-    </div>
-
-    <div class="mb-3">
-      <h6>Druckoptionen</h6>
-      <div class="form-check">
-        <input class="form-check-input" type="checkbox" id="druckExpress"
-               [(ngModel)]="expressDruckSelected" (ngModelChange)="onSelectionChange()">
-        <label class="form-check-label" for="druckExpress">
-          Express-Druck (optional)
-        </label>
-      </div>
-    </div>
-
-    <!-- Weitere Optionen hier -->
-
-    <div class="d-flex justify-content-between mt-4">
-      <button type="button" class="btn btn-secondary" (click)="goBack()">
-        <i class="bi bi-arrow-left me-1"></i> Zurück zu Verteilung
-      </button>
-      <button type="button" class="btn btn-primary" (click)="proceedToNextStep()">
-        Weiter zu Kontakt <i class="bi bi-arrow-right ms-1"></i>
-      </button>
-    </div>
-    <!-- Nur für Testzwecke, kann entfernt werden -->
-    <div class="mt-3 p-2 border rounded bg-light-subtle small">
-      <p class="mb-1">Test-Buttons für Validierungsstatus:</p>
-      <button class="btn btn-sm btn-outline-success me-1" (click)="setExampleStatus('valid')">Set Valid</button>
-      <button class="btn btn-sm btn-outline-warning me-1" (click)="setExampleStatus('pending')">Set Pending</button>
-      <button class="btn btn-sm btn-outline-danger" (click)="setExampleStatus('invalid')">Set Invalid</button>
-    </div>
+<div class="mb-3">
+  <h6>Designoptionen <span class="text-danger">*</span></h6>
+  <div class="form-check">
+    <input class="form-check-input" type="radio" name="designOption" id="designEigenes" value="eigenes"
+           [(ngModel)]="selectedDesignOption" (ngModelChange)="onSelectionChange()">
+    <label class="form-check-label" for="designEigenes">
+      Eigenes Design hochladen
+    </label>
   </div>
+  <div class="form-check">
+    <input class="form-check-input" type="radio" name="designOption" id="designVorlage" value="vorlage"
+           [(ngModel)]="selectedDesignOption" (ngModelChange)="onSelectionChange()">
+    <label class="form-check-label" for="designVorlage">
+      Designvorlage verwenden
+    </label>
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="radio" name="designOption" id="designKeines" value="keines"
+           [(ngModel)]="selectedDesignOption" (ngModelChange)="onSelectionChange()">
+    <label class="form-check-label" for="designKeines">
+      Kein Design benötigt (nur Druck)
+    </label>
+  </div>
+</div>
+
+<div class="mb-3">
+  <h6>Druckoptionen</h6>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" id="druckExpress"
+           [(ngModel)]="expressDruckSelected" (ngModelChange)="onSelectionChange()">
+    <label class="form-check-label" for="druckExpress">
+      Express-Druck (optional)
+    </label>
+  </div>
+</div>
+
+<!-- Weitere Optionen hier -->
+
+<div class="d-flex justify-content-between mt-4">
+  <button type="button" class="btn btn-secondary" (click)="goBack()">
+    <i class="bi bi-arrow-left me-1"></i> Zurück zu Verteilung
+  </button>
+  <button type="button" class="btn btn-primary" (click)="proceedToNextStep()">
+    Weiter zu Kontakt <i class="bi bi-arrow-right ms-1"></i>
+  </button>
+</div>
+<!-- Nur für Testzwecke, kann entfernt werden -->
+<div class="mt-3 p-2 border rounded bg-light-subtle small">
+  <p class="mb-1">Test-Buttons für Validierungsstatus:</p>
+  <button class="btn btn-sm btn-outline-success me-1" (click)="setExampleStatus('valid')">Set Valid</button>
+  <button class="btn btn-sm btn-outline-warning me-1" (click)="setExampleStatus('pending')">Set Pending</button>
+  <button class="btn btn-sm btn-outline-danger" (click)="setExampleStatus('invalid')">Set Invalid</button>
 </div>
