@@ -16,7 +16,7 @@
   position: relative;
   width: 100%;
   height: 0;
-  padding-bottom: 75%;
+  padding-bottom: 75%; // Aspect ratio für die Karte
   background-color: #f0f0f0;
   overflow: hidden;
 }
@@ -38,25 +38,25 @@
   padding: 16px;
   border-radius: 4px;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.25);
-  z-index: 10;
+  z-index: 10; // Über der Karte
   font-size: 14px;
   font-weight: bold;
   text-transform: uppercase;
-  display: none;
+  display: none; // Wird per Code gesteuert
   text-align: center;
 }
 
 #hover-plz-display-angular {
-  position: fixed;
+  position: fixed; // Fixed, um Mauszeiger zu folgen
   background-color: rgba(0, 0, 0, 0.75);
   color: white;
   padding: 5px 10px;
   border-radius: 4px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  z-index: 10010;
+  z-index: 10010; // Über allem
   font-size: 0.9em;
-  display: none;
-  pointer-events: none;
+  display: none; // Wird per Code gesteuert
+  pointer-events: none; // Klicks gehen durch
   white-space: nowrap;
 }
 
@@ -79,8 +79,9 @@
 }
 
 .plz-table {
-  td {
-    padding: 4px 8px;
+  td, th { // Gilt für Header und Datenzellen
+    padding: 0.3rem 0.5rem; // Kompakteres Padding
+    vertical-align: middle;
   }
   td.has-icon { vertical-align: middle; }
   .btn-link { text-decoration: none; }
@@ -88,8 +89,8 @@
 
 .perimeter-container.reminder {
   padding: 15px;
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background-color: #f8f9fa; // Helles Grau
+  border: 1px solid #dee2e6; // Standard Bootstrap-Border
   border-radius: .25rem;
   margin-bottom: 1rem;
 
@@ -98,9 +99,41 @@
     margin-bottom: 0.5rem;
   }
   ol {
-    padding-left: 1.2em;
+    padding-left: 1.2em; // Einrückung für die Liste
     li {
       margin-bottom: 0.3em;
     }
   }
+}
+
+// Styles für das Typeahead Ergebnis-Template als Tabelle
+.typeahead-results-table {
+  td {
+    padding: 0.25rem 0.5rem; // Kleineres Padding für Kompaktheit
+    vertical-align: middle;
+    font-size: 0.9em; // Etwas kleinere Schrift
+  }
+  .plz-col { width: 20%; }
+  .ort-col { width: 45%; }
+  .kt-col { width: 15%; }
+  .action-col { width: 20%; }
+
+  .btn-outline-primary {
+    line-height: 1; // Für bessere vertikale Zentrierung des Icons und Texts
+    i {
+      font-size: 1.1em; // Icon etwas größer
+      vertical-align: middle;
+      margin-right: 2px;
+    }
+  }
+}
+
+// Stellt sicher, dass das Dropdown-Menü des Typeaheads die volle Breite hat
+// und über anderen Elementen angezeigt wird.
+::ng-deep .dropdown-menu {
+  width: 100%;
+  z-index: 1000; // Standard Bootstrap Dropdown z-index
+  // Optional: Wenn die Tabelle im Dropdown Scrollbalken bekommen soll bei vielen Ergebnissen
+  // max-height: 300px;
+  // overflow-y: auto;
 }
