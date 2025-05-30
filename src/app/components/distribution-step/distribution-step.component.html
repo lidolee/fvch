@@ -39,6 +39,20 @@
     </div>
   </div>
 
+  <div class="map-main-container">
+    <div id="map-container-angular">
+      <div #mapDiv id="map-angular"></div>
+    </div>
+    <div #loadingIndicator id="loading-indicator-angular">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Karte lädt...</span>
+      </div>
+      <p class="mt-2">Karte lädt...</p>
+    </div>
+    <div #hoverPlzDisplay id="hover-plz-display-angular">PLZ: --</div>
+  </div>
+  <div id="selected-plz-info-angular" class="small text-muted mt-2 mb-2">Ausgewählte PLZ (4-stellig): <span #selectedPlzInfoSpan>Keine</span></div>
+
   <div class="mb-3 typeahead-search-container">
     <label for="typeahead-plz-search" class="form-label">Postleitzahl, Ort oder PLZ-Bereich (z.B. 8000-8045) eingeben</label>
     <div class="input-group flex-nowrap">
@@ -51,13 +65,15 @@
              [(ngModel)]="typeaheadSearchTerm"
              (ngModelChange)="onTypeaheadInputChange($event)"
              [ngbTypeahead]="searchPlzTypeahead"
-             [resultTemplate]="rt"
+             #typeaheadInstance="ngbTypeahead"
+             [resultTemplate]="rtPhase2"
              [inputFormatter]="typeaheadInputFormatter"
              (selectItem)="typeaheadItemSelected($event)"
              [editable]="true"
-             [focusFirst]="false"
-             (blur)="typeaheadHoverResults = []; applyAllMapHighlights()"
-             container="body" />
+             [focusFirst]="true"
+             (focus)="onSearchFocus()"
+             (blur)="onSearchBlur()"
+      />
       <button class="btn btn-primary"
               type="button"
               (click)="addCurrentSelectionToTable()"
@@ -65,23 +81,56 @@
         Hinzufügen
       </button>
     </div>
-    <div *ngIf="searching && typeaheadSearchTerm.length > 1 && !plzRangeRegex.test(typeaheadSearchTerm)" class="form-text text-muted mt-1 typeahead-searching-indicator">Suche läuft...</div>
-    <div *ngIf="searchFailed && !searching && typeaheadSearchTerm.length > 1 && !plzRangeRegex.test(typeaheadSearchTerm)"
-         class="typeahead-no-results-message"
-         role="alert">
-      <i class="mdi mdi-information-outline me-1"></i>Keine Ergebnisse für "{{ typeaheadSearchTerm }}" gefunden.
+
+    <div *ngIf="isCustomHeaderOpen && currentSearchResultsContainer && currentSearchResultsContainer.headerText"
+         class="typeahead-custom-header card"
+         (mouseenter)="isMouseOverPopupOrHeader = true"
+         (mouseleave)="isMouseOverPopupOrHeader = false">
+      <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+        <span class="small text-muted flex-grow-1">{{ currentSearchResultsContainer.headerText }}</span>
+        <button *ngIf="currentSearchResultsContainer.showSelectAllButton"
+                #selectAllButtonEl
+                type="button" class="btn btn-sm btn-outline-primary ms-2"
+                (click)="handleSelectAllFromTypeaheadHeader()">
+          Alle übernehmen
+        </button>
+      </div>
     </div>
   </div>
 
-  <ng-template #rt let-r="result" let-t="term">
-    <div class="typeahead-result-item">
-      <span class="typeahead-result-icon">
-        <i *ngIf="r.isGroupEntry" class="mdi mdi-select-group"></i>
-        <i *ngIf="!r.isGroupEntry" class="mdi mdi-map-marker"></i>
-      </span>
-      <span class="typeahead-result-text" [class.group-entry-text]="r.isGroupEntry" [innerHTML]="highlight(resultFormatter(r), t)"></span>
+  <ng-template #rtPhase2 let-r="result" let-t="term" let-i="index">
+    <div class="typeahead-result-row container-fluid"
+         role="option" [id]="typeaheadInstance.popupId + '-' + i"
+         (click)="handleTakeItemFromTypeahead(r, $event)">
+      <div class="row align-items-center">
+        <div class="col-auto typeahead-col-icon pe-2">
+          <i *ngIf="r.isGroupHeader" class="mdi mdi-select-group" title="Ortsgruppe"></i>
+          <span *ngIf="!r.isGroupHeader && (isPlzSearchForTemplate() || isMixedSearchForTemplate() && r.isPrimaryPlzMatch)" [innerHTML]="highlight(r.plz4, t)"></span>
+        </div>
+        <div class="col typeahead-col-main">
+          <span *ngIf="r.isGroupHeader" class="fw-bold" [innerHTML]="highlight(r.ort, t)"></span>
+          <span *ngIf="r.isGroupHeader && r.childPlzCount" class="text-muted small"> ({{r.childPlzCount}} PLZ)</span>
+          <span *ngIf="!r.isGroupHeader" [innerHTML]="highlight(r.ort, t)"></span>
+        </div>
+        <div class="col-auto typeahead-col-kanton text-muted px-2" *ngIf="r.kt && r.kt !== 'N/A'">
+          {{ r.kt }}
+        </div>
+        <div class="col-auto typeahead-col-action ps-2">
+          <button type="button" class="btn btn-sm btn-link py-0"
+                  (click)="handleTakeItemFromTypeahead(r, $event)"
+                  [attr.aria-label]="'Übernehme ' + resultFormatter(r)">
+            {{ r.isGroupHeader && currentSearchResultsContainer?.showSelectAllButton ? 'Alle übern.' : 'Übernehmen' }}
+          </button>
+        </div>
+      </div>
     </div>
   </ng-template>
+
+  <div *ngIf="currentSearchResultsContainer && currentSearchResultsContainer.itemsForDisplay.length === 0 && currentSearchResultsContainer.headerText.startsWith('Keine Einträge') && typeaheadSearchTerm.length > 1 && !plzRangeRegex.test(typeaheadSearchTerm)"
+       class="typeahead-no-results-message"
+       role="alert">
+    <i class="mdi mdi-information-outline me-1"></i>{{ currentSearchResultsContainer.headerText }}
+  </div>
 
   <div class="mb-3 text-end" *ngIf="(selectedEntries$ | async)?.length">
     <button class="btn btn-outline-secondary btn-sm" type="button" (click)="clearPlzTable()"><i class="mdi mdi-delete"></i>&nbsp;Liste löschen</button>
@@ -124,27 +173,12 @@
     </table>
   </div>
   <ng-template #keineAuswahlVorlagePlz>
-    <p *ngIf="showPlzUiContainer && !searchFailed && !searching" class="text-muted">
+    <p *ngIf="showPlzUiContainer && (!currentSearchResultsContainer || !currentSearchResultsContainer.headerText.startsWith('Keine Einträge')) && !searching" class="text-muted">
       Noch keine PLZ/Orte ausgewählt. Nutzen Sie die Suche (PLZ, Ort, Bereich z.B. 8000-8045) oder klicken Sie auf der Karte.
     </p>
   </ng-template>
 
-  <div class="map-main-container">
-    <div id="map-container-angular">
-      <div #mapDiv id="map-angular"></div>
-    </div>
-    <div #loadingIndicator id="loading-indicator-angular">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Karte lädt...</span>
-      </div>
-      <p class="mt-2">Karte lädt...</p>
-    </div>
-    <div #hoverPlzDisplay id="hover-plz-display-angular">PLZ: --</div>
-  </div>
-  <div id="selected-plz-info-angular" class="small text-muted mt-2 mb-2">Ausgewählte PLZ (4-stellig): <span #selectedPlzInfoSpan>Keine</span></div>
-
 </div>
-
 
 <div class="perimeter-container reminder" *ngIf="showPerimeterUiContainer">
   <div class="reminder-title">Verteilung nach GPS-Perimeter</div>
@@ -153,29 +187,28 @@
     <li>Öffnen Sie <a href="https://earth.google.com" target="_blank" rel="noopener noreferrer"><strong>Google Earth</strong></a></li>
     <li>Neue <strong>lokale KML-Datei</strong> erstellen <span class="badge text-bg-secondary">CTRL + K</span><br /><span class="mdi mdi-arrow-right-thin"></span>Projektname: GPS-Perimeter – Ihre Firma</li>
     <li>Zielgebiet als <strong>Pfad oder Polygon</strong> einzeichnen <span class="badge text-bg-secondary">CTRL + SHIFT + L</span><br /><span class="mdi mdi-arrow-right-thin"></span>In Projekt speichern</li>
-    <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><span class="mdi mdi-arrow-right-thin"></span>KML-Datei exportieren als...</li>
+    <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><span class="mdi mdi-arrow-right-thin"></span>Als KML-Datei exportieren</li>
     <li>KML-Datei <strong>hier hochladen</strong></li>
   </ol>
   <p>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte</p>
   <strong>Preise ab CHF 250.– pro 1’000 Flyer</strong>
 </div>
 
-
 <h3 class="section-title mt-4"><span>2. Verteilung Details</span></h3>
 <div class="mb-3 row">
-  <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Zeitraum * <span class="badge rounded-pill text-bg-light hint" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Geben Sie den gewünschten Start- und Endzeitpunkt für die Verteilung an.">?</span></label>
+  <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Zeitraum * <span class="badge rounded-pill text-bg-light hint" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="fv-tooltip-custom" title="Mindestvorlaufzeit beachten">?</span></label>
   <div class="col-sm-8">
     <div class="input-group">
-      <input class="form-control border border-required" type="date" name="verteilung-startdatum" id="verteilung-startdatum" placeholder="tt.mm.yyyy" required="" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Startdatum der Verteilung">
-      <input class="form-control border border-required" type="date" name="verteilung-enddatum" id="verteilung-enddatum" required="" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Enddatum der Verteilung">
+      <input class="form-control border border-required" type="date" name="verteilung-startdatum" id="verteilung-startdatum" placeholder="tt.mm.yyyy" required data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="fv-tooltip-custom" title="Startdatum der Verteilung">
+      <input class="form-control border border-required" type="date" name="verteilung-enddatum" id="verteilung-enddatum" required data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="fv-tooltip-custom" title="Enddatum der Verteilung">
     </div>
   </div>
 </div>
 <div class="mb-3 row">
   <label for="verteilung-anlieferung" class="col-sm-4 col-form-label">Anlieferung der Flyer *</label>
   <div class="col-sm-8">
-    <select class="form-select form-control border border-required" name="verteilung-anlieferung" id="verteilung-anlieferung" required="">
-      <option selected="">— Anlieferung wählen</option>
+    <select class="form-select form-control border border-required" name="verteilung-anlieferung" id="verteilung-anlieferung" required>
+      <option selected value="">— Anlieferung wählen</option>
       <option value="Sie liefern zu uns — kostenlos">Sie liefern zu uns&nbsp;&nbsp;➝&nbsp;&nbsp;kostenlos</option>
       <option value="Wir holen bei Ihnen ab — kostenpflichtig: 75 CHF">Wir holen bei Ihnen ab&nbsp;&nbsp;➝&nbsp;&nbsp;+ CHF 75</option>
     </select>
@@ -184,8 +217,8 @@
 <div class="mb-3 row">
   <label for="verteilung-format" class="col-sm-4 col-form-label">Format *</label>
   <div class="col-sm-8">
-    <select class="form-select form-control border border-required" name="verteilung-format" id="verteilung-format" required="">
-      <option selected="">— Format wählen</option>
+    <select class="form-select form-control border border-required" name="verteilung-format" id="verteilung-format" required>
+      <option selected value="">— Format wählen</option>
       <option value="A5 bis A8">A5 und A6&nbsp;&nbsp;➝&nbsp;&nbsp;Kein Zuschlag</option>
       <option value="DIN Lang">DIN Lang&nbsp;&nbsp;➝&nbsp;&nbsp;+ CHF 20 / 1'000 Flyer</option>
       <option value="A4">A4&nbsp;&nbsp;➝&nbsp;&nbsp;+ CHF 30 / 1'000 Flyer</option>
@@ -199,25 +232,4 @@
   <button type="button" class="btn btn-primary" (click)="proceedToNextStep()">
     Weiter zu Design & Druck <i class="bi bi-arrow-right ms-1"></i>
   </button>
-</div>
-
-<div class="mt-3 p-2 border rounded bg-light-subtle small" *ngIf="false">
-  <p class="mb-1"><strong>Debug Info:</strong></p>
-  <p class="mb-0">CurrentVerteilungTyp: <strong>{{ currentVerteilungTyp }}</strong></p>
-  <p class="mb-0">CurrentZielgruppe: <strong>{{ currentZielgruppe }}</strong></p>
-  <p class="mb-0">showPlzUiContainer: <strong>{{ showPlzUiContainer }}</strong></p>
-  <p class="mb-0">showPerimeterUiContainer: <strong>{{ showPerimeterUiContainer }}</strong></p>
-  <p class="mb-0">Map Instanz (this.map !== null): <strong>{{ !!map }}</strong></p>
-  <p class="mb-0">mapDiv Element vorhanden: <strong>{{ !!mapDiv?.nativeElement }}</strong></p>
-  <p class="mb-0">Anzahl Placemarks: <strong>{{ allPlacemarks?.length }}</strong></p>
-  <p class="mb-0">Typeahead Search Term: <strong>{{ typeaheadSearchTerm }}</strong></p>
-  <p class="mb-0">Current Typeahead Selection:</p>
-  <pre class="d-block bg-light border p-1 rounded small">{{ currentTypeaheadSelection | json }}</pre>
-  <p class="mb-0">Text Input Status: <strong>{{ textInputStatus }}</strong></p>
-  <p class="mb-0">Is Add Button Disabled: <strong>{{ isAddButtonDisabled() }}</strong></p>
-  <hr>
-  <p class="mb-1">Test-Buttons für Validierungsstatus:</p>
-  <button class="btn btn-sm btn-outline-success me-1" (click)="setExampleStatus('valid')">Set Valid</button>
-  <button class="btn btn-sm btn-outline-warning me-1" (click)="setExampleStatus('pending')">Set Pending</button>
-  <button class="btn btn-sm btn-outline-danger" (click)="setExampleStatus('invalid')">Set Invalid</button>
 </div>
