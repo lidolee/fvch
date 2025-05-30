@@ -21,7 +21,6 @@
   </div>
 </div>
 
-<!-- PLZ Auswahl UI -->
 <div *ngIf="showPlzUiContainer">
 
   <div class="mb-3 row">
@@ -40,82 +39,76 @@
     </div>
   </div>
 
-  <div class="mb-3">
-    <label for="typeahead-plz-search" class="form-label">Postleitzahl oder Ort eingeben (mind. 2 Zeichen)</label>
+  <div class="mb-3 typeahead-search-container">
+    <label for="typeahead-plz-search" class="form-label">Postleitzahl, Ort oder PLZ-Bereich (z.B. 8000-8045) eingeben</label>
     <div class="input-group flex-nowrap">
       <span class="input-group-text"><i class="mdi mdi-magnify"></i></span>
       <input type="text"
              id="typeahead-plz-search"
              class="form-control"
-             placeholder="z.B. 80 oder Züri"
-             aria-label="PLZ oder Ort Suche"
+             placeholder="8001, Zürich oder 8000-8045"
+             aria-label="PLZ, Ort oder PLZ-Bereich Suche"
              [(ngModel)]="typeaheadSearchTerm"
              (ngModelChange)="onTypeaheadInputChange($event)"
              [ngbTypeahead]="searchPlzTypeahead"
-             [resultTemplate]="rtTable"
-             [inputFormatter]="formatInput"
+             [resultTemplate]="rt"
+             [inputFormatter]="typeaheadInputFormatter"
+             (selectItem)="typeaheadItemSelected($event)"
              [editable]="true"
              [focusFirst]="false"
+             (blur)="typeaheadHoverResults = []; applyAllMapHighlights()"
              container="body" />
+      <button class="btn btn-primary"
+              type="button"
+              (click)="addCurrentSelectionToTable()"
+              [disabled]="isAddButtonDisabled()">
+        Hinzufügen
+      </button>
     </div>
-    <div *ngIf="searching && typeaheadSearchTerm.length >= 2" class="form-text text-muted mt-1">Suche läuft...</div>
+    <div *ngIf="searching && typeaheadSearchTerm.length > 1 && !plzRangeRegex.test(typeaheadSearchTerm)" class="form-text text-muted mt-1 typeahead-searching-indicator">Suche läuft...</div>
+    <div *ngIf="searchFailed && !searching && typeaheadSearchTerm.length > 1 && !plzRangeRegex.test(typeaheadSearchTerm)"
+         class="typeahead-no-results-message"
+         role="alert">
+      <i class="mdi mdi-information-outline me-1"></i>Keine Ergebnisse für "{{ typeaheadSearchTerm }}" gefunden.
+    </div>
   </div>
 
-  <!-- Typeahead Result Template als Tabelle -->
-  <ng-template #rtTable let-r="result" let-t="term">
-    <table class="table table-sm table-hover typeahead-results-table mb-0">
-      <tbody>
-      <tr>
-        <!-- Fall 1: Es ist ein Gruppen/Ortseintrag (gekennzeichnet durch r.isGroupEntry) -->
-        <ng-container *ngIf="r.isGroupEntry">
-          <td class="ort-col" colspan="3"> <!-- colspan="3" um PLZ, Ort, KT Spalten zu überspannen -->
-            <strong>{{ r.ort }}</strong>
-            <span *ngIf="r.kt && r.kt !== 'N/A'"> ({{ r.kt }})</span>
-          </td>
-        </ng-container>
-        <!-- Fall 2: Es ist ein normaler PLZ-Eintrag -->
-        <ng-container *ngIf="!r.isGroupEntry">
-          <td class="plz-col">{{ r.plz4 }}</td>
-          <td class="ort-col">{{ r.ort }}</td>
-          <td class="kt-col">{{ r.kt }}</td>
-        </ng-container>
-        <td class="action-col text-end">
-          <button class="btn btn-sm btn-outline-primary py-0 px-1"
-                  (click)="addSelectedEntryToTable(r, $event)"
-                  title="Auswahl übernehmen">
-            <i class="mdi mdi-plus-circle-outline"></i> Übernehmen
-          </button>
-        </td>
-      </tr>
-      </tbody>
-    </table>
+  <ng-template #rt let-r="result" let-t="term">
+    <div class="typeahead-result-item">
+      <span class="typeahead-result-icon">
+        <i *ngIf="r.isGroupEntry" class="mdi mdi-select-group"></i>
+        <i *ngIf="!r.isGroupEntry" class="mdi mdi-map-marker"></i>
+      </span>
+      <span class="typeahead-result-text" [class.group-entry-text]="r.isGroupEntry" [innerHTML]="highlight(resultFormatter(r), t)"></span>
+    </div>
   </ng-template>
 
-  <div *ngIf="searchFailed && !searching && typeaheadSearchTerm.length >= 2" class="alert alert-warning mt-2 py-2" role="alert">
-    Keine Ergebnisse für "{{ typeaheadSearchTerm }}" gefunden.
-  </div>
-
   <div class="mb-3 text-end" *ngIf="(selectedEntries$ | async)?.length">
-    <button class="btn btn-outline-secondary btn-sm" type="button" (click)="clearPlzTable()"><i class="mdi mdi-delete"></i>&nbsp;Auswahl löschen</button>
+    <button class="btn btn-outline-secondary btn-sm" type="button" (click)="clearPlzTable()"><i class="mdi mdi-delete"></i>&nbsp;Liste löschen</button>
   </div>
 
   <div class="plz-table table-responsive" *ngIf="(selectedEntries$ | async)?.length; else keineAuswahlVorlagePlz">
-    <table class="table table-sm table-hover">
+    <table class="table table-responsive-sm table-hover table-sm">
       <thead>
       <tr>
         <th scope="col" class="plz">PLZ</th>
         <th scope="col" class="ort">Ort</th>
         <th scope="col" class="canton">KT.</th>
-        <th scope="col" class="flyer-max text-end">Flyer Max</th>
+        <th scope="col" class="flyer-max text-end"
+            [class.column-highlighted]="highlightFlyerMaxColumn"
+            [title]="'Flyer Max basierend auf Zielgruppe: ' + currentZielgruppe">{{ getZielgruppeLabel() }} Max</th>
         <th scope="col" colspan="2" class="text-end">Aktionen</th>
       </tr>
       </thead>
       <tbody>
-      <tr *ngFor="let entry of (selectedEntries$ | async)">
+      <tr *ngFor="let entry of (selectedEntries$ | async)"
+          [class.table-info]="entry.id === currentTypeaheadSelection?.id"
+          (mouseenter)="highlightPlacemarkOnMapFromTable(entry.id, true)"
+          (mouseleave)="highlightPlacemarkOnMapFromTable(null, false)">
         <td>{{ entry.plz4 }}</td>
         <td>{{ entry.ort }}</td>
         <td>{{ entry.kt }}</td>
-        <td class="flyer-max text-end">{{ getFlyerMaxForEntry(entry) | number }}</td>
+        <td class="flyer-max text-end" [class.column-highlighted]="highlightFlyerMaxColumn">{{ getFlyerMaxForEntry(entry) | number }}</td>
         <td class="has-icon text-end">
           <button class="btn btn-link btn-sm p-0" (click)="zoomToTableEntryOnMap(entry)" title="Auf Karte anzeigen">
             <i class="mdi mdi-crosshairs-gps fs-5"></i>
@@ -131,29 +124,11 @@
     </table>
   </div>
   <ng-template #keineAuswahlVorlagePlz>
-    <p *ngIf="showPlzUiContainer && !searchFailed && !searching && typeaheadSearchTerm.length < 2" class="text-muted">
-      Noch keine PLZ/Orte ausgewählt. Nutzen Sie die Suche (mind. 2 Zeichen) oder klicken Sie auf der Karte.
+    <p *ngIf="showPlzUiContainer && !searchFailed && !searching" class="text-muted">
+      Noch keine PLZ/Orte ausgewählt. Nutzen Sie die Suche (PLZ, Ort, Bereich z.B. 8000-8045) oder klicken Sie auf der Karte.
     </p>
   </ng-template>
-</div>
 
-<!-- Perimeter Auswahl UI -->
-<div class="perimeter-container reminder" *ngIf="showPerimeterUiContainer">
-  <div class="reminder-title">Verteilung nach GPS-Perimeter</div>
-  <p>Für die Verteilung nach GPS-Perimeter benötigen wir Ihr gewünschtes Zielgebiet, um die Flyeranzahl und Kosten zu berechnen.</p>
-  <ol>
-    <li>Öffnen Sie <a href="https://earth.google.com" target="_blank"><strong>Google Earth</strong></a></li>
-    <li>Neue <strong>lokale KML-Datei</strong> erstellen <span class="badge text-bg-secondary">CTRL + K</span><br><span class="mdi mdi-arrow-right-thin"></span>Projektname: GPS-Perimeter – Name/Firma</li>
-    <li>Zielgebiet als <strong>Pfad oder Polygon</strong> einzeichnen <span class="badge text-bg-secondary">CTRL + SHIFT + L</span><br><span class="mdi mdi-arrow-right-thin"></span>In Projekt speichern</li>
-    <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br><span class="mdi mdi-arrow-right-thin"></span>Als KML-Datei exportieren</li>
-    <li>KML-Datei <strong>hier hochladen</strong></li>
-  </ol>
-  <p>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte</p>
-  <strong>Preise ab CHF 250.– pro 1’000 Flyer</strong>
-</div>
-
-<!-- KARTENBEREICH JETZT KONDITIONAL -->
-<div *ngIf="showPlzUiContainer">
   <div class="map-main-container">
     <div id="map-container-angular">
       <div #mapDiv id="map-angular"></div>
@@ -167,12 +142,28 @@
     <div #hoverPlzDisplay id="hover-plz-display-angular">PLZ: --</div>
   </div>
   <div id="selected-plz-info-angular" class="small text-muted mt-2 mb-2">Ausgewählte PLZ (4-stellig): <span #selectedPlzInfoSpan>Keine</span></div>
+
 </div>
-<!-- KARTENBEREICH ENDE -->
+
+
+<div class="perimeter-container reminder" *ngIf="showPerimeterUiContainer">
+  <div class="reminder-title">Verteilung nach GPS-Perimeter</div>
+  <p>Für die Verteilung nach GPS-Perimeter benötigen wir Ihr gewünschtes Zielgebiet, um die Flyeranzahl und Kosten zu berechnen.</p>
+  <ol>
+    <li>Öffnen Sie <a href="https://earth.google.com" target="_blank" rel="noopener noreferrer"><strong>Google Earth</strong></a></li>
+    <li>Neue <strong>lokale KML-Datei</strong> erstellen <span class="badge text-bg-secondary">CTRL + K</span><br /><span class="mdi mdi-arrow-right-thin"></span>Projektname: GPS-Perimeter – Ihre Firma</li>
+    <li>Zielgebiet als <strong>Pfad oder Polygon</strong> einzeichnen <span class="badge text-bg-secondary">CTRL + SHIFT + L</span><br /><span class="mdi mdi-arrow-right-thin"></span>In Projekt speichern</li>
+    <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><span class="mdi mdi-arrow-right-thin"></span>KML-Datei exportieren als...</li>
+    <li>KML-Datei <strong>hier hochladen</strong></li>
+  </ol>
+  <p>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte</p>
+  <strong>Preise ab CHF 250.– pro 1’000 Flyer</strong>
+</div>
+
 
 <h3 class="section-title mt-4"><span>2. Verteilung Details</span></h3>
 <div class="mb-3 row">
-  <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Zeitraum * <span class="badge rounded-pill text-bg-light hint" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Geben Sie den gewünschten Start- und Endzeitraum für die Verteilung an.">?</span></label>
+  <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Zeitraum * <span class="badge rounded-pill text-bg-light hint" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Geben Sie den gewünschten Start- und Endzeitpunkt für die Verteilung an.">?</span></label>
   <div class="col-sm-8">
     <div class="input-group">
       <input class="form-control border border-required" type="date" name="verteilung-startdatum" id="verteilung-startdatum" placeholder="tt.mm.yyyy" required="" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Startdatum der Verteilung">
@@ -210,7 +201,7 @@
   </button>
 </div>
 
-<div class="mt-3 p-2 border rounded bg-light-subtle small" *ngIf="true"> <!-- Debug-Block -->
+<div class="mt-3 p-2 border rounded bg-light-subtle small" *ngIf="false">
   <p class="mb-1"><strong>Debug Info:</strong></p>
   <p class="mb-0">CurrentVerteilungTyp: <strong>{{ currentVerteilungTyp }}</strong></p>
   <p class="mb-0">CurrentZielgruppe: <strong>{{ currentZielgruppe }}</strong></p>
@@ -220,11 +211,13 @@
   <p class="mb-0">mapDiv Element vorhanden: <strong>{{ !!mapDiv?.nativeElement }}</strong></p>
   <p class="mb-0">Anzahl Placemarks: <strong>{{ allPlacemarks?.length }}</strong></p>
   <p class="mb-0">Typeahead Search Term: <strong>{{ typeaheadSearchTerm }}</strong></p>
-  <p class="mb-0">Searching: <strong>{{ searching }}</strong>, SearchFailed: <strong>{{ searchFailed }}</strong></p>
+  <p class="mb-0">Current Typeahead Selection:</p>
+  <pre class="d-block bg-light border p-1 rounded small">{{ currentTypeaheadSelection | json }}</pre>
+  <p class="mb-0">Text Input Status: <strong>{{ textInputStatus }}</strong></p>
+  <p class="mb-0">Is Add Button Disabled: <strong>{{ isAddButtonDisabled() }}</strong></p>
   <hr>
   <p class="mb-1">Test-Buttons für Validierungsstatus:</p>
   <button class="btn btn-sm btn-outline-success me-1" (click)="setExampleStatus('valid')">Set Valid</button>
   <button class="btn btn-sm btn-outline-warning me-1" (click)="setExampleStatus('pending')">Set Pending</button>
   <button class="btn btn-sm btn-outline-danger" (click)="setExampleStatus('invalid')">Set Invalid</button>
-  <p class="mt-1 mb-0">Aktueller Text-Input-Status (weniger relevant): <strong>{{ textInputStatus }}</strong></p>
 </div>

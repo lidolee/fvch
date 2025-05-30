@@ -3,10 +3,10 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgbTypeaheadModule, NgbTypeaheadSelectItemEvent, NgbAlertModule } from '@ng-bootstrap/ng-bootstrap';
 import { Observable, of, Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap, catchError, takeUntil, tap, finalize } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, switchMap, catchError, takeUntil, tap, filter } from 'rxjs/operators';
 
 import { ValidationStatus } from '../../app.component';
-import { PlzDataService, PlzEntry } from '../../services/plz-data.service'; // PlzEntry import ist hier korrekt
+import { PlzDataService, PlzEntry } from '../../services/plz-data.service';
 import { SelectionService } from '../../services/selection.service';
 
 declare var google: any;
@@ -21,8 +21,10 @@ const MAP_INIT_TIMEOUT = 200;
 const MAP_RETRY_INIT_TIMEOUT = 100;
 const MAP_STATE_UPDATE_TIMEOUT = 50;
 const WINDOW_RESIZE_DEBOUNCE = 250;
+const COLUMN_HIGHLIGHT_DURATION = 1500;
 
 export type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
+
 
 @Component({
   selector: 'app-distribution-step',
@@ -44,11 +46,13 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   map: any = null;
   private geoXmlParser: any;
   allPlacemarks: any[] = [];
+  private currentlyHoveredPlacemarkId: string | null = null;
 
   private destroy$ = new Subject<void>();
 
   typeaheadSearchTerm: string = '';
   currentTypeaheadSelection: PlzEntry | null = null;
+  public typeaheadHoverResults: PlzEntry[] = [];
   searching: boolean = false;
   searchFailed: boolean = false;
 
@@ -59,6 +63,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   showPerimeterUiContainer: boolean = false;
 
   currentZielgruppe: ZielgruppeOption = 'Alle Haushalte';
+  highlightFlyerMaxColumn: boolean = false;
 
   textInputStatus: ValidationStatus = 'invalid';
 
@@ -70,9 +75,14 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   private readonly highlightedPolygonOptions = { strokeColor: "#0063d6", strokeOpacity: 0.6, strokeWeight: 2, fillColor: "#0063d6", fillOpacity: 0.3 };
   private readonly selectedPolygonOptions = { strokeColor: "#D60096", strokeOpacity: 0.8, strokeWeight: 2, fillColor: "#D60096", fillOpacity: 0.4 };
   private readonly selectedHighlightedPolygonOptions = { strokeColor: "#D60096", strokeOpacity: 0.9, strokeWeight: 2.5, fillColor: "#D60096", fillOpacity: 0.6 };
+  private readonly typeaheadHoverPolygonOptions = { strokeColor: "#50C878", strokeOpacity: 0.7, strokeWeight: 2, fillColor: "#50C878", fillOpacity: 0.25 };
+
 
   private singlePolygonZoomAdjustListener: any = null;
   private resizeTimeout: any;
+
+  public readonly plzRangeRegex = /^\s*(\d{4,6})\s*-\s*(\d{4,6})\s*$/;
+
 
   constructor(
     private ngZone: NgZone,
@@ -81,21 +91,18 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     public selectionService: SelectionService,
     private cdr: ChangeDetectorRef
   ) {
-    const constructorTime = "2025-05-30 11:08:30"; // Angepasster Zeitstempel
-    console.log(`${LOG_PREFIX_DIST} Component instantiated by lidolee at ${constructorTime}`);
     this.selectedEntries$ = this.selectionService.selectedEntries$;
-    this.mapStyleWithCorrectedFeatures = [ /* DEINE MAP STYLES HIER */ ];
+    this.mapStyleWithCorrectedFeatures = [ ];
     this.updateUiFlags(this.currentVerteilungTyp);
   }
 
   ngOnInit(): void {
-    console.log(`${LOG_PREFIX_DIST} ngOnInit. Initial currentVerteilungTyp: ${this.currentVerteilungTyp}, Zielgruppe: ${this.currentZielgruppe}`);
     this.selectedEntries$
       .pipe(takeUntil(this.destroy$))
       .subscribe(entries => {
-        console.log(`${LOG_PREFIX_DIST} Selection changed in service, ${entries.length} entries.`);
         if (this.showPlzUiContainer && this.map) {
           this.synchronizeMapSelectionWithService(entries);
+          this.applyAllMapHighlights();
         }
         this.updateOverallValidationState();
         this.cdr.markForCheck();
@@ -103,7 +110,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   ngAfterViewInit(): void {
-    console.log(`${LOG_PREFIX_DIST} ngAfterViewInit. IsBrowser: ${isPlatformBrowser(this.platformId)}, PLZ UI: ${this.showPlzUiContainer}`);
     if (isPlatformBrowser(this.platformId)) {
       if (this.showPlzUiContainer) {
         this.scheduleMapInitialization();
@@ -117,49 +123,51 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   ngOnDestroy(): void {
-    console.log(`${LOG_PREFIX_DIST} ngOnDestroy called.`);
     this.destroy$.next(); this.destroy$.complete();
     this.destroyMap();
     if (isPlatformBrowser(this.platformId)) {
       window.removeEventListener('resize', this.onWindowResize);
       clearTimeout(this.resizeTimeout);
-      if (typeof (window as any).angularGoogleMapsCallback === 'function') { delete (window as any).angularGoogleMapsCallback; }
-      if ((window as any).googleMapsScriptLoadingPromise) { delete (window as any).googleMapsScriptLoadingPromise; }
+      if (typeof (window as any).angularGoogleMapsCallback === 'function') {
+        delete (window as any).angularGoogleMapsCallback;
+      }
+      if ((window as any).googleMapsScriptLoadingPromise) {
+        delete (window as any).googleMapsScriptLoadingPromise;
+      }
     }
   }
 
   onVerteilungTypChangeFromTemplate(newVerteilungTyp: 'Nach PLZ' | 'Nach Perimeter'): void {
-    console.log(`${LOG_PREFIX_DIST} Verteilungstyp geändert zu: ${this.currentVerteilungTyp}`);
     this.updateUiFlagsAndMapState();
   }
 
   onZielgruppeChange(): void {
-    console.log(`${LOG_PREFIX_DIST} Zielgruppe geändert zu: ${this.currentZielgruppe}`);
+    this.highlightFlyerMaxColumn = true;
     this.cdr.markForCheck();
+    setTimeout(() => {
+      this.highlightFlyerMaxColumn = false;
+      this.cdr.markForCheck();
+    }, COLUMN_HIGHLIGHT_DURATION);
     this.updateOverallValidationState();
   }
 
   private updateUiFlags(verteilungTyp: 'Nach PLZ' | 'Nach Perimeter'): void {
     this.showPlzUiContainer = verteilungTyp === 'Nach PLZ';
     this.showPerimeterUiContainer = verteilungTyp === 'Nach Perimeter';
-    console.log(`${LOG_PREFIX_DIST} UI Flags aktualisiert: PLZ UI=${this.showPlzUiContainer}, Perimeter UI=${this.showPerimeterUiContainer}`);
   }
 
   private updateUiFlagsAndMapState(): void {
-    console.log(`${LOG_PREFIX_DIST} updateUiFlagsAndMapState. Verteilungstyp: ${this.currentVerteilungTyp}. Map vorhanden: ${!!this.map}`);
     const oldShowPlzUiContainer = this.showPlzUiContainer;
     this.updateUiFlags(this.currentVerteilungTyp);
+
     this.cdr.detectChanges();
 
     if (isPlatformBrowser(this.platformId)) {
       if (!this.showPlzUiContainer && oldShowPlzUiContainer && this.map) {
-        console.log(`${LOG_PREFIX_DIST} Wechsel von PLZ UI: Karte wird zerstört.`);
         this.destroyMap();
       } else if (this.showPlzUiContainer && !this.map) {
-        console.log(`${LOG_PREFIX_DIST} Wechsel zu PLZ UI, keine Karte: Karte wird initialisiert.`);
         this.scheduleMapInitialization();
       } else if (this.showPlzUiContainer && this.map) {
-        console.log(`${LOG_PREFIX_DIST} PLZ UI aktiv, Karte vorhanden: Karten-Resize wird getriggert.`);
         this.ngZone.runOutsideAngular(() => {
           setTimeout(() => {
             if (this.map && typeof google !== 'undefined' && google.maps) {
@@ -175,9 +183,8 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private scheduleMapInitialization(): void {
-    if (!this.showPlzUiContainer || !isPlatformBrowser(this.platformId)) return;
+    if (!this.showPlzUiContainer) return;
     if (this.map) {
-      console.log(`${LOG_PREFIX_DIST} Map bereits vorhanden, nur Resize/Zoom.`);
       this.ngZone.runOutsideAngular(() => {
         if (typeof google !== 'undefined' && google.maps && this.map) {
           google.maps.event.trigger(this.map, 'resize');
@@ -186,12 +193,11 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       });
       return;
     }
-    console.log(`${LOG_PREFIX_DIST} Karteninitialisierung geplant.`);
+
     setTimeout(() => {
       if (this.showPlzUiContainer && this.mapDiv?.nativeElement && !this.map) {
         const rect = this.mapDiv.nativeElement.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) {
-          console.warn(`${LOG_PREFIX_DIST} mapDiv hat keine Dimensionen vor Karteninit. CSS prüfen.`);
         }
         this.ngZone.run(() => this.initializeMapAndGeoXml());
       }
@@ -199,109 +205,144 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private destroyMap(): void {
-    console.log(`${LOG_PREFIX_DIST} Zerstöre Karteninstanz.`);
     if (this.map && typeof google !== 'undefined' && google.maps) {
       google.maps.event.clearInstanceListeners(this.map);
-      if (this.allPlacemarks?.length > 0) {
+      if (this.allPlacemarks && this.allPlacemarks.length > 0) {
         this.allPlacemarks.forEach(p => {
           const actualPolygon = p.polygon || p.gObject;
-          if (actualPolygon) google.maps.event.clearInstanceListeners(actualPolygon);
+          if (actualPolygon) {
+            google.maps.event.clearInstanceListeners(actualPolygon);
+          }
         });
       }
     }
-    this.allPlacemarks = []; this.map = null; this.geoXmlParser = null;
+    this.allPlacemarks = [];
+    this.map = null;
+    this.geoXmlParser = null;
     this.cdr.markForCheck();
   }
 
   private initializeMapAndGeoXml(): void {
-    if (!this.showPlzUiContainer || !isPlatformBrowser(this.platformId) || this.map) return;
-    console.log(`${LOG_PREFIX_DIST} Lade Google Maps Skript und initialisiere Karte.`);
+    if (!this.showPlzUiContainer) return;
+    if (this.map) return;
+
     this.loadGoogleMapsScript().then(() => {
       if (typeof google !== 'undefined' && google.maps && typeof geoXML3 !== 'undefined' && geoXML3.parser) {
         this.initMapInternal();
-      } else { console.error(`${LOG_PREFIX_DIST} Google Maps API oder geoXML3 nicht bereit.`); }
-    }).catch(err => console.error(`${LOG_PREFIX_DIST} Fehler beim Laden von Google Maps:`, err));
+      }
+    }).catch(err => {});
   }
 
   private initMapInternal(): void {
-    if (!this.showPlzUiContainer || !isPlatformBrowser(this.platformId) || !this.mapDiv?.nativeElement || this.map) return;
+    if (!this.showPlzUiContainer) return;
+    if (!isPlatformBrowser(this.platformId)) return;
+    if (!this.mapDiv?.nativeElement) return;
+    if (this.map) return;
+
     const mapDivElement = this.mapDiv.nativeElement;
     const rect = mapDivElement.getBoundingClientRect();
+
     if (!(rect.width > 0 && rect.height > 0)) {
-      console.warn(`${LOG_PREFIX_DIST} mapDiv ohne Dimensionen. Erneuter Versuch in ${MAP_RETRY_INIT_TIMEOUT}ms.`);
       setTimeout(() => {
         if (this.showPlzUiContainer && !this.map && this.mapDiv?.nativeElement) {
-          this.initMapInternal();
+          const currentRect = this.mapDiv.nativeElement.getBoundingClientRect();
+          if(currentRect.width === 0 || currentRect.height === 0) {
+          } else {
+            this.initMapInternal();
+          }
         }
       }, MAP_RETRY_INIT_TIMEOUT);
       return;
     }
 
-    console.log(`${LOG_PREFIX_DIST} Erstelle Google Map Instanz.`);
     this.ngZone.runOutsideAngular(() => {
       try {
         this.map = new google.maps.Map(mapDivElement, {
-          center: this.initialMapCenter, zoom: this.initialMapZoom, mapTypeControl: false,
-          fullscreenControl: false, streetViewControl: false,
-          styles: this.mapStyleWithCorrectedFeatures?.length > 0 ? this.mapStyleWithCorrectedFeatures : undefined
+          center: this.initialMapCenter,
+          zoom: this.initialMapZoom,
+          mapTypeControl: false,
+          fullscreenControl: false,
+          streetViewControl: false,
+          styles: this.mapStyleWithCorrectedFeatures.length > 0 ? this.mapStyleWithCorrectedFeatures : undefined
         });
-      } catch (e) { console.error(`${LOG_PREFIX_DIST} Fehler bei Erstellung der Map Instanz:`, e); this.map = null; return; }
+      } catch (e) { this.map = null; return; }
     });
+
     if (!this.map) return;
 
     if (this.loadingIndicatorDiv?.nativeElement) this.loadingIndicatorDiv.nativeElement.style.display = 'flex';
+
     this.geoXmlParser = new geoXML3.parser({
-      map: this.map, suppressInfoWindows: true, singleInfoWindow: true, processStyles: true,
+      map: this.map,
+      suppressInfoWindows: true,
+      singleInfoWindow: true,
+      processStyles: true,
       afterParse: (docs: any) => this.ngZone.run(() => {
         if (this.loadingIndicatorDiv?.nativeElement) this.loadingIndicatorDiv.nativeElement.style.display = 'none';
         if (docs?.[0]?.placemarks?.length > 0) {
           this.allPlacemarks = docs[0].placemarks;
           this.setupPlacemarkInteractions(this.allPlacemarks, this.hoverPlzDisplayDiv?.nativeElement);
           this.synchronizeMapSelectionWithService(this.selectionService.getSelectedEntries());
-        } else { this.allPlacemarks = []; }
-        this.updateOverallValidationState(); this.cdr.markForCheck();
+        } else {
+          this.allPlacemarks = [];
+        }
+        this.updateOverallValidationState();
+        this.cdr.markForCheck();
       }),
       failedParse: (error: any) => this.ngZone.run(() => {
         if (this.loadingIndicatorDiv?.nativeElement) this.loadingIndicatorDiv.nativeElement.style.display = 'none';
-        console.error(`${LOG_PREFIX_DIST} KML Parse Fehler:`, error); this.allPlacemarks = [];
-        this.updateOverallValidationState(); this.cdr.markForCheck();
+        this.allPlacemarks = [];
+        this.updateOverallValidationState();
+        this.cdr.markForCheck();
       }),
       polygonOptions: this.defaultPolygonOptions
     });
-    try { this.geoXmlParser.parse(KML_FILE_PATH); }
-    catch (e) { console.error(`${LOG_PREFIX_DIST} Fehler bei geoXmlParser.parse():`, e); }
+
+    try {
+      this.geoXmlParser.parse(KML_FILE_PATH);
+    }
+    catch (e) { }
   }
 
   private setupPlacemarkInteractions(placemarks: any[], hoverPlzDisplayElement?: HTMLElement): void {
     if (!isPlatformBrowser(this.platformId) || typeof google === 'undefined' || !google.maps) return;
+
     placemarks.forEach((placemark) => {
       const actualPolygon = placemark.polygon || placemark.gObject;
-      if (actualPolygon?.setOptions) {
+      if (actualPolygon && typeof actualPolygon.setOptions === 'function') {
         const plzIdFromMap = this.extractPlzInfoFromPlacemark(placemark, false);
+
         google.maps.event.clearInstanceListeners(actualPolygon);
+
         google.maps.event.addListener(actualPolygon, 'mouseover', () => this.ngZone.runOutsideAngular(() => {
           if (!this.showPlzUiContainer || !this.map) return;
-          const isSelected = plzIdFromMap ? this.selectionService.getSelectedEntries().some(e => e.id === plzIdFromMap) : false;
-          actualPolygon.setOptions(isSelected ? this.selectedHighlightedPolygonOptions : this.highlightedPolygonOptions);
+          this.currentlyHoveredPlacemarkId = plzIdFromMap;
+          this.applyAllMapHighlights();
           if (hoverPlzDisplayElement) {
             hoverPlzDisplayElement.textContent = `${this.extractPlzInfoFromPlacemark(placemark, true)}`;
             hoverPlzDisplayElement.style.display = 'block';
           }
         }));
+
         google.maps.event.addListener(actualPolygon, 'mouseout', () => this.ngZone.runOutsideAngular(() => {
           if (!this.showPlzUiContainer || !this.map) return;
-          const isSelected = plzIdFromMap ? this.selectionService.getSelectedEntries().some(e => e.id === plzIdFromMap) : false;
-          actualPolygon.setOptions(isSelected ? this.selectedPolygonOptions : this.defaultPolygonOptions);
+          this.currentlyHoveredPlacemarkId = null;
+          this.applyAllMapHighlights();
           if (hoverPlzDisplayElement) hoverPlzDisplayElement.style.display = 'none';
         }));
+
         google.maps.event.addListener(actualPolygon, 'mousemove', (event: any) => {
+          if (!this.showPlzUiContainer || !this.map) return;
           if (hoverPlzDisplayElement?.style.display === 'block' && event.domEvent) {
             hoverPlzDisplayElement.style.left = (event.domEvent.clientX + 15) + 'px';
             hoverPlzDisplayElement.style.top = (event.domEvent.clientY + 15) + 'px';
           }
         });
+
         google.maps.event.addListener(actualPolygon, 'click', () => this.ngZone.run(() => {
-          if (this.showPlzUiContainer && this.map) this.handleMapPolygonClick(placemark);
+          if (this.showPlzUiContainer && this.map) {
+            this.handleMapPolygonClick(placemark);
+          }
         }));
       }
     });
@@ -310,6 +351,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   private handleMapPolygonClick(placemark: any): void {
     const entryIdFromMap = this.extractPlzInfoFromPlacemark(placemark, false);
     if (!entryIdFromMap) return;
+
     const isCurrentlySelected = this.selectionService.getSelectedEntries().some(e => e.id === entryIdFromMap);
     if (isCurrentlySelected) {
       this.selectionService.removeEntry(entryIdFromMap);
@@ -318,10 +360,14 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
         if (entry && this.selectionService.validateEntry(entry)) {
           this.selectionService.addEntry(entry);
         } else {
-          const plz6 = entryIdFromMap; const plz4 = plz6.length >= 4 ? plz6.substring(0, 4) : plz6;
+          const plz6 = entryIdFromMap;
+          const plz4 = plz6.length >= 4 ? plz6.substring(0, 4) : plz6;
           const pseudoOrt = placemark.name || 'Unbekannt';
-          const pseudoEntry: PlzEntry = { id: entryIdFromMap, plz6, plz4, ort: pseudoOrt, kt: 'N/A', all: 0, mfh: 0, efh: 0, isGroupEntry: false };
-          if (this.selectionService.validateEntry(pseudoEntry)) this.selectionService.addEntry(pseudoEntry);
+          const pseudoEntry: PlzEntry = { id: entryIdFromMap, plz6, plz4, ort: pseudoOrt, kt: 'N/A', all: 0, mfh: 0, efh: 0 };
+
+          if (this.selectionService.validateEntry(pseudoEntry)) {
+            this.selectionService.addEntry(pseudoEntry);
+          }
         }
         this.cdr.markForCheck();
       });
@@ -330,24 +376,46 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   private extractPlzInfoFromPlacemark(placemark: any, forDisplay = true): string | null {
     let plz6: string | null = null;
+
     if (placemark?.name) {
       const nameMatch = String(placemark.name).trim().match(/^(\d{6})$/);
       if (nameMatch) plz6 = nameMatch[1];
     }
+
     if (!plz6 && placemark?.description) {
       const descriptionMatch = String(placemark.description).match(/PLZCH:\s*(\d{6})/i);
-      if (descriptionMatch?.[1]) plz6 = descriptionMatch[1];
+      if (descriptionMatch && descriptionMatch[1]) {
+        plz6 = descriptionMatch[1];
+      }
     }
+
     if (!plz6) return null;
-    return forDisplay ? `PLZ: ${plz6.substring(0, 4)}` : plz6;
+
+    if (forDisplay) {
+      const plz4ForDisplay = plz6.substring(0, 4);
+      return `PLZ: ${plz4ForDisplay}`;
+    }
+    return plz6;
   }
 
   private getPolygonBounds(polygon: any): google.maps.LatLngBounds | null {
     if (!isPlatformBrowser(this.platformId) || typeof google === 'undefined' || !google.maps) return null;
     const bounds = new google.maps.LatLngBounds();
-    if (polygon?.getPaths) polygon.getPaths().forEach((path: any) => path?.getArray().forEach((latLng: any) => bounds.extend(latLng)));
-    else if (polygon?.getPath) polygon.getPath()?.getArray().forEach((latLng: any) => bounds.extend(latLng));
-    else return null;
+
+    if (polygon && typeof polygon.getPaths === 'function') {
+      polygon.getPaths().forEach((path: any) => {
+        if (path && typeof path.getArray === 'function') {
+          path.getArray().forEach((latLng: any) => bounds.extend(latLng));
+        }
+      });
+    } else if (polygon && typeof polygon.getPath === 'function') {
+      const path = polygon.getPath();
+      if (path && typeof path.getArray === 'function') {
+        path.getArray().forEach((latLng: any) => bounds.extend(latLng));
+      }
+    } else {
+      return null;
+    }
     return bounds.isEmpty() ? null : bounds;
   }
 
@@ -355,87 +423,149 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     text$.pipe(
       debounceTime(300),
       distinctUntilChanged(),
-      tap(() => { this.searching = true; this.searchFailed = false; this.currentTypeaheadSelection = null; this.cdr.markForCheck(); }),
+      filter(term => {
+        this.typeaheadHoverResults = [];
+        const isRange = this.plzRangeRegex.test(term);
+        if (isRange) {
+          this.currentTypeaheadSelection = null;
+          this.textInputStatus = 'valid';
+          this.updateOverallValidationState();
+          this.cdr.markForCheck();
+        }
+        if (term.length === 0) {
+          this.applyAllMapHighlights();
+        }
+        return !isRange && term.length > 0;
+      }),
+      tap(() => { this.searching = true; this.searchFailed = false; this.cdr.markForCheck(); }),
       switchMap(term => {
         if (term.length < 2) {
-          return of([]);
+          this.searching = false;
+          if (!this.currentTypeaheadSelection) this.textInputStatus = 'invalid';
+          this.typeaheadHoverResults = [];
+          this.applyAllMapHighlights();
+          this.updateOverallValidationState(); this.cdr.markForCheck(); return of([]);
         }
         return this.plzDataService.search(term).pipe(
-          tap((results) => { this.searchFailed = results.length === 0 && term.length >=2; }),
-          catchError(() => { this.searchFailed = true; return of([]); }),
-          finalize(() => { this.searching = false; this.cdr.markForCheck();})
+          tap((results) => {
+            this.searching = false; this.searchFailed = results.length === 0;
+            this.typeaheadHoverResults = results.filter(r => !r.isGroupEntry);
+            this.applyAllMapHighlights();
+            this.cdr.markForCheck();
+          }),
+          catchError(() => {
+            this.searching = false; this.searchFailed = true;
+            this.typeaheadHoverResults = [];
+            this.applyAllMapHighlights();
+            this.cdr.markForCheck(); return of([]);
+          })
         );
       })
     );
 
-  public formatInput = (item: PlzEntry): string => {
-    return '';
-  };
-
-  resultFormatter = (entry: PlzEntry) => { // Wird für das #rtTable Template nicht mehr direkt benötigt, aber schadet nicht
+  resultFormatter = (entry: PlzEntry) => {
     if (entry.isGroupEntry) {
-      return entry.ort;
+      return `Alle ${entry.all} Einträge für ${entry.ort}`;
     }
     return `${entry.plz4} ${entry.ort} (${entry.kt})`;
   }
 
-  onTypeaheadInputChange(term: string): void {
-    this.typeaheadSearchTerm = term;
-    if (term.length < 2 && this.selectionService.getSelectedEntries().length === 0) {
-      this.textInputStatus = 'invalid';
-    } else if (term.length >= 2 && !this.currentTypeaheadSelection && this.selectionService.getSelectedEntries().length === 0) {
-      this.textInputStatus = 'pending';
-    } else {
-      this.textInputStatus = 'valid';
+  typeaheadInputFormatter = (entry: PlzEntry | null | undefined): string => {
+    if (entry && !entry.isGroupEntry && entry.plz4 && entry.ort) {
+      return `${entry.plz4} ${entry.ort}`;
     }
-    this.updateOverallValidationState();
-  }
+    if (this.plzRangeRegex.test(this.typeaheadSearchTerm)) {
+      return this.typeaheadSearchTerm;
+    }
+    return '';
+  };
 
-  addSelectedEntryToTable(entry: PlzEntry, event?: MouseEvent): void {
-    event?.preventDefault();
-    console.log(`${LOG_PREFIX_DIST} addSelectedEntryToTable für:`, entry);
+  typeaheadItemSelected(event: NgbTypeaheadSelectItemEvent<PlzEntry>): void {
+    event.preventDefault();
+    const selectedItem = event.item;
+    this.typeaheadHoverResults = [];
 
-    if (entry.isGroupEntry) {
-      console.log(`${LOG_PREFIX_DIST} Ortssuche-Kontext (Gruppeneintrag): Füge alle PLZ für Ort "${entry.ort}" hinzu.`);
-      this.plzDataService.getEntriesByOrt(entry.ort).subscribe(entriesForOrt => {
-        if (entriesForOrt && entriesForOrt.length > 0) {
-          let addedCount = 0;
-          entriesForOrt.forEach(ortEntry => {
-            if (this.selectionService.validateEntry(ortEntry)) {
-              if(this.selectionService.addEntry(ortEntry)) addedCount++;
-            }
-          });
-          console.log(`${LOG_PREFIX_DIST} ${addedCount} von ${entriesForOrt.length} Einträgen für Ort "${entry.ort}" hinzugefügt.`);
-        } else {
-          console.warn(`${LOG_PREFIX_DIST} Keine Einträge für Ort "${entry.ort}" gefunden (via getEntriesByOrt).`);
-        }
+    if (selectedItem.isGroupEntry) {
+      this.plzDataService.getEntriesByOrt(selectedItem.ort).subscribe(entries => {
+        this.selectionService.addMultipleEntries(entries);
+        this.typeaheadSearchTerm = '';
+        this.currentTypeaheadSelection = null;
+        this.textInputStatus = 'invalid';
+        this.searchFailed = false;
+        this.updateOverallValidationState();
         this.cdr.markForCheck();
       });
-    } else if (this.selectionService.validateEntry(entry)) {
-      this.selectionService.addEntry(entry);
-      console.log(`${LOG_PREFIX_DIST} Direkten PLZ-Eintrag hinzugefügt:`, entry);
     } else {
-      console.warn(`${LOG_PREFIX_DIST} Versuch, ungültigen Eintrag hinzuzufügen oder Eintrag nicht validiert:`, entry);
-    }
-
-    this.typeaheadSearchTerm = '';
-    this.currentTypeaheadSelection = null;
-    this.searchFailed = false;
-    this.updateOverallValidationState();
-    this.cdr.markForCheck();
-  }
-
-  addCurrentTypeaheadSelectionToTable(): void {
-    if (this.currentTypeaheadSelection) {
-      this.addSelectedEntryToTable(this.currentTypeaheadSelection);
+      this.currentTypeaheadSelection = selectedItem;
+      this.typeaheadSearchTerm = this.typeaheadInputFormatter(selectedItem);
+      this.textInputStatus = 'valid'; this.searchFailed = false;
+      this.updateOverallValidationState();
+      this.cdr.markForCheck();
     }
   }
+
+  onTypeaheadInputChange(term: string): void {
+    if (this.currentTypeaheadSelection && this.typeaheadInputFormatter(this.currentTypeaheadSelection) !== term) {
+      this.currentTypeaheadSelection = null;
+    }
+    if (term === '' && !this.currentTypeaheadSelection) {
+      this.searchFailed = false;
+      this.typeaheadHoverResults = [];
+      this.applyAllMapHighlights();
+    }
+
+    if (this.plzRangeRegex.test(term)) {
+      this.textInputStatus = 'valid';
+      this.currentTypeaheadSelection = null;
+    } else if (this.currentTypeaheadSelection) { this.textInputStatus = 'valid'; }
+    else if (term.length > 1) { this.textInputStatus = 'pending'; }
+    else { this.textInputStatus = 'invalid'; }
+    this.updateOverallValidationState(); this.cdr.markForCheck();
+  }
+
+  addCurrentSelectionToTable(): void {
+    const searchTerm = this.typeaheadSearchTerm.trim();
+    const rangeMatch = searchTerm.match(this.plzRangeRegex);
+    this.typeaheadHoverResults = [];
+
+    if (rangeMatch) {
+      this.plzDataService.getEntriesByPlzRange(searchTerm).subscribe(entries => {
+        if (entries.length > 0) {
+          this.selectionService.addMultipleEntries(entries);
+        } else {
+          alert(`Für den Bereich "${searchTerm}" wurden keine gültigen PLZ-Gebiete gefunden.`);
+        }
+        this.typeaheadSearchTerm = '';
+        this.currentTypeaheadSelection = null;
+        this.textInputStatus = 'invalid';
+        this.searchFailed = false;
+        this.updateOverallValidationState();
+        this.cdr.markForCheck();
+      });
+    } else if (this.currentTypeaheadSelection && !this.currentTypeaheadSelection.isGroupEntry && this.selectionService.validateEntry(this.currentTypeaheadSelection)) {
+      const added = this.selectionService.addEntry(this.currentTypeaheadSelection);
+      if (added) {
+        this.typeaheadSearchTerm = ''; this.currentTypeaheadSelection = null;
+        this.textInputStatus = 'invalid'; this.searchFailed = false;
+      } else {
+        this.typeaheadSearchTerm = ''; this.currentTypeaheadSelection = null; this.textInputStatus = 'invalid';
+      }
+    }
+    this.applyAllMapHighlights();
+    this.updateOverallValidationState(); this.cdr.markForCheck();
+  }
+
 
   removePlzFromTable(entry: PlzEntry): void { this.selectionService.removeEntry(entry.id); }
-  clearPlzTable(): void { this.selectionService.clearEntries(); }
+  clearPlzTable(): void {
+    this.selectionService.clearEntries();
+    this.typeaheadHoverResults = [];
+    this.applyAllMapHighlights();
+  }
 
   zoomToTableEntryOnMap(entry: PlzEntry): void {
     if (!this.map || !this.showPlzUiContainer) return;
+
     const placemarkToZoom = this.allPlacemarks.find(p => this.extractPlzInfoFromPlacemark(p, false) === entry.id);
     if (placemarkToZoom) {
       const actualPolygon = placemarkToZoom.polygon || placemarkToZoom.gObject;
@@ -454,29 +584,63 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  private synchronizeMapSelectionWithService(selectedEntries: PlzEntry[]): void {
-    if (!this.map || !this.showPlzUiContainer || !this.allPlacemarks?.length) return;
-    const selectedEntryIds = new Set(selectedEntries.map(e => e.id));
+  highlightPlacemarkOnMapFromTable(plzId: string | null, highlight: boolean): void {
+    if (!this.map || !this.showPlzUiContainer) return;
+    this.currentlyHoveredPlacemarkId = highlight ? plzId : null;
+    this.applyAllMapHighlights();
+    this.cdr.markForCheck();
+  }
+
+  public applyAllMapHighlights(): void {
+    if (!this.map || !this.showPlzUiContainer || !this.allPlacemarks || this.allPlacemarks.length === 0) {
+      return;
+    }
+    const selectedEntryIds = new Set(this.selectionService.getSelectedEntries().map(e => e.id));
+    const typeaheadHoverIds = new Set(this.typeaheadHoverResults.map(e => e.id));
+
     this.allPlacemarks.forEach(placemark => {
+      const plzIdFromMap = this.extractPlzInfoFromPlacemark(placemark, false);
       const actualPolygon = placemark.polygon || placemark.gObject;
-      if (actualPolygon?.setOptions) {
-        const plzIdFromMap = this.extractPlzInfoFromPlacemark(placemark, false);
-        actualPolygon.setOptions(plzIdFromMap && selectedEntryIds.has(plzIdFromMap) ? this.selectedPolygonOptions : this.defaultPolygonOptions);
+      if (actualPolygon?.setOptions && plzIdFromMap) {
+        let optionsToApply = this.defaultPolygonOptions;
+
+        if (selectedEntryIds.has(plzIdFromMap)) {
+          optionsToApply = (this.currentlyHoveredPlacemarkId === plzIdFromMap || typeaheadHoverIds.has(plzIdFromMap))
+            ? this.selectedHighlightedPolygonOptions
+            : this.selectedPolygonOptions;
+        } else if (typeaheadHoverIds.has(plzIdFromMap)) {
+          optionsToApply = this.typeaheadHoverPolygonOptions;
+        } else if (this.currentlyHoveredPlacemarkId === plzIdFromMap) {
+          optionsToApply = this.highlightedPolygonOptions;
+        }
+        actualPolygon.setOptions(optionsToApply);
       }
     });
-    if (this.selectedPlzInfoSpan?.nativeElement) this.updateSelectedPlzInfoText(selectedEntries);
+  }
+
+  private synchronizeMapSelectionWithService(selectedEntries: PlzEntry[]): void {
+    if (!this.map || !this.showPlzUiContainer || !this.allPlacemarks || this.allPlacemarks.length === 0) {
+      return;
+    }
+
+    this.applyAllMapHighlights();
+
+    if (this.selectedPlzInfoSpan?.nativeElement) {
+      this.updateSelectedPlzInfoText(selectedEntries);
+    }
     this.zoomMapToSelectedEntries(selectedEntries);
     this.cdr.markForCheck();
   }
 
+
   private updateSelectedPlzInfoText(currentSelection: PlzEntry[]): void {
     if (!isPlatformBrowser(this.platformId) || !this.selectedPlzInfoSpan?.nativeElement) return;
-    const displayPlzList = currentSelection.map(entry => entry.plz4).sort().join(', ');
-    this.selectedPlzInfoSpan.nativeElement.textContent = displayPlzList || "Keine";
+    const displayPlzList = currentSelection.map(entry => entry.plz4).sort().filter((value, index, self) => self.indexOf(value) === index);
+    this.selectedPlzInfoSpan.nativeElement.textContent = displayPlzList.length === 0 ? "Keine" : displayPlzList.join(', ');
   }
 
   private zoomMapToSelectedEntries(entriesToZoom: PlzEntry[]): void {
-    if (!this.map || !this.showPlzUiContainer || !this.allPlacemarks?.length || typeof google === 'undefined' || !google.maps) return;
+    if (!this.map || !this.showPlzUiContainer || !this.allPlacemarks || this.allPlacemarks.length === 0 || typeof google === 'undefined' || !google.maps) return;
     this.ngZone.runOutsideAngular(() => {
       if (this.singlePolygonZoomAdjustListener) google.maps.event.removeListener(this.singlePolygonZoomAdjustListener);
       this.singlePolygonZoomAdjustListener = null;
@@ -488,11 +652,15 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
         this.allPlacemarks.forEach(placemark => {
           const plzIdFromMap = this.extractPlzInfoFromPlacemark(placemark, false);
           if (plzIdFromMap && selectedEntryIds.has(plzIdFromMap)) {
-            const bounds = this.getPolygonBounds(placemark.polygon || placemark.gObject);
-            if (bounds) { totalBounds.union(bounds); hasSelected = true; }
+            const actualPolygon = placemark.polygon || placemark.gObject;
+            if (actualPolygon) {
+              const bounds = this.getPolygonBounds(actualPolygon);
+              if (bounds) { totalBounds.union(bounds); hasSelected = true; }
+            }
           }
         });
       }
+
       if (hasSelected && !totalBounds.isEmpty()) {
         this.map.fitBounds(totalBounds);
         if (entriesToZoom.length === 1) {
@@ -511,15 +679,30 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   getFlyerMaxForEntry(entry: PlzEntry): number {
     if (!entry) return 0;
     switch (this.currentZielgruppe) {
-      case 'Mehrfamilienhäuser': return entry.mfh ?? 0;
-      case 'Ein- und Zweifamilienhäuser': return entry.efh ?? 0;
-      default: return entry.all ?? 0;
+      case 'Mehrfamilienhäuser':
+        return entry.mfh ?? 0;
+      case 'Ein- und Zweifamilienhäuser':
+        return entry.efh ?? 0;
+      case 'Alle Haushalte':
+      default:
+        return entry.all ?? 0;
+    }
+  }
+
+  getZielgruppeLabel(): string {
+    switch (this.currentZielgruppe) {
+      case 'Mehrfamilienhäuser': return 'MFH';
+      case 'Ein- und Zweifamilienhäuser': return 'EFH/ZFH';
+      case 'Alle Haushalte':
+      default: return 'Alle';
     }
   }
 
   setExampleStatus(status: ValidationStatus): void {
     this.textInputStatus = status;
-    if (status === 'invalid') { this.typeaheadSearchTerm = ''; this.currentTypeaheadSelection = null; this.searchFailed = false; }
+    if (status === 'invalid') {
+      this.currentTypeaheadSelection = null; this.typeaheadSearchTerm = ''; this.searchFailed = false;
+    }
     this.updateOverallValidationState(); this.cdr.markForCheck();
   }
 
@@ -528,58 +711,77 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     let newOverallStatus: ValidationStatus = 'invalid';
 
     if (this.showPlzUiContainer) {
-      if (mapHasSelection) {
+      const isRangeInputValid = this.plzRangeRegex.test(this.typeaheadSearchTerm.trim());
+
+      if (this.textInputStatus === 'valid' || mapHasSelection || isRangeInputValid) {
         newOverallStatus = 'valid';
-      } else if (this.textInputStatus === 'pending') {
+      } else if (this.textInputStatus === 'pending' && !mapHasSelection) {
         newOverallStatus = 'pending';
       }
     } else if (this.showPerimeterUiContainer) {
       newOverallStatus = 'valid';
     }
+
     if (this.validationChange.observers.length > 0) {
       this.validationChange.emit(newOverallStatus);
     }
   }
 
   proceedToNextStep(): void {
-    this.updateOverallValidationState();
-
-    let currentOverallStatusForProceed: ValidationStatus = 'invalid';
+    let currentOverallStatus: ValidationStatus = 'invalid';
     const mapHasSelection = this.selectionService.getSelectedEntries().length > 0;
+    const isRangeInputValid = this.plzRangeRegex.test(this.typeaheadSearchTerm.trim());
+
     if (this.showPlzUiContainer) {
-      if (mapHasSelection) currentOverallStatusForProceed = 'valid';
+      if (this.textInputStatus === 'valid' || mapHasSelection || isRangeInputValid) { currentOverallStatus = 'valid'; }
+      else if (this.textInputStatus === 'pending' && !mapHasSelection) { currentOverallStatus = 'pending'; }
     } else if (this.showPerimeterUiContainer) {
-      currentOverallStatusForProceed = 'valid';
+      currentOverallStatus = 'valid';
     }
 
-    this.validationChange.emit(currentOverallStatusForProceed);
-    if (currentOverallStatusForProceed === 'valid') {
+    this.validationChange.emit(currentOverallStatus);
+    if (currentOverallStatus === 'valid') {
       this.nextStepRequest.emit();
     } else {
-      const message = "Bitte wählen Sie mindestens ein PLZ-Gebiet aus der Suche oder von der Karte aus, um fortzufahren.";
+      const message = currentOverallStatus === 'pending'
+        ? "Bitte vervollständigen Sie Ihre Eingabe im Suchfeld, wählen Sie einen Eintrag aus der Liste oder wählen Sie PLZ-Gebiete auf der Karte aus, um fortzufahren."
+        : "Die Eingabe im Suchfeld ist ungültig oder unvollständig und es sind keine PLZ-Gebiete auf der Karte ausgewählt. Bitte korrigieren Sie Ihre Auswahl oder geben Sie einen gültigen PLZ-Bereich (z.B. 8000-8045) ein.";
       if (isPlatformBrowser(this.platformId)) alert(message);
     }
   }
 
   private loadGoogleMapsScript(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      if (!isPlatformBrowser(this.platformId) || (typeof google !== 'undefined' && google.maps)) { resolve(); return; }
-      if ((window as any).googleMapsScriptLoadingPromise) return (window as any).googleMapsScriptLoadingPromise;
+      if (!isPlatformBrowser(this.platformId)) { resolve(); return; }
+      if (typeof google !== 'undefined' && google.maps) { resolve(); return; }
+
+      if ((window as any).googleMapsScriptLoadingPromise) {
+        return (window as any).googleMapsScriptLoadingPromise;
+      }
 
       (window as any).googleMapsScriptLoadingPromise = new Promise<void>((innerResolve, innerReject) => {
         (window as any).angularGoogleMapsCallback = () => {
-          if ((window as any).google?.maps) innerResolve();
-          else innerReject(new Error("Google Maps API geladen, aber google.maps nicht gefunden."));
-          delete (window as any).angularGoogleMapsCallback; delete (window as any).googleMapsScriptLoadingPromise;
+          if ((window as any).google?.maps) {
+            innerResolve();
+          } else {
+            innerReject(new Error("Google Maps API geladen, aber google.maps nicht gefunden."));
+          }
+          delete (window as any).angularGoogleMapsCallback;
+          delete (window as any).googleMapsScriptLoadingPromise;
         };
+
         const script = document.createElement('script');
         script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=angularGoogleMapsCallback&libraries=visualization,geometry`;
-        script.async = true; script.defer = true;
+        script.async = true;
+        script.defer = true;
         script.onerror = (e) => {
-          innerReject(e); delete (window as any).angularGoogleMapsCallback; delete (window as any).googleMapsScriptLoadingPromise;
+          innerReject(e);
+          delete (window as any).angularGoogleMapsCallback;
+          delete (window as any).googleMapsScriptLoadingPromise;
         };
         document.head.appendChild(script);
       });
+
       return (window as any).googleMapsScriptLoadingPromise.then(resolve).catch(reject);
     });
   }
@@ -591,16 +793,29 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       const center = this.map.getCenter();
       if (typeof google !== 'undefined' && google.maps && this.map) {
         google.maps.event.trigger(this.map, 'resize');
-        if (center) this.map.setCenter(center);
+        if (center) {
+          this.map.setCenter(center);
+        }
         this.zoomMapToSelectedEntries(this.selectionService.getSelectedEntries());
       }
     }, WINDOW_RESIZE_DEBOUNCE);
   };
 
   highlight(text: string, term: string): string {
-    if (!term) return text;
-    const safeTerm = term.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    if (!term || term.length === 0 || !text) { return text; }
+    const R_SPECIAL = /[-\/\\^$*+?.()|[\]{}]/g;
+    const safeTerm = term.replace(R_SPECIAL, '\\$&');
     const regex = new RegExp(`(${safeTerm})`, 'gi');
-    return text.replace(regex, '<mark>$1</mark>');
+    try {
+      return text.replace(regex, '<mark>$1</mark>');
+    } catch (e) {
+      return text;
+    }
+  }
+
+  isAddButtonDisabled(): boolean {
+    const isRange = this.plzRangeRegex.test(this.typeaheadSearchTerm.trim());
+    if (isRange) return false;
+    return !this.currentTypeaheadSelection || this.textInputStatus !== 'valid' || !!this.currentTypeaheadSelection?.isGroupEntry;
   }
 }

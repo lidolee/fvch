@@ -1,7 +1,7 @@
 import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, throwError } from 'rxjs';
-import { map, catchError, shareReplay, tap } from 'rxjs/operators';
+import { Observable, of, throwError, forkJoin } from 'rxjs';
+import { map, catchError, shareReplay, tap, switchMap } from 'rxjs/operators';
 import { isPlatformBrowser } from '@angular/common';
 
 const LOG_PREFIX_PLZ_SERVICE = '[PlzDataService]';
@@ -16,7 +16,7 @@ export interface PlzEntry {
   all: number;
   mfh?: number;
   efh?: number;
-  isGroupEntry?: boolean; // NEUES Flag zur Kennzeichnung von Ortseinträgen
+  isGroupEntry?: boolean;
 }
 
 @Injectable({
@@ -31,7 +31,7 @@ export class PlzDataService {
     private http: HttpClient,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
-    const instanceTime = "2025-05-30 11:08:30"; // Angepasster Zeitstempel
+    const instanceTime = "2025-05-30 11:58:00";
     console.log(`${LOG_PREFIX_PLZ_SERVICE} Service instantiated at ${instanceTime}`);
   }
 
@@ -93,7 +93,6 @@ export class PlzDataService {
             all: all,
             mfh: mfh,
             efh: efh,
-            isGroupEntry: false // Standardmäßig kein Gruppeneintrag
           });
         }
 
@@ -126,8 +125,8 @@ export class PlzDataService {
   }
 
   public search(term: string): Observable<PlzEntry[]> {
-    const searchTerm = term.trim();
-    if (!searchTerm || searchTerm.length < 2) {
+    const searchTerm = term.toLowerCase().trim();
+    if (!searchTerm) {
       return of([]);
     }
 
@@ -137,43 +136,28 @@ export class PlzDataService {
           return [];
         }
 
-        const isPlzSearch = /^\d/.test(searchTerm);
+        const individualResults = entries.filter(entry =>
+          entry.plz4.startsWith(searchTerm) ||
+          entry.plz6.startsWith(searchTerm) ||
+          entry.ort.toLowerCase().includes(searchTerm)
+        );
 
-        if (isPlzSearch) {
-          // PLZ Search: Gibt individuelle PLZ-Einträge zurück
-          return entries.filter(entry =>
-            entry.plz4.startsWith(searchTerm) ||
-            entry.plz6.startsWith(searchTerm)
-          ).slice(0, 20); // Limit auf 20 Ergebnisse
-        } else {
-          // Ort Search:
-          const lowerSearchTerm = searchTerm.toLowerCase();
-          const matchingEntries = entries.filter(entry =>
-            entry.ort.toLowerCase().startsWith(lowerSearchTerm)
-          );
-
-          // Gruppiere nach Ort und erstelle eindeutige Ortseinträge
-          const uniqueOrteMap = new Map<string, PlzEntry>();
-          matchingEntries.forEach(entry => {
-            const ortKey = entry.ort.toLowerCase(); // Schlüssel normalisieren
-            if (!uniqueOrteMap.has(ortKey)) {
-              uniqueOrteMap.set(ortKey, {
-                id: `ortgroup_${ortKey.replace(/\s+/g, '_')}`, // Eindeutige ID für den Ortseintrag
-                plz6: '',
-                plz4: '',
-                ort: entry.ort,
-                kt: entry.kt,
-                all: 0, // Könnte hier aggregiert werden, wenn gewünscht
-                mfh: 0,
-                efh: 0,
-                isGroupEntry: true
-              });
-            }
-          });
-          return Array.from(uniqueOrteMap.values())
-            .sort((a, b) => a.ort.localeCompare(b.ort))
-            .slice(0, 10);
+        const ortMatches = entries.filter(entry => entry.ort.toLowerCase() === searchTerm);
+        if (ortMatches.length > 1 && searchTerm.length > 2 && !/^\d+$/.test(searchTerm)) {
+          const groupEntry: PlzEntry = {
+            id: `group-${searchTerm.replace(/\s+/g, '-')}`,
+            plz6: '',
+            plz4: `Alle für ${ortMatches[0].ort}`,
+            ort: ortMatches[0].ort,
+            kt: '',
+            all: ortMatches.reduce((sum, current) => sum + (current.all || 0), 0),
+            isGroupEntry: true
+          };
+          const filteredIndividualResults = individualResults.filter(ir => ir.ort.toLowerCase() !== searchTerm);
+          return [groupEntry, ...filteredIndividualResults.slice(0, 19)];
         }
+
+        return individualResults.slice(0, 20);
       }),
       catchError(err => {
         console.error(`${LOG_PREFIX_PLZ_SERVICE} Search failed due to data loading error:`, err);
@@ -188,7 +172,7 @@ export class PlzDataService {
         if (!entries || entries.length === 0) {
           return undefined;
         }
-        const foundEntry = entries.find(entry => entry.id === id && !entry.isGroupEntry);
+        const foundEntry = entries.find(entry => entry.id === id);
         return foundEntry;
       }),
       catchError(err => {
@@ -198,20 +182,38 @@ export class PlzDataService {
     );
   }
 
-  public getEntriesByOrt(ortName: string): Observable<PlzEntry[]> {
-    const lowerOrtName = ortName.toLowerCase().trim();
-    if (!lowerOrtName) {
+  public getEntriesByPlzRange(plzRange: string): Observable<PlzEntry[]> {
+    const parts = plzRange.split('-');
+    if (parts.length !== 2) return of([]);
+
+    const startPlz = parseInt(parts[0].trim(), 10);
+    const endPlz = parseInt(parts[1].trim(), 10);
+
+    if (isNaN(startPlz) || isNaN(endPlz) || startPlz > endPlz || String(startPlz).length < 4 || String(endPlz).length < 4) {
+      console.warn(`${LOG_PREFIX_PLZ_SERVICE} Invalid PLZ range: ${plzRange}`);
       return of([]);
     }
+
     return this.getPlzData().pipe(
       map(entries => {
-        if (!entries || entries.length === 0) {
-          return [];
-        }
-        return entries.filter(entry => entry.ort.toLowerCase() === lowerOrtName && !entry.isGroupEntry);
+        return entries.filter(entry => {
+          const plzNum = parseInt(entry.plz4, 10);
+          return plzNum >= startPlz && plzNum <= endPlz;
+        });
       }),
       catchError(err => {
-        console.error(`${LOG_PREFIX_PLZ_SERVICE} GetEntriesByOrt failed for Ort "${ortName}":`, err);
+        console.error(`${LOG_PREFIX_PLZ_SERVICE} getEntriesByPlzRange failed for range "${plzRange}":`, err);
+        return of([]);
+      })
+    );
+  }
+
+  public getEntriesByOrt(ortName: string): Observable<PlzEntry[]> {
+    const searchTerm = ortName.toLowerCase().trim();
+    return this.getPlzData().pipe(
+      map(entries => entries.filter(entry => entry.ort.toLowerCase() === searchTerm)),
+      catchError(err => {
+        console.error(`${LOG_PREFIX_PLZ_SERVICE} getEntriesByOrt failed for Ort "${ortName}":`, err);
         return of([]);
       })
     );

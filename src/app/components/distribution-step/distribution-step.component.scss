@@ -1,4 +1,5 @@
 @import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
 @import "../../../styles/variables";
 @import "bootstrap/scss/mixins";
 
@@ -16,7 +17,7 @@
   position: relative;
   width: 100%;
   height: 0;
-  padding-bottom: 75%; // Aspect ratio für die Karte
+  padding-bottom: 75%;
   background-color: #f0f0f0;
   overflow: hidden;
 }
@@ -38,25 +39,25 @@
   padding: 16px;
   border-radius: 4px;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.25);
-  z-index: 10; // Über der Karte
+  z-index: 10;
   font-size: 14px;
   font-weight: bold;
   text-transform: uppercase;
-  display: none; // Wird per Code gesteuert
+  display: none;
   text-align: center;
 }
 
 #hover-plz-display-angular {
-  position: fixed; // Fixed, um Mauszeiger zu folgen
+  position: fixed;
   background-color: rgba(0, 0, 0, 0.75);
   color: white;
   padding: 5px 10px;
   border-radius: 4px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  z-index: 10010; // Über allem
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  z-index: 10010;
   font-size: 0.9em;
-  display: none; // Wird per Code gesteuert
-  pointer-events: none; // Klicks gehen durch
+  display: none;
+  pointer-events: none;
   white-space: nowrap;
 }
 
@@ -79,18 +80,48 @@
 }
 
 .plz-table {
-  td, th { // Gilt für Header und Datenzellen
-    padding: 0.3rem 0.5rem; // Kompakteres Padding
+  td {
+    padding: 0.35rem 0.5rem;
+  }
+  td.has-icon {
     vertical-align: middle;
   }
-  td.has-icon { vertical-align: middle; }
-  .btn-link { text-decoration: none; }
+  .btn-link {
+    text-decoration: none;
+    color: var(--bs-primary);
+    &:hover {
+      color: var(--bs-dark);
+    }
+  }
+  .column-highlighted {
+    background-color: rgba(255, 255, 0, 0.3);
+    transition: background-color 0.3s ease-in-out;
+  }
+  td.column-highlighted, th.column-highlighted {
+    background-color: rgba(255, 230, 150, 0.4);
+  }
 }
+
+@include media-breakpoint-down(sm) {
+  .plz-table {
+    font-size: 0.9em;
+    thead th {
+      padding: 0.4rem 0.3rem;
+    }
+    td {
+      padding: 0.3rem 0.3rem;
+    }
+    .mdi::before {
+      font-size: 1.1rem;
+    }
+  }
+}
+
 
 .perimeter-container.reminder {
   padding: 15px;
-  background-color: #f8f9fa; // Helles Grau
-  border: 1px solid #dee2e6; // Standard Bootstrap-Border
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
   border-radius: .25rem;
   margin-bottom: 1rem;
 
@@ -99,41 +130,95 @@
     margin-bottom: 0.5rem;
   }
   ol {
-    padding-left: 1.2em; // Einrückung für die Liste
+    padding-left: 1.2em;
     li {
       margin-bottom: 0.3em;
     }
   }
 }
 
-// Styles für das Typeahead Ergebnis-Template als Tabelle
-.typeahead-results-table {
-  td {
-    padding: 0.25rem 0.5rem; // Kleineres Padding für Kompaktheit
-    vertical-align: middle;
-    font-size: 0.9em; // Etwas kleinere Schrift
-  }
-  .plz-col { width: 20%; }
-  .ort-col { width: 45%; }
-  .kt-col { width: 15%; }
-  .action-col { width: 20%; }
-
-  .btn-outline-primary {
-    line-height: 1; // Für bessere vertikale Zentrierung des Icons und Texts
-    i {
-      font-size: 1.1em; // Icon etwas größer
-      vertical-align: middle;
-      margin-right: 2px;
-    }
-  }
+.bg-light-subtle {
+  background-color: #fcfcfc;
 }
 
-// Stellt sicher, dass das Dropdown-Menü des Typeaheads die volle Breite hat
-// und über anderen Elementen angezeigt wird.
-::ng-deep .dropdown-menu {
+.typeahead-search-container {
+  position: relative;
+}
+
+.typeahead-searching-indicator {
+  font-size: 0.875em;
+  color: var(--bs-secondary);
+}
+
+.typeahead-no-results-message {
+  background-color: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-top: none;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  color: var(--bs-secondary-color);
+  border-bottom-left-radius: var(--bs-border-radius);
+  border-bottom-right-radius: var(--bs-border-radius);
+  box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+  margin-top: -1px;
+  position: relative;
+  z-index: 1000;
+}
+
+.typeahead-result-item {
+  display: flex;
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+}
+
+.typeahead-result-icon {
+  margin-right: 0.5rem;
+  color: var(--bs-secondary);
+  font-size: 1.1em;
+  min-width: 20px;
+  text-align: center;
+}
+.typeahead-result-icon .mdi::before {
+  vertical-align: middle;
+}
+
+.typeahead-result-text mark {
+  background-color: var(--bs-warning-bg-subtle);
+  padding: 0;
+  font-weight: bold;
+}
+
+.typeahead-result-text.group-entry-text {
+  font-weight: 500;
+}
+
+ngb-typeahead-window.dropdown-menu {
   width: 100%;
-  z-index: 1000; // Standard Bootstrap Dropdown z-index
-  // Optional: Wenn die Tabelle im Dropdown Scrollbalken bekommen soll bei vielen Ergebnissen
-  // max-height: 300px;
-  // overflow-y: auto;
+  max-height: 300px;
+  overflow-y: auto;
+  box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+  border: 1px solid var(--bs-border-color-translucent);
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  margin-top: -1px;
+
+  button.dropdown-item {
+    padding: 0;
+    white-space: normal;
+
+    &:hover, &:focus {
+      background-color: var(--bs-primary-bg-subtle);
+      color: var(--bs-primary-text-emphasis);
+      .typeahead-result-icon {
+        color: var(--bs-primary-text-emphasis);
+      }
+    }
+    &.active {
+      background-color: var(--bs-primary);
+      color: var(--bs-light);
+      .typeahead-result-icon {
+        color: var(--bs-light);
+      }
+    }
+  }
 }
