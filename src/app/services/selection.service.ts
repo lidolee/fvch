@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { PlzEntry } from './plz-data.service';
+import { PlzEntry } from './plz-data.service'; // PlzEntry hat kein isGroupEntry mehr
 
 const LOG_PREFIX_SELECTION = '[SelectionService]';
 
@@ -14,7 +14,7 @@ export class SelectionService {
   private readonly MAX_SELECTION_SIZE = 250;
 
   constructor() {
-    const instanceTime = "2025-05-30 11:58:00";
+    const instanceTime = "2025-05-31 16:39:18";
     console.log(`${LOG_PREFIX_SELECTION} Service instantiated at ${instanceTime}`);
   }
 
@@ -78,9 +78,9 @@ export class SelectionService {
       console.warn(`${LOG_PREFIX_SELECTION} Validation failed: Entry or entry.id is missing.`);
       return false;
     }
-    if (entry.isGroupEntry) {
-      return true;
-    }
-    return true;
+    // if (entry.isGroupEntry) { // Entfernt, da PlzEntry kein isGroupEntry mehr hat
+    //   return true; // Diese Logik war ohnehin fragwürdig für PlzEntry
+    // }
+    return true; // Ein PlzEntry ist gültig, wenn es eine ID hat
   }
 }

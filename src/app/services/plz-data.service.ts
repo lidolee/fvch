@@ -16,7 +16,6 @@ export interface PlzEntry {
   all: number;
   mfh?: number;
   efh?: number;
-  isGroupEntry?: boolean;
 }
 
 export interface EnhancedSearchResultItem extends PlzEntry {
@@ -32,7 +31,8 @@ export interface SearchResultsContainer {
   itemsForDisplay: EnhancedSearchResultItem[];
   headerText: string;
   showSelectAllButton: boolean;
-  entriesForSelectAllAction: PlzEntry[];
+  entriesForSelectAllAction: PlzEntry[]; // Kinder der ERSTEN Gruppe für den Standard "Select All" Button
+  mapBaseOrtToChildren?: Map<string, PlzEntry[]>; // Alle gefundenen Gruppen und ihre Kinder
 }
 
 @Injectable({
@@ -47,8 +47,15 @@ export class PlzDataService {
     private http: HttpClient,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
-    const instanceTime = "2025-05-30 11:58:00";
+    // Verwendung des vom Benutzer angegebenen Zeitstempels
+    const instanceTime = "2025-05-31 17:08:33";
     console.log(`${LOG_PREFIX_PLZ_SERVICE} Service instantiated at ${instanceTime}`);
+  }
+
+  // Mache diese Methode public
+  public getBaseOrtName(ort: string): string {
+    if (!ort) return '';
+    return ort.replace(/\s+\d+$/, '').trim();
   }
 
   private loadPlzData(): Observable<PlzEntry[]> {
@@ -70,6 +77,7 @@ export class PlzDataService {
         if (!Array.isArray(rawDataArray)) {
           this.dataLoadedSuccessfully = false;
           this.rawEntriesCache = [];
+          console.error(`${LOG_PREFIX_PLZ_SERVICE} Invalid data format from fvdb.json: Expected an array.`);
           throw new Error('Invalid data format from fvdb.json');
         }
         let processedEntries: PlzEntry[] = [];
@@ -77,7 +85,7 @@ export class PlzDataService {
 
         for (let i = 0; i < rawDataArray.length; i++) {
           const rawEntry = rawDataArray[i];
-          if (!rawEntry) {
+          if (!rawEntry || typeof rawEntry !== 'object') {
             invalidCount++;
             continue;
           }
@@ -100,7 +108,7 @@ export class PlzDataService {
 
           processedEntries.push({
             id: id, plz6: plz6FromInput, plz4: plz4, ort: ortFromInput, kt: ktFromInput,
-            all: all, mfh: mfh, efh: efh, isGroupEntry: false
+            all: all, mfh: mfh, efh: efh
           });
         }
         if (invalidCount > 0) {
@@ -123,7 +131,7 @@ export class PlzDataService {
   }
 
   public getPlzData(): Observable<PlzEntry[]> {
-    if (!this.plzData$) {
+    if (!this.plzData$ || !this.dataLoadedSuccessfully) {
       this.plzData$ = this.loadPlzData();
     }
     return this.plzData$;
@@ -133,92 +141,140 @@ export class PlzDataService {
     const searchTermNormalized = term.toLowerCase().trim();
     const emptyResult: SearchResultsContainer = {
       searchTerm: term, searchTypeDisplay: 'none', itemsForDisplay: [],
-      headerText: '', showSelectAllButton: false, entriesForSelectAllAction: []
+      headerText: `Keine Einträge für "${term}" gefunden.`, showSelectAllButton: false, entriesForSelectAllAction: [],
+      mapBaseOrtToChildren: new Map<string, PlzEntry[]>() // Initialisiere die Map
     };
 
-    if (!searchTermNormalized) {
-      return of(emptyResult);
+    if (!searchTermNormalized || searchTermNormalized.length < 1) {
+      return of({...emptyResult, headerText: 'Bitte geben Sie mindestens 1 Zeichen ein.'});
     }
 
     return this.getPlzData().pipe(
       map((allEntries): SearchResultsContainer => {
         if (!allEntries || allEntries.length === 0) {
-          return { ...emptyResult, searchTerm: term, headerText: 'Keine Daten geladen.' };
+          return { ...emptyResult, headerText: 'Keine PLZ-Daten geladen oder verfügbar.' };
         }
 
-        const isPrimarilyPlzSearch = /^\d/.test(searchTermNormalized);
-        let results: EnhancedSearchResultItem[] = [];
-        let entriesForSelectAll: PlzEntry[] = [];
-        let searchTypeForDisplayLogic: 'ort' | 'plz' | 'mixed' | 'none' = 'none';
-        let ortNameForHeader = '';
+        let finalItemsForDisplay: EnhancedSearchResultItem[] = [];
+        let searchTypeDisplay: 'ort' | 'plz' | 'mixed' | 'none' = 'none';
+        let headerText = `Keine Einträge für "${term}" gefunden.`;
+        let showSelectAllButton = false;
+        let entriesForFirstGroupAction: PlzEntry[] = [];
+        const mapBaseOrtToChildrenResult = new Map<string, PlzEntry[]>();
 
-        if (!isPrimarilyPlzSearch) {
-          const ortExactMatches = allEntries.filter(entry => entry.ort.toLowerCase() === searchTermNormalized);
-          if (ortExactMatches.length > 0) {
-            searchTypeForDisplayLogic = 'ort';
-            ortNameForHeader = ortExactMatches[0].ort;
-            const kanton = ortExactMatches.every(e => e.kt === ortExactMatches[0].kt) ? ortExactMatches[0].kt : '';
-            const groupHeader: EnhancedSearchResultItem = {
-              id: `group-${ortNameForHeader.toLowerCase().replace(/\s+/g, '-')}`,
-              plz4: '', plz6: '', ort: ortNameForHeader, kt: kanton, all: 0,
-              isGroupEntry: true, isGroupHeader: true, childPlzCount: ortExactMatches.length,
-              isPrimaryOrtMatch: true
-            };
-            results.push(groupHeader);
-            entriesForSelectAll = [...ortExactMatches];
-            results.push(...ortExactMatches.map(e => ({ ...e, isPrimaryOrtMatch: true, isPrimaryPlzMatch: false} as EnhancedSearchResultItem)));
-          }
-        }
+        const isNumericSearch = /^\d/.test(searchTermNormalized);
 
-        if (searchTypeForDisplayLogic !== 'ort' || isPrimarilyPlzSearch) {
-          const broaderFilterResults = allEntries
+        if (isNumericSearch) {
+          searchTypeDisplay = 'plz';
+          const plzMatches = allEntries
             .filter(entry =>
               entry.plz4.startsWith(searchTermNormalized) ||
-              entry.plz6.startsWith(searchTermNormalized) ||
-              (!isPrimarilyPlzSearch && entry.ort.toLowerCase().includes(searchTermNormalized) && searchTypeForDisplayLogic !== 'ort')
+              entry.plz6.startsWith(searchTermNormalized)
             )
-            .map(entry => ({
-              ...entry,
-              isPrimaryPlzMatch: entry.plz4.startsWith(searchTermNormalized) || entry.plz6.startsWith(searchTermNormalized),
-              isPrimaryOrtMatch: !isPrimarilyPlzSearch && entry.ort.toLowerCase().includes(searchTermNormalized)
-            } as EnhancedSearchResultItem));
-          broaderFilterResults.forEach(br => {
-            if (!results.find(r => r.id === br.id)) { results.push(br); }
-          });
-          if (searchTypeForDisplayLogic !== 'ort') {
-            if (results.length > 0) {
-              const hasPlzMatch = results.some(r => r.isPrimaryPlzMatch);
-              const hasOrtIncludeMatch = results.some(r => r.isPrimaryOrtMatch);
-              if (isPrimarilyPlzSearch && hasPlzMatch) searchTypeForDisplayLogic = 'plz';
-              else if (hasPlzMatch && hasOrtIncludeMatch) searchTypeForDisplayLogic = 'mixed';
-              else if (hasPlzMatch) searchTypeForDisplayLogic = 'plz';
-              else if (hasOrtIncludeMatch) searchTypeForDisplayLogic = 'mixed';
-              else searchTypeForDisplayLogic = 'mixed';
-            } else searchTypeForDisplayLogic = 'none';
-          }
-        }
+            .map(entry => ({ ...entry, isPrimaryPlzMatch: true, isPrimaryOrtMatch: false } as EnhancedSearchResultItem))
+            .sort((a, b) => {
+              const plzComp = a.plz4.localeCompare(b.plz4);
+              if (plzComp !== 0) return plzComp;
+              return a.ort.localeCompare(b.ort);
+            });
 
-        const limitedResults = results.slice(0, 20);
-        const totalFoundCountInResults = results.length;
-        let headerMsg = `Keine Einträge für "${term}" gefunden.`;
-        if (totalFoundCountInResults > 0) {
-          const typeDisplay = searchTypeForDisplayLogic === 'ort' ? ortNameForHeader : `"${term}"`;
-          headerMsg = `Es wurden ${totalFoundCountInResults} ${totalFoundCountInResults === 1 ? 'Eintrag' : 'Einträge'} für ${typeDisplay} gefunden.`;
+          finalItemsForDisplay = plzMatches;
+          if (finalItemsForDisplay.length > 0) {
+            headerText = `Es ${finalItemsForDisplay.length === 1 ? 'wurde' : 'wurden'} ${finalItemsForDisplay.length} ${finalItemsForDisplay.length === 1 ? 'PLZ-Eintrag' : 'PLZ-Einträge'} für "${term}" gefunden.`;
+          }
+
+        } else {
+          searchTypeDisplay = 'ort';
+          const groupHeaders: EnhancedSearchResultItem[] = [];
+          const singleOrtMatches: EnhancedSearchResultItem[] = [];
+
+          const initialOrtMatches = allEntries.filter(entry =>
+            this.getBaseOrtName(entry.ort).toLowerCase().startsWith(searchTermNormalized)
+          );
+
+          if (initialOrtMatches.length > 0) {
+            const groupedByBaseOrt = new Map<string, PlzEntry[]>();
+            initialOrtMatches.forEach(entry => {
+              const baseOrtKey = this.getBaseOrtName(entry.ort).toLowerCase();
+              if (!groupedByBaseOrt.has(baseOrtKey)) {
+                groupedByBaseOrt.set(baseOrtKey, []);
+              }
+              groupedByBaseOrt.get(baseOrtKey)!.push(entry);
+            });
+
+            groupedByBaseOrt.forEach((cityEntries, baseOrtKey) => {
+              const actualDisplayOrtName = this.getBaseOrtName(cityEntries[0].ort);
+              if (cityEntries.length > 1) {
+                const representativeEntry = cityEntries[0];
+                groupHeaders.push({
+                  id: `group-${actualDisplayOrtName.toLowerCase().replace(/\s+/g, '-')}`,
+                  plz4: '', plz6: '', ort: actualDisplayOrtName,
+                  kt: cityEntries.every(e => e.kt === representativeEntry.kt) ? representativeEntry.kt : '',
+                  all: 0, mfh: 0, efh: 0,
+                  isGroupHeader: true,
+                  childPlzCount: cityEntries.length,
+                  isPrimaryOrtMatch: true, isPrimaryPlzMatch: false
+                });
+                mapBaseOrtToChildrenResult.set(baseOrtKey, cityEntries); // Hier alle Gruppenkinder speichern
+              } else {
+                singleOrtMatches.push(...cityEntries.map(e => ({ ...e, isPrimaryOrtMatch: true, isPrimaryPlzMatch: false })));
+              }
+            });
+          }
+
+          groupHeaders.sort((a, b) => {
+            const countDiff = (b.childPlzCount || 0) - (a.childPlzCount || 0);
+            if (countDiff !== 0) return countDiff;
+            return a.ort.localeCompare(b.ort);
+          });
+
+          singleOrtMatches.sort((a,b) => {
+            const ortComp = a.ort.localeCompare(b.ort);
+            if (ortComp !== 0) return ortComp;
+            return a.plz4.localeCompare(b.plz4);
+          });
+
+          finalItemsForDisplay.push(...groupHeaders);
+          finalItemsForDisplay.push(...singleOrtMatches);
+
+          let topOrtGroupNameForSelectAllInternal = '';
+          if (groupHeaders.length > 0) {
+            const firstGroupBaseOrtKey = this.getBaseOrtName(groupHeaders[0].ort).toLowerCase();
+            topOrtGroupNameForSelectAllInternal = groupHeaders[0].ort;
+            entriesForFirstGroupAction = mapBaseOrtToChildrenResult.get(firstGroupBaseOrtKey) || [];
+          }
+
+          const countFoundItems = finalItemsForDisplay.length;
+          if (countFoundItems > 0) {
+            let displayTerm = `"${term}"`;
+            if (topOrtGroupNameForSelectAllInternal && groupHeaders.length > 0 && groupHeaders[0].ort === topOrtGroupNameForSelectAllInternal) {
+              displayTerm = topOrtGroupNameForSelectAllInternal;
+            }
+
+            if (groupHeaders.length > 0 && singleOrtMatches.length > 0) {
+              headerText = `Ortsgruppen und einzelne Orte für ${displayTerm} gefunden.`;
+            } else if (groupHeaders.length > 0) {
+              headerText = `${groupHeaders.length} Ortsgruppe${groupHeaders.length === 1 ? '' : 'n'} für ${displayTerm} gefunden.`;
+            } else if (singleOrtMatches.length > 0) {
+              headerText = `${singleOrtMatches.length} passende${singleOrtMatches.length === 1 ? 'r' : ''} Ort${singleOrtMatches.length === 1 ? '' : 'e'} für ${displayTerm} gefunden.`;
+            }
+          }
+          showSelectAllButton = !!(topOrtGroupNameForSelectAllInternal && entriesForFirstGroupAction.length > 1 && groupHeaders.length > 0 && groupHeaders[0].ort === topOrtGroupNameForSelectAllInternal);
         }
-        const finalSearchTypeDisplay: 'ort' | 'plz' | 'mixed' | 'none' = totalFoundCountInResults > 0 ? searchTypeForDisplayLogic : 'none';
 
         return {
           searchTerm: term,
-          searchTypeDisplay: finalSearchTypeDisplay,
-          itemsForDisplay: limitedResults,
-          headerText: headerMsg,
-          showSelectAllButton: searchTypeForDisplayLogic === 'ort' && entriesForSelectAll.length > 1,
-          entriesForSelectAllAction: entriesForSelectAll
+          searchTypeDisplay: searchTypeDisplay,
+          itemsForDisplay: finalItemsForDisplay.slice(0, 20),
+          headerText: headerText,
+          showSelectAllButton: showSelectAllButton,
+          entriesForSelectAllAction: entriesForFirstGroupAction, // Umbenannt für Klarheit
+          mapBaseOrtToChildren: mapBaseOrtToChildrenResult      // Hinzugefügt
         };
       }),
       catchError((err): Observable<SearchResultsContainer> => {
         console.error(`${LOG_PREFIX_PLZ_SERVICE} Search failed:`, err);
-        return of({ ...emptyResult, searchTerm: term, headerText: 'Fehler bei der Suche.' });
+        return of({ ...emptyResult, headerText: 'Fehler bei der Suche.' }); // Stelle sicher, dass mapBaseOrtToChildren hier auch initialisiert wird
       })
     );
   }
@@ -236,10 +292,17 @@ export class PlzDataService {
   public getEntriesByPlzRange(plzRange: string): Observable<PlzEntry[]> {
     const parts = plzRange.split('-');
     if (parts.length !== 2) return of([]);
-    const startPlz = parseInt(parts[0].trim(), 10);
-    const endPlz = parseInt(parts[1].trim(), 10);
+    const startPlzStr = parts[0].trim();
+    const endPlzStr = parts[1].trim();
 
-    if (isNaN(startPlz) || isNaN(endPlz) || startPlz > endPlz || String(startPlz).length < 4 || String(endPlz).length < 4) {
+    if (!/^\d{4,6}$/.test(startPlzStr) || !/^\d{4,6}$/.test(endPlzStr)) {
+      return of([]);
+    }
+
+    const startPlz = parseInt(startPlzStr.substring(0,4), 10);
+    const endPlz = parseInt(endPlzStr.substring(0,4), 10);
+
+    if (isNaN(startPlz) || isNaN(endPlz) || startPlz > endPlz) {
       return of([]);
     }
     return this.getPlzData().pipe(
@@ -255,9 +318,12 @@ export class PlzDataService {
   }
 
   public getEntriesByOrt(ortName: string): Observable<PlzEntry[]> {
-    const searchTerm = ortName.toLowerCase().trim();
+    const searchTermBase = this.getBaseOrtName(ortName).toLowerCase().trim();
+    if (!searchTermBase) return of([]); // Verhindere Suche mit leerem Basisnamen
     return this.getPlzData().pipe(
-      map(entries => entries.filter(entry => !entry.isGroupEntry && entry.ort.toLowerCase() === searchTerm)),
+      map(entries => entries.filter(entry =>
+        this.getBaseOrtName(entry.ort).toLowerCase() === searchTermBase
+      )),
       catchError(err => {
         console.error(`${LOG_PREFIX_PLZ_SERVICE} getEntriesByOrt failed for Ort "${ortName}":`, err);
         return of([]);
