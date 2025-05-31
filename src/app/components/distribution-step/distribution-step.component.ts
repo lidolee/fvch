@@ -1,7 +1,7 @@
 import { Component, Output, EventEmitter, AfterViewInit, OnDestroy, ViewChild, ElementRef, NgZone, Inject, PLATFORM_ID, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, HostListener } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NgbTypeaheadModule, NgbTypeaheadSelectItemEvent, NgbAlertModule, NgbTypeahead } from '@ng-bootstrap/ng-bootstrap';
+import { NgbTypeaheadModule, NgbTypeaheadSelectItemEvent, NgbAlertModule, NgbTypeahead, NgbTooltip } from '@ng-bootstrap/ng-bootstrap';
 import { Observable, of, Subject, merge } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError, takeUntil, tap, map } from 'rxjs/operators';
 
@@ -19,14 +19,14 @@ const MAP_INIT_TIMEOUT = 200;
 const MAP_RETRY_INIT_TIMEOUT = 100;
 const MAP_STATE_UPDATE_TIMEOUT = 50;
 const WINDOW_RESIZE_DEBOUNCE = 250;
-const COLUMN_HIGHLIGHT_DURATION = 1500;
+const COLUMN_HIGHLIGHT_DURATION = 300;
 
 export type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
 
 @Component({
   selector: 'app-distribution-step',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgbTypeaheadModule, NgbAlertModule],
+  imports: [CommonModule, FormsModule, NgbTypeaheadModule, NgbAlertModule, NgbTooltip],
   templateUrl: './distribution-step.component.html',
   styleUrls: ['./distribution-step.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -40,7 +40,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   @ViewChild('loadingIndicator') loadingIndicatorDiv!: ElementRef<HTMLElement>;
   @ViewChild('selectedPlzInfoSpan') selectedPlzInfoSpan!: ElementRef<HTMLElement>;
   @ViewChild('typeaheadInstance') typeaheadInstance!: NgbTypeahead;
-  @ViewChild('selectAllButtonEl') selectAllButtonEl!: ElementRef<HTMLButtonElement>; // Renamed for clarity
+  @ViewChild('selectAllButtonEl') selectAllButtonEl!: ElementRef<HTMLButtonElement>;
 
   map: any = null;
   private geoXmlParser: any;
@@ -49,10 +49,9 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   private destroy$ = new Subject<void>();
 
   typeaheadSearchTerm: string = '';
-  currentTypeaheadSelection: EnhancedSearchResultItem | null = null; // Wird für die Logik des "Hinzufügen"-Buttons verwendet
-  public typeaheadHoverResultsForMap: EnhancedSearchResultItem[] = []; // Für Map-Hover mit dem neuen Template
+  currentTypeaheadSelection: EnhancedSearchResultItem | null = null;
+  public typeaheadHoverResultsForMap: EnhancedSearchResultItem[] = [];
   searching: boolean = false;
-  // searchFailed wird durch currentSearchResultsContainer.headerText gesteuert
   selectedEntries$: Observable<PlzEntry[]>;
   currentVerteilungTyp: 'Nach PLZ' | 'Nach Perimeter' = 'Nach PLZ';
   showPlzUiContainer: boolean = true;
@@ -61,7 +60,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   highlightFlyerMaxColumn: boolean = false;
   textInputStatus: ValidationStatus = 'invalid';
 
-  // Phase 2: State für das erweiterte Autosuggest
   currentSearchResultsContainer: SearchResultsContainer | null = null;
   isTypeaheadListOpen = false;
   isCustomHeaderOpen = false;
@@ -138,7 +136,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   private updateUiFlagsAndMapState(): void {
     const oldShowPlzUiContainer = this.showPlzUiContainer;
-    this.updateUiFlags(this.currentVerteilungTyp); this.cdr.detectChanges(); // Wichtig für sofortige UI-Änderung
+    this.updateUiFlags(this.currentVerteilungTyp); this.cdr.detectChanges();
     if (isPlatformBrowser(this.platformId)) {
       if (!this.showPlzUiContainer && oldShowPlzUiContainer && this.map) this.destroyMap();
       else if (this.showPlzUiContainer && !this.map) this.scheduleMapInitialization();
@@ -389,7 +387,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       this.typeaheadSearchTerm = this.typeaheadInputFormatter(selectedItem);
       this.currentTypeaheadSelection = selectedItem;
       setTimeout(() => this.selectAllButtonEl?.nativeElement?.focus(),0);
-      this.isTypeaheadListOpen = false; // Nur Liste schließen
+      this.isTypeaheadListOpen = false;
     } else {
       this.handleTakeItemFromTypeahead(selectedItem);
     }
@@ -478,7 +476,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
         this.updateOverallValidationState(); this.cdr.markForCheck();
       });
     } else if (this.currentTypeaheadSelection) {
-      const itemToAdd = this.currentTypeaheadSelection; // Ist EnhancedSearchResultItem
+      const itemToAdd = this.currentTypeaheadSelection;
       const plzEntryEquivalent: PlzEntry = {
         id: itemToAdd.id, plz6: itemToAdd.plz6, plz4: itemToAdd.plz4, ort: itemToAdd.ort, kt: itemToAdd.kt,
         all: itemToAdd.all, mfh: itemToAdd.mfh, efh: itemToAdd.efh, isGroupEntry: itemToAdd.isGroupEntry ?? false

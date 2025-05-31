@@ -1,28 +1,22 @@
-<div class="container-xxl">
-
-  <div class="row py-5">
-    <div class="col-8">
-      <h1>Flyer Verteilen Offerte</h1>
-      <p class="lead">Ihre individuelle Offerte für die Flyer-Verteilung in 3 Schritten.</p>
-    </div>
-    <div class="col-4">
-      <img src="https://www.flyer-verteilen.ch/wp-content/uploads/2025/05/logo-mail-long.svg" alt="Logo Flyer Verteilen" class="" width="200">
+<header>
+  <div class="container-xxl">
+    <div class="row align-items-center">
+      <div class="col-12">
+        <img src="https://www.flyer-verteilen.ch/wp-content/uploads/2025/05/logo-mail-long.svg" alt="Logo Flyer Verteilen" width="220">
+      </div>
     </div>
   </div>
+</header>
 
-  <hr>
-
+<div class="container-xxl">
   <div class="row sheet-container">
-    <main class="col-xl-7">
 
-      <header class="d-xl-none p-3 border-bottom">
-        <div class="d-flex justify-content-between align-items-center">
-          <h1 class="h5 mb-0 fw-bold">Flyer Verteilen</h1>
-          <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="offcanvas" data-bs-target="#summaryOffcanvas" aria-controls="summaryOffcanvas">
-            <i class="bi bi-receipt"></i> Offerte
-          </button>
-        </div>
-      </header>
+    <div class="col-12 mb-4">
+      <h1 class="page-title">Flyer Verteilen Offerte</h1>
+      <p class="lead">Ihre individuelle Offerte für die Flyer-Verteilung in 3 Schritten.</p>
+    </div>
+
+    <main class="col-xl-7">
 
       <ul ngbNav #nav="ngbNav" [(activeId)]="activeStepId" (navChange)="onNavChange($event)" class="nav-tabs nav-fill" role="tablist">
         <li [ngbNavItem]="1">
@@ -68,18 +62,8 @@
 
     </main>
 
-    <aside class="col-xl-5 d-none d-xl-flex calculator-container">
+    <aside class="col-xl-5 calculator-container">
       <app-calculator class="flex-grow-1 overflow-x-auto"></app-calculator>
     </aside>
-  </div>
-</div>
-
-<div class="offcanvas offcanvas-end" tabindex="-1" id="summaryOffcanvas" aria-labelledby="summaryOffcanvasLabel">
-  <div class="offcanvas-header border-bottom">
-    <h5 class="offcanvas-title" id="summaryOffcanvasLabel">Ihre Offerte</h5>
-    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-  </div>
-  <div class="offcanvas-body p-0 d-flex">
-    <app-calculator class="flex-grow-1"></app-calculator>
   </div>
 </div>

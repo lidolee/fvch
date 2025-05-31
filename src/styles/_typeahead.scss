@@ -1,0 +1,141 @@
+
+.typeahead-search-container {
+  position: relative;
+  width: 100%;
+  background-color: $white;
+  margin-top: 16px;
+  margin-bottom: 32px;
+}
+
+/*.typeahead-custom-header {
+  border: 1px solid var(--bs-border-color-translucent);
+  margin-top: -1px; // Overlap with the bottom border of the input
+  position: absolute; // Position it directly below the input
+  z-index: 1050; // Ensure it's above other content but below the typeahead window
+  width: 100%; // Match the width of the input container
+
+  // Adjustments if the typeahead window is directly after the custom header
+  & + ngb-typeahead-window.dropdown-menu {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-top: none;
+    margin-top: 0 !important; // Remove default margin of typeahead window
+  }
+}*/
+
+.typeahead-no-results-message {
+  background-color: var(--bs-body-bg);
+  color: var(--bs-secondary-color);
+  position: relative;
+  z-index: 1000;
+}
+
+ngb-typeahead-window.dropdown-menu {
+  width: 100%;
+  max-height: 380px;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 0;
+  z-index: 1055;
+  background-color: $white;
+  border: 1px solid $input-focus-border-color;
+  inset: -3px auto auto 0px !important;
+  box-shadow:
+  0.25rem 0 0 0 #BFD9F4, /* rechter Schatten */
+  -0.25rem 0 0 0 #BFD9F4, /* linker Schatten */
+  0 0.25rem 0 0 #BFD9F4, /* unterer Schatten */
+  0 0 0 0.25rem #BFD9F4 inset; /* Optional: blauer Rand (outline-ähnlich) nur für rechts, unten, links */
+  border-radius: 3px;
+
+  .dropdown-item {
+    width: 100%;
+    white-space: normal;
+    border: none;
+    background-color: $white;
+    letter-spacing: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0;
+    border-bottom: 1px solid $gray-400;
+    display: block;
+    text-align: left;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &.active {
+      .typeahead-result-row {
+        background-color: mix($primary, $white, 15%);
+      }
+    }
+
+    .typeahead-result-row {
+      width: 100%;
+      cursor: pointer;
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 16px;
+      text-transform: none;
+      font-weight: 700;
+
+
+      mark {
+        padding: 0;
+        color: $primary;
+        //background-color: mix(fuchsia, $white, 15%);
+        background-color: transparent;
+      }
+
+      &:hover, &:focus, &.active {
+        background-color: mix($primary, $white, 15%);
+        outline: none;
+
+        .btn-link, .text-muted, .mdi {
+          color: var(--bs-primary-text-emphasis) !important; // Wichtig, um Bootstrap-Defaults zu überschreiben
+        }
+      }
+
+      .typeahead-column {
+        display: block;
+      }
+
+      .typeahead-col-icon,
+      .typeahead-col-kanton,
+      .typeahead-col-main {
+        display: inline-block;
+        width: auto;
+        vertical-align: middle;
+      }
+
+      .typeahead-col-icon {
+        width: 48px;
+
+        .mdi {
+          font-size: 1.3em;
+          margin-right: 0.3em;
+        }
+      }
+
+      .typeahead-col-kanton {
+      }
+
+      .typeahead-col-main {
+        min-width: 300px;
+        text-transform: uppercase;
+      }
+
+      .typeahead-col-action {
+
+      }
+    }
+  }
+}
+
+// If typeahead is directly after an input-group, adjust border radius and margin
+.input-group + ngb-typeahead-window.dropdown-menu {
+  //border-top-left-radius: 0;
+  //border-top-right-radius: 0;
+  //border-radius: 0;
+  //margin-top: -1px; // Overlap with input group's bottom border
+}

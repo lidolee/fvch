@@ -54,7 +54,7 @@
 //@import "bootstrap/scss/breadcrumb";
 //@import "bootstrap/scss/pagination";
 @import "bootstrap/scss/badge";
-//@import "bootstrap/scss/alert";
+@import "bootstrap/scss/alert";
 //@import "bootstrap/scss/progress";
 //@import "bootstrap/scss/list-group";
 //@import "bootstrap/scss/close";
@@ -77,9 +77,15 @@
 
 
 @import "styles/base";
+@import "styles/layout";
 @import 'styles/forms';
+@import 'styles/typeahead';
 
 // hide the bundled control of google maps
-.gmnoprint.gm-bundled-control {
-  display: none !important;
+
+#map-angular {
+  .gmnoprint,
+  .gm-style-cc{
+    display: none !important;
+  }
 }

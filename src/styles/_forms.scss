@@ -44,7 +44,8 @@ label,
   font-weight: 500;
 }
 
-.form-control {
+.form-control,
+.form-select {
   font-weight: 500;
 }
 
@@ -52,9 +53,9 @@ label,
 .button,
 button,
 .btn {
-  font-size: 14px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 900;
   text-transform: uppercase;
   border-radius: $btn-border-radius;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
 }
