@@ -5,6 +5,15 @@
   background-color: $white;
   margin-top: 16px;
   margin-bottom: 32px;
+
+  .search-icon {
+    position: absolute;
+    top: 6px;
+    left: 9px;
+    width: 18px;
+    vertical-align: middle;
+    color: $gray-500;
+  }
 }
 
 /*.typeahead-custom-header {
@@ -74,7 +83,7 @@ ngb-typeahead-window.dropdown-menu {
       width: 100%;
       cursor: pointer;
       display: inline-block;
-      padding: 6px 12px;
+      padding: 6px 12px 6px 32px;
       font-size: 16px;
       text-transform: none;
       font-weight: 700;

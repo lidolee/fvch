@@ -78,7 +78,8 @@
              [focusFirst]="true"
              (focus)="onSearchFocus()"
              (blur)="onSearchBlur()"/>
-      <!--<button class="btn btn-primary" type="button" (click)="addCurrentSelectionToTable()" [disabled]="isAddButtonDisabled()">Hinzufügen</button>-->
+      <i class="mdi mdi-magnify search-icon"></i>
+    <!--<button class="btn btn-primary" type="button" (click)="addCurrentSelectionToTable()" [disabled]="isAddButtonDisabled()">Hinzufügen</button>-->
     <!--</div>-->
 
   </div>
@@ -120,7 +121,7 @@
   <!-- PLZ TABLE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
   <div *ngIf="(selectedEntries$ | async)?.length">
-    <h3 class="section-title mt-4 mb-0"><span>Ihre auswahl</span></h3>
+    <h3 class="section-title mt-4 mb-0"><span>Ihre Auswahl: {{ (selectedEntries$ | async)?.length || 0 }} PLZ</span></h3>
     <div class="delete-plz-list text-end mb-4">
       <button class="btn btn-sm btn-link text-danger" type="button" (click)="clearPlzTable()"><i class="mdi mdi-playlist-remove fs-6"></i>&nbsp;Liste löschen</button>
     </div>
@@ -150,8 +151,8 @@
         <td class="ort">{{ entry.ort }}</td>
         <td class="canton">{{ entry.kt }}</td>
         <td class="flyer-max text-end" [class.column-highlighted]="highlightFlyerMaxColumn">{{ getFlyerMaxForEntry(entry) | number }}</td>
-        <td class="flyer-limit">
-          <input class="form-control form-control-sm" type="number" value="{{ getFlyerMaxForEntry(entry) | number }}" min="1" max="{{ getFlyerMaxForEntry(entry) | number }}">
+        <td class="flyer-limit" title="Feste Anzahl an Flyern, die wir für diese PLZ verteilen. Bitte runden Sie auf die nächste 100er Zahl">
+          <input class="form-control form-control-sm" type="number" value="{{ getFlyerMaxForEntry(entry) | number }}" min="1" step="100" max="{{ getFlyerMaxForEntry(entry) | number }}"/>
         </td>
         <td class="has-icon actions-zoom text-end">
           <button class="btn btn-link btn-sm p-0" (click)="zoomToTableEntryOnMap(entry)" placement="start" ngbTooltip="Auf Karte anzeigen">
@@ -164,16 +165,16 @@
           </button>
         </td>
       </tr>
+      <tr>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="flyer-max">COUNT</td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
       </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="3">Anzahl ausgewählter PLZ-Gebiete: {{ (selectedEntries$ | async)?.length || 0 }}</td>
-          <td>Flyer Max</td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-      </tfoot>
     </table>
   </div>
 
@@ -205,6 +206,7 @@
 </div>
 
 <h3 class="section-title"><span>2. Verteilung Details</span></h3>
+
 <div class="mb-3 row">
   <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Zeitraum * <span class="badge rounded-pill text-bg-light hint" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="fv-tooltip-custom" title="Mindestvorlaufzeit beachten">?</span></label>
   <div class="col-sm-8">
@@ -214,6 +216,7 @@
     </div>
   </div>
 </div>
+
 <div class="mb-3 row">
   <label for="verteilung-anlieferung" class="col-sm-4 col-form-label">Anlieferung der Flyer *</label>
   <div class="col-sm-8">
@@ -224,6 +227,7 @@
     </select>
   </div>
 </div>
+
 <div class="mb-3 row">
   <label for="verteilung-format" class="col-sm-4 col-form-label">Format *</label>
   <div class="col-sm-8">
@@ -237,6 +241,3 @@
   </div>
 </div>
 
-<div class="mt-4">
-  <p class="mb-2 small text-muted">Anzahl ausgewählter PLZ-Gebiete: {{ (selectedEntries$ | async)?.length || 0 }}</p>
-</div>

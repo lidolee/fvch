@@ -13,6 +13,7 @@
   font-weight: 600;
   text-transform: uppercase;
   box-shadow: 0 0 0 0.25rem mix($secondary, $white, 20%);
+  padding-left: 32px;
 
   &:focus {
     box-shadow: 0 0 0 0.25rem #BFD9F4;
