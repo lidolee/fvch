@@ -1,0 +1,16 @@
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+@import "../../../styles/variables";
+@import "bootstrap/scss/mixins";
+
+.calculator-title {
+  text-transform: uppercase;
+  font-size: 21px;
+  letter-spacing: 0.5px;
+  font-weight: 800;
+  color: $gray-700;
+  padding-bottom: 16px;
+  margin-top: 17px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid $border-color;
+}

@@ -136,6 +136,7 @@
         <th scope="col" class="canton">KANTON</th>
         <th scope="col" class="flyer-max text-end"
             [title]="'Flyer Max basierend auf Zielgruppe: ' + currentZielgruppe">Flyer</th>
+        <th scope="col" class="flyer-limit">Flyer Limit</th>
         <th scope="col" class="actions-zoom text-end">&nbsp;</th>
         <th scope="col" class="actions-delete text-end">&nbsp;</th>
       </tr>
@@ -149,6 +150,9 @@
         <td class="ort">{{ entry.ort }}</td>
         <td class="canton">{{ entry.kt }}</td>
         <td class="flyer-max text-end" [class.column-highlighted]="highlightFlyerMaxColumn">{{ getFlyerMaxForEntry(entry) | number }}</td>
+        <td class="flyer-limit">
+          <input class="form-control form-control-sm" type="number" value="{{ getFlyerMaxForEntry(entry) | number }}" min="1" max="{{ getFlyerMaxForEntry(entry) | number }}">
+        </td>
         <td class="has-icon actions-zoom text-end">
           <button class="btn btn-link btn-sm p-0" (click)="zoomToTableEntryOnMap(entry)" placement="start" ngbTooltip="Auf Karte anzeigen">
             <i class="mdi mdi-map-marker-radius fs-5"></i>
@@ -161,6 +165,15 @@
         </td>
       </tr>
       </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3">Anzahl ausgewählter PLZ-Gebiete: {{ (selectedEntries$ | async)?.length || 0 }}</td>
+          <td>Flyer Max</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      </tfoot>
     </table>
   </div>
 

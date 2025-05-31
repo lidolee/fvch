@@ -1,6 +1,7 @@
 @import "bootstrap/scss/functions";
 @import "../styles/variables";
 @import "bootstrap/scss/variables";
+@import "bootstrap/scss/mixins";
 
 
 .tab-content {
@@ -39,4 +40,16 @@
       background: linear-gradient(to bottom, $white, mix($primary, $white, 2%));
     }
   }
+}
+
+@include media-breakpoint-up(md) {
+  aside.calculator-container {
+    app-calculator {
+      position: -webkit-sticky;
+      position: sticky;
+      top: 32px;
+      z-index: 1020;
+    }
+  }
+
 }
