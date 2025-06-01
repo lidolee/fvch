@@ -59,76 +59,66 @@
 
   <!-- SUCHFUNKTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
-  <div class="typeahead-search-container">
-    <!--<label for="typeahead-plz-search" class="form-label">Postleitzahl, Ort oder PLZ-Bereich (z.B. 8000-8045) eingeben</label>-->
-    <!--<div class="input-group flex-nowrap">-->
-      <input type="text"
-             id="typeahead-plz-search"
-             class="form-control"
-             placeholder="8001 oder 8001-8055 oder Zürich"
-             aria-label="PLZ, Ort oder PLZ-Bereich Suche"
-             [(ngModel)]="typeaheadSearchTerm"
-             (ngModelChange)="onTypeaheadInputChange($event)"
-             [ngbTypeahead]="searchPlzTypeahead"
-             #typeaheadInstance="ngbTypeahead"
-             [resultTemplate]="rtPhase2"
-             [inputFormatter]="typeaheadInputFormatter"
-             (selectItem)="typeaheadItemSelected($event)"
-             [editable]="true"
-             [focusFirst]="true"
-             (focus)="onSearchFocus()"
-             (blur)="onSearchBlur()"/>
-      <i class="mdi mdi-magnify search-icon"></i>
-    <!--<button class="btn btn-primary" type="button" (click)="addCurrentSelectionToTable()" [disabled]="isAddButtonDisabled()">Hinzufügen</button>-->
-    <!--</div>-->
-
+  <div class="typeahead-search-container position-relative">
+    <input type="text"
+           #typeaheadInputEl
+           id="typeahead-plz-search"
+           class="form-control"
+           placeholder="8001 oder 8001-8055 oder Zürich"
+           aria-label="PLZ, Ort oder PLZ-Bereich Suche"
+           [(ngModel)]="typeaheadSearchTerm"
+           (ngModelChange)="onTypeaheadInputChange($event)"
+           [ngbTypeahead]="searchPlzTypeahead"
+           #typeaheadInstance="ngbTypeahead"
+           [resultTemplate]="rtPhase2"
+           [inputFormatter]="typeaheadInputFormatter"
+           (selectItem)="typeaheadItemSelected($event)"
+           [editable]="true"
+           [focusFirst]="false"
+           (focus)="onSearchFocus()"
+           (blur)="onSearchBlur()"/>
+    <i class="mdi mdi-magnify search-icon"></i>
   </div>
 
-  <!-- TYPEAHEAD ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+  <div *ngIf="isCustomHeaderOpen && currentSearchResultsContainer && currentSearchResultsContainer.headerText"
+       class="typeahead-custom-header alert alert-info py-2 px-3 mb-0 border-bottom-0 rounded-bottom-0"
+       (mouseenter)="isMouseOverPopupOrHeader = true" (mouseleave)="isMouseOverPopupOrHeader = false">
+    <div class="d-flex justify-content-between align-items-center">
+      <small [innerHTML]="currentSearchResultsContainer.headerText"></small>
+      <button #selectAllButtonEl *ngIf="currentSearchResultsContainer.showSelectAllButton && currentSearchResultsContainer.entriesForSelectAllAction.length > 0"
+              type="button" class="btn btn-sm btn-primary"
+              (click)="handleSelectAllFromTypeaheadHeader()">
+        Alle {{ currentSearchResultsContainer.entriesForSelectAllAction.length }} übernehmen
+      </button>
+    </div>
+  </div>
 
   <ng-template #rtPhase2 let-r="result" let-t="term" let-i="index">
     <div class="typeahead-result-row"
-         role="option" [id]="typeaheadInstance.popupId + '-' + i"
-         (click)="handleTakeItemFromTypeahead(r, $event)">
-
-      <div class="">
-        <div class="typeahead-col-icon">
+         role="option" [id]="(typeaheadInstance?.popupId || 'default-typeahead') + '-' + (i !== undefined ? i : 'unknown_index')">
+      <div (click)="handleTakeItemFromTypeahead(r, $event)" class="d-flex align-items-center w-100">
+        <div class="typeahead-col-icon me-2">
           <i *ngIf="r.isGroupHeader" class="mdi mdi-select-group" title="Ortsgruppe"></i>
-          <!--<span *ngIf="!r.isGroupHeader && (isPlzSearchForTemplate() || isMixedSearchForTemplate() && r.isPrimaryPlzMatch)" [innerHTML]="highlight(r.plz4, t)"></span>-->
           <span *ngIf="!r.isGroupHeader" [innerHTML]="highlight(r.plz4, t)"></span>
         </div>
-
-        <div class="typeahead-col-main">
-          <span *ngIf="r.isGroupHeader" class="fw-bold" [innerHTML]="highlight(r.ort, t)"></span>
+        <div class="typeahead-col-main flex-grow-1">
+          <span *ngIf="r.isGroupHeader" class="fw-bold" [innerHTML]="highlight(r.ort || r.plz4, t)"></span>
           <span *ngIf="r.isGroupHeader && r.childPlzCount" class="text-muted small"> ({{r.childPlzCount}} PLZ)</span>
           <span *ngIf="!r.isGroupHeader" [innerHTML]="highlight(r.ort, t)"></span>
         </div>
-
-        <!--<div class="typeahead-col-key text-muted" *ngIf="r.kt && r.kt !== 'N/A'">{{ r.kt }}</div>-->
-
-<!--        <div class="col-auto typeahead-col-action">
-          <button type="button" class="btn btn-sm py-0"
-                  (click)="handleTakeItemFromTypeahead(r, $event); $event.stopPropagation()"
-          [attr.aria-label]="'Übernehme ' + resultFormatter(r)">
-          {{ r.isGroupHeader && currentSearchResultsContainer?.showSelectAllButton ? 'Alle übern.' : 'Übernehmen' }}
-          </button>
-        </div>-->
+        <div class="typeahead-col-key text-muted small ms-2" *ngIf="r.kt && r.kt !== 'N/A' && !r.isGroupHeader">{{ r.kt }}</div>
       </div>
     </div>
   </ng-template>
 
-
-  <!-- PLZ TABLE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-
   <div *ngIf="(selectedEntries$ | async)?.length">
     <h3 class="section-title mt-4 mb-0"><span>Ihre Auswahl: {{ (selectedEntries$ | async)?.length || 0 }} PLZ</span></h3>
-    <div class="delete-plz-list text-end mb-4">
+    <div class="delete-plz-list text-end mb-2">
       <button class="btn btn-sm btn-link text-danger" type="button" (click)="clearPlzTable()"><i class="mdi mdi-playlist-remove fs-6"></i>&nbsp;Liste löschen</button>
     </div>
   </div>
 
   <div class="plz-table table-responsive" *ngIf="(selectedEntries$ | async)?.length; else keineAuswahlVorlagePlz">
-
     <table class="table table-responsive-sm table-hover table-sm">
       <thead>
       <tr>
@@ -152,7 +142,7 @@
         <td class="canton">{{ entry.kt }}</td>
         <td class="flyer-max text-end" [class.column-highlighted]="highlightFlyerMaxColumn">{{ getFlyerMaxForEntry(entry) | number }}</td>
         <td class="flyer-limit" title="Feste Anzahl an Flyern, die wir für diese PLZ verteilen. Bitte runden Sie auf die nächste 100er Zahl">
-          <input class="form-control form-control-sm" type="number" value="{{ getFlyerMaxForEntry(entry) | number }}" min="1" step="100" max="{{ getFlyerMaxForEntry(entry) | number }}"/>
+          <input class="form-control form-control-sm" type="number" [value]="getFlyerMaxForEntry(entry)" min="1" step="100" [max]="getFlyerMaxForEntry(entry) | number"/>
         </td>
         <td class="has-icon actions-zoom text-end">
           <button class="btn btn-link btn-sm p-0" (click)="zoomToTableEntryOnMap(entry)" placement="start" ngbTooltip="Auf Karte anzeigen">
@@ -165,30 +155,39 @@
           </button>
         </td>
       </tr>
-      <tr>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td class="flyer-max">COUNT</td>
-        <td></td>
-        <td></td>
-        <td></td>
-      </tr>
       </tbody>
     </table>
   </div>
 
-  <!-- EMPTY RESULT ALERT ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-
   <ng-template #keineAuswahlVorlagePlz>
+    <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer && (!selectedEntries$ || (selectedEntries$ | async)?.length === 0)">
+      <div class="my-2"><strong>Beliebte Regionen</strong></div>
 
-    <div class="alert alert-light text-center" role="alert" *ngIf="(selectedEntries$ | async)?.length === 0">
-      <span><strong>Keine Einträge gewählt</strong><br>Nutzen Sie die Suche oder klicken Sie auf die Karte.</span>
+      <div class="popular-locations text-center">
+        <!--<span class="popular-locations-label me-2">Beliebte Suchen</span><br>-->
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Zürich')">Zürich</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bern')">Bern</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Basel')">Basel</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Luzern')">Luzern</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('St. Gallen')">St. Gallen</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Winterthur')">Winterthur</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Schaffhausen')">Schaffhausen</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Baden')">Baden</button>
+        <br>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Genève')">Genève</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lausanne')">Lausanne</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Biel/Bienne')">Biel/Bienne</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Fribourg')">Fribourg</button>
+        <br>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lugano')">Lugano</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bellinzona')">Bellinzona</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Locarno')">Locarno</button>
+      </div>
+
     </div>
-
   </ng-template>
 
-</div>
+</div> <!-- Ende von *ngIf="showPlzUiContainer" -->
 
 <!-- PERIMETER //////////////////////////////////////////////////////////////-->
 
@@ -199,7 +198,7 @@
     <li>Öffnen Sie <a href="https://earth.google.com" target="_blank" rel="noopener noreferrer"><strong>Google Earth</strong></a></li>
     <li>Neue <strong>lokale KML-Datei</strong> erstellen <span class="badge text-bg-secondary">CTRL + K</span><br /><span class="mdi mdi-arrow-right-thin"></span>Projektname: GPS-Perimeter – Ihre Firma</li>
     <li>Zielgebiet als <strong>Pfad oder Polygon</strong> einzeichnen <span class="badge text-bg-secondary">CTRL + SHIFT + L</span><br /><span class="mdi mdi-arrow-right-thin"></span>In Projekt speichern</li>
-    <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><span class="mdi mdi-arrow-right-thin"></span>Als KML-Datei exportieren</li>
+    <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><span class="mdi mdi-arrow-right-thin"></span>KML exportieren o. Platz als KML speichern</li>
     <li>KML-Datei hochladen - nutzen Sie unsere Upload-Funktion weiter unten</li>
   </ol>
   <span><strong>Preise ab CHF 250.– pro 1’000 Flyer</strong><br>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte.</span>
@@ -208,11 +207,11 @@
 <h3 class="section-title"><span>2. Verteilung Details</span></h3>
 
 <div class="mb-3 row">
-  <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Zeitraum * <span class="badge rounded-pill text-bg-light hint" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="fv-tooltip-custom" title="Mindestvorlaufzeit beachten">?</span></label>
+  <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Zeitraum * <span class="badge rounded-pill text-bg-light hint" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="tooltip-wide" title="Wir empfehlen eine Vorlaufzeit von mindestens 10 Arbeitstagen."></span></label>
   <div class="col-sm-8">
     <div class="input-group">
-      <input class="form-control border border-required" type="date" name="verteilung-startdatum" id="verteilung-startdatum" placeholder="tt.mm.yyyy" required data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="fv-tooltip-custom" title="Startdatum der Verteilung">
-      <input class="form-control border border-required" type="date" name="verteilung-enddatum" id="verteilung-enddatum" required data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="fv-tooltip-custom" title="Enddatum der Verteilung">
+      <input class="form-control border border-required" type="date" name="verteilung-startdatum" id="verteilung-startdatum" placeholder="tt.mm.yyyy" required data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="tooltip-wide" title="Frühestes Startdatum für die Verteilung."/>
+      <input class="form-control border border-required" type="date" name="verteilung-enddatum" id="verteilung-enddatum" placeholder="tt.mm.yyyy" required data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="tooltip-wide" title="Spätestes Enddatum für die Verteilung."/>
     </div>
   </div>
 </div>
@@ -240,4 +239,3 @@
     </select>
   </div>
 </div>
-
