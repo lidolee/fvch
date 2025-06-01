@@ -25,7 +25,7 @@
         <i class="mdi mdi-map-marker-radius card-icon"></i>
         <span class="card-content">
           <span class="card-title">Nach Perimeter</span>
-          <span class="card-description">Freie Gebietsauswahl auf der Karte</span>
+          <span class="card-description">Gebiet auf Karte zeichnen</span>
         </span>
         <span class="card-indicator"></span>
       </button>
@@ -53,7 +53,7 @@
 
   <ng-container *ngIf="(selectedEntries$ | async) as selectedEntries; else showBeliebteRegionenInitially">
 
-    <div class="typeahead-search-container position-relative mt-3"> <!-- mt-3 hinzugefügt für Abstand -->
+    <div class="typeahead-search-container position-relative mt-3">
       <input type="text"
              #typeaheadInputEl
              id="typeahead-plz-search"
@@ -74,9 +74,8 @@
       <i class="mdi mdi-magnify search-icon"></i>
     </div>
 
-    <!-- Zielgruppen-Auswahl: Wird nur angezeigt, wenn selectedEntries existiert und Einträge hat -->
     <div class="my-4 row" *ngIf="selectedEntries && selectedEntries.length > 0">
-      <div class="col-sm-12"> <!-- Geändert von col-sm-8 und Label entfernt für mehr Platz -->
+      <div class="col-sm-12">
         <div class="choice-card-group choice-card-group-zielgruppe">
           <button type="button" class="choice-card"
                   [class.active]="currentZielgruppe === 'Alle Haushalte'"
@@ -112,7 +111,6 @@
       </div>
     </div>
 
-    <!-- "Ihre Auswahl" Titel und "Liste löschen" Button: Anzeigen, wenn selectedEntries existiert und Einträge hat -->
     <div *ngIf="selectedEntries && selectedEntries.length > 0">
       <h3 class="section-title mt-4 mb-0"><span>Ihre Auswahl: {{ selectedEntries.length }} PLZ</span></h3>
       <div class="delete-plz-list text-end mb-4">
@@ -120,7 +118,6 @@
       </div>
     </div>
 
-    <!-- Tabelle ODER "Beliebte Regionen", wenn selectedEntries ein leeres Array ist -->
     <div *ngIf="selectedEntries && selectedEntries.length > 0; else showBeliebteRegionenWhenEmpty">
       <div class="plz-table table-responsive">
         <table class="table table-responsive-sm table-hover table-sm">
@@ -166,7 +163,7 @@
 
     <ng-template #showBeliebteRegionenWhenEmpty>
       <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer">
-        <div class="my-2"><strong>Beliebte Regionen</strong></div>
+        <div class="my-2"><strong class="text-uppercase">Beliebte Regionen</strong></div>
         <div class="popular-locations text-center">
           <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Zürich')">Zürich</button>
           <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bern')">Bern</button>
@@ -191,7 +188,6 @@
   </ng-container>
 
   <ng-template #showBeliebteRegionenInitially>
-    <!-- Dieser Block wird angezeigt, wenn (selectedEntries$ | async) initial null/undefined ist -->
     <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer">
       <div class="my-2"><strong>Beliebte Regionen</strong></div>
       <div class="popular-locations text-center">
@@ -215,7 +211,6 @@
       </div>
     </div>
   </ng-template>
-
 
   <div *ngIf="isCustomHeaderOpen && currentSearchResultsContainer && currentSearchResultsContainer.headerText"
        class="typeahead-custom-header alert alert-info py-2 px-3 mb-0 border-bottom-0 rounded-bottom-0"
@@ -265,35 +260,131 @@
 <h3 class="section-title"><span>2. Verteilung Details</span></h3>
 
 <div class="mb-3 row">
-  <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Zeitraum * <span class="badge rounded-pill text-bg-light hint" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Für optimale Ergebnisse empfehlen wir einen Verteilzeitraum von mindestens 7 Tagen.">Hinweis</span></label>
+  <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Zeitraum der Verteilung</label>
   <div class="col-sm-8">
     <div class="input-group">
-      <input class="form-control border border-required" type="date" name="verteilung-startdatum" id="verteilung-startdatum" placeholder="tt.mm.yyyy" required data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Frühestes Startdatum für die Verteilung."/>
-      <input class="form-control border border-required" type="date" name="verteilung-enddatum" id="verteilung-enddatum" placeholder="tt.mm.yyyy" required data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Spätestes Enddatum für die Verteilung."/>
+      <input class="form-control border border-required" type="date" name="verteilung-startdatum" id="verteilung-startdatum"
+             [(ngModel)]="verteilungStartdatum"
+             [min]="minVerteilungStartdatum"
+             (change)="onStartDateChange()"
+             required
+             data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Frühestes Startdatum für die Verteilung."/>
+      <input class="form-control border border-required" type="date" name="verteilung-enddatum" id="verteilung-enddatum"
+             [(ngModel)]="verteilungEnddatum"
+             [disabled]="true"
+             required
+             data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Spätestes Enddatum für die Verteilung."/>
     </div>
   </div>
 </div>
 
-<div class="mb-3 row">
-  <label for="verteilung-anlieferung" class="col-sm-4 col-form-label">Anlieferung der Flyer *</label>
-  <div class="col-sm-8">
-    <select class="form-select form-control border border-required" name="verteilung-anlieferung" id="verteilung-anlieferung" required>
-      <option selected value="">— Anlieferung wählen</option>
-      <option value="Sie liefern zu uns — kostenlos">Sie liefern zu uns&emsp;&emsp;➝&emsp;&emsp;kostenlos</option>
-      <option value="Wir holen bei Ihnen ab — kostenpflichtig: 75 CHF">Wir holen bei Ihnen ab&emsp;&emsp;➝&emsp;&emsp;+ CHF 75</option>
-    </select>
+<!-- Express Zuschlag Warnung -->
+<div class="row mb-3" *ngIf="showExpressSurcharge">
+  <div class="col-sm-8 offset-sm-4">
+    <div class="alert alert-light" role="alert">
+      <div class="d-flex align-items-center mb-2">
+        <span class="alert-title"><i class="mdi mdi-alert-box me-2 fs-5"></i>Express-Zuschlag</span>
+      </div>
+      <div>Kurzfristiges Startdatum <strong class="text-danger">50% Express-Zuschlag</strong></div>
+
+      <div class="mt-2">Start ab <strong>{{ getFormattedDefaultStandardDateForDisplay() }}</strong> oder später: kein Zuschlag.</div>
+
+      <div class="row gx-3">
+        <div class="col-6">
+          <button type="button" class="btn w-100 btn-danger mt-3" (click)="avoidExpressSurcharge()">
+            Express vermeiden
+          </button>
+        </div>
+        <div class="col-6">
+          <button type="button" class="btn w-100 btn-success mt-3" (click)="confirmExpressSurcharge()">
+            Express buchen
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="mb-3 row">
-  <label for="verteilung-format" class="col-sm-4 col-form-label">Format *</label>
-  <div class="col-sm-8">
-    <select class="form-select form-control border border-required" name="verteilung-format" id="verteilung-format" required>
-      <option selected value="">— Format wählen</option>
-      <option value="A5 bis A8">A5 und A6&emsp;&emsp;➝&emsp;&emsp;Kein Zuschlag</option>
-      <option value="DIN Lang">DIN Lang&emsp;&emsp;➝&emsp;&emsp;+ CHF 20 / 1'000 Flyer</option>
-      <option value="A4">A4&emsp;&emsp;➝&emsp;&emsp;+ CHF 30 / 1'000 Flyer</option>
-      <option value="A3">A3&emsp;&emsp;➝&emsp;&emsp;+ CHF 50 / 1'000 Flyer</option>
-    </select>
-  </div>
+
+<!-- Anlieferung der Flyer -->
+
+<div class="mb-3 row align-items-center">
+  <!--<label class="col-sm-4 col-form-label">Anlieferung der Flyer *</label>-->
+  <fieldset>
+    <legend><span>Anlieferung der Flyer</span></legend>
+
+    <div class="choice-card-group">
+      <button type="button" class="choice-card"
+              [class.active]="currentAnlieferung === 'selbst'"
+              (click)="setAnlieferung('selbst')">
+        <i class="mdi mdi-package-check card-icon"></i>
+        <span class="card-content">
+        <span class="card-title">Sie liefern</span>
+        <span class="card-description">kostenlos</span>
+      </span>
+        <span class="card-indicator"></span>
+      </button>
+
+      <button type="button" class="choice-card"
+              [class.active]="currentAnlieferung === 'abholung'"
+              (click)="setAnlieferung('abholung')">
+        <i class="mdi mdi-truck-fast card-icon"></i>
+        <span class="card-content">
+        <span class="card-title">Wir holen ab</span>
+        <span class="card-description">+ CHF 75</span>
+      </span>
+        <span class="card-indicator"></span>
+      </button>
+    </div>
+  </fieldset>
+</div>
+
+<!-- Format -->
+<div class="mb-3 row align-items-center">
+  <fieldset>
+    <legend><span>Anlieferung der Flyer</span></legend>
+  <!--<label class="col-sm-4 col-form-label">Format *</label>-->
+    <div class="choice-card-group">
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'A5_A6'"
+              (click)="setFormat('A5_A6')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">A5 / A6</span>
+          <span class="card-description">Kein Zuschlag</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'DIN_Lang'"
+              (click)="setFormat('DIN_Lang')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">DIN Lang</span>
+          <span class="card-description">+ CHF 20 / 1'000 Flyer</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'A4'"
+              (click)="setFormat('A4')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">A4</span>
+          <span class="card-description">+ CHF 30 / 1'000 Flyer</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'A3'"
+              (click)="setFormat('A3')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">A3</span>
+          <span class="card-description">+ CHF 50 / 1'000 Flyer</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+    </div>
+  </fieldset>
 </div>

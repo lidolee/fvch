@@ -15,6 +15,8 @@ const COLUMN_HIGHLIGHT_DURATION = 300;
 
 export type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
 export type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
+export type AnlieferungOption = 'selbst' | 'abholung' | ''; // Leerstring für "nicht ausgewählt"
+export type FormatOption = 'A5_A6' | 'DIN_Lang' | 'A4' | 'A3' | ''; // Leerstring für "nicht ausgewählt"
 
 
 interface CloseTypeaheadOptions {
@@ -52,6 +54,18 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   currentZielgruppe: ZielgruppeOption = 'Alle Haushalte';
   highlightFlyerMaxColumn: boolean = false;
   textInputStatus: ValidationStatus = 'invalid';
+
+  currentAnlieferung: AnlieferungOption = 'selbst';
+  currentFormat: FormatOption = 'A5_A6';
+
+  // Datum Properties
+  verteilungStartdatum: string = '';
+  verteilungEnddatum: string = '';
+  minVerteilungStartdatum: string = '';
+  showExpressSurcharge: boolean = false;
+  expressSurchargeConfirmed: boolean = false;
+  public defaultStandardStartDate!: Date;
+
 
   currentSearchResultsContainer: SearchResultsContainer | null = null;
   isTypeaheadListOpen = false;
@@ -92,6 +106,8 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   ngOnInit(): void {
+    this.initializeDates();
+
     this.selectedEntries$
       .pipe(takeUntil(this.destroy$))
       .subscribe(entries => {
@@ -102,7 +118,132 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
         this.updateOverallValidationState();
         this.cdr.markForCheck();
       });
+    this.updateOverallValidationState();
   }
+
+  private initializeDates(): void {
+    const today = new Date("2025-06-01T18:53:56Z"); // Verwende das von GitHub Copilot bereitgestellte UTC-Datum
+    today.setUTCHours(0, 0, 0, 0);
+
+    const minStartDate = new Date(today.getTime());
+    minStartDate.setUTCDate(today.getUTCDate() + 1);
+    this.minVerteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
+
+    this.defaultStandardStartDate = this.addWorkingDays(new Date(today.getTime()), 4);
+
+    let initialStartDate = new Date(this.defaultStandardStartDate.getTime());
+    if (initialStartDate.getTime() < minStartDate.getTime()) {
+      initialStartDate = new Date(minStartDate.getTime());
+    }
+    this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialStartDate);
+
+    const initialEndDate = new Date(initialStartDate.getTime());
+    initialEndDate.setUTCDate(initialStartDate.getUTCDate() + 7);
+    this.verteilungEnddatum = this.formatDateToYyyyMmDd(initialEndDate);
+
+    this.checkExpressSurcharge();
+  }
+
+
+  private formatDateToYyyyMmDd(date: Date): string {
+    const year = date.getUTCFullYear();
+    const month = ('0' + (date.getUTCMonth() + 1)).slice(-2);
+    const day = ('0' + date.getUTCDate()).slice(-2);
+    return `${year}-${month}-${day}`;
+  }
+
+  public getFormattedDefaultStandardDateForDisplay(): string {
+    if (!this.defaultStandardStartDate) return '';
+    const day = ('0' + this.defaultStandardStartDate.getUTCDate()).slice(-2);
+    const month = ('0' + (this.defaultStandardStartDate.getUTCMonth() + 1)).slice(-2);
+    const year = this.defaultStandardStartDate.getUTCFullYear();
+    return `${day}.${month}.${year}`;
+  }
+
+  private parseYyyyMmDdToDate(dateString: string): Date {
+    const parts = dateString.split('-');
+    return new Date(Date.UTC(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])));
+  }
+
+
+  private addWorkingDays(baseDate: Date, daysToAdd: number): Date {
+    let currentDate = new Date(baseDate.getTime());
+    let workingDaysAdded = 0;
+    while (workingDaysAdded < daysToAdd) {
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+      if (currentDate.getUTCDay() !== 0) { // 0 = Sonntag in UTC
+        workingDaysAdded++;
+      }
+    }
+    return currentDate;
+  }
+
+
+  onStartDateChange(): void {
+    this.expressSurchargeConfirmed = false;
+    if (!this.verteilungStartdatum) {
+      this.verteilungEnddatum = '';
+      this.showExpressSurcharge = false;
+      this.updateOverallValidationState();
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const selectedStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
+    const minStartDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
+
+    if (selectedStartDate.getTime() < minStartDate.getTime()) {
+      this.verteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
+      this.cdr.detectChanges();
+      this.onStartDateChange();
+      return;
+    }
+
+    const newEndDate = new Date(selectedStartDate.getTime());
+    newEndDate.setUTCDate(selectedStartDate.getUTCDate() + 7);
+    this.verteilungEnddatum = this.formatDateToYyyyMmDd(newEndDate);
+
+    this.checkExpressSurcharge();
+    this.updateOverallValidationState();
+    this.cdr.markForCheck();
+  }
+
+  private checkExpressSurcharge(): void {
+    if (!this.verteilungStartdatum || !this.defaultStandardStartDate) {
+      this.showExpressSurcharge = false;
+      return;
+    }
+    const selectedStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
+    const minAllowedStartDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
+
+    const needsSurcharge = selectedStartDate.getTime() < this.defaultStandardStartDate.getTime() && selectedStartDate.getTime() >= minAllowedStartDate.getTime();
+
+    if (needsSurcharge) {
+      this.showExpressSurcharge = !this.expressSurchargeConfirmed;
+    } else {
+      this.showExpressSurcharge = false;
+      this.expressSurchargeConfirmed = false;
+    }
+  }
+
+  public avoidExpressSurcharge(): void {
+    this.expressSurchargeConfirmed = false;
+    if (this.defaultStandardStartDate) {
+      this.verteilungStartdatum = this.formatDateToYyyyMmDd(this.defaultStandardStartDate);
+      this.onStartDateChange();
+    }
+    this.showExpressSurcharge = false;
+    this.updateOverallValidationState();
+    this.cdr.markForCheck();
+  }
+
+  public confirmExpressSurcharge(): void {
+    this.expressSurchargeConfirmed = true;
+    this.showExpressSurcharge = false;
+    this.updateOverallValidationState();
+    this.cdr.markForCheck();
+  }
+
 
   ngAfterViewInit(): void {
     Promise.resolve().then(() => { this.updateOverallValidationState(); this.cdr.markForCheck(); });
@@ -123,6 +264,22 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     if (this.currentZielgruppe !== zielgruppe) {
       this.currentZielgruppe = zielgruppe;
       this.onZielgruppeChange();
+    }
+  }
+
+  setAnlieferung(anlieferung: AnlieferungOption): void {
+    if (this.currentAnlieferung !== anlieferung) {
+      this.currentAnlieferung = anlieferung;
+      this.updateOverallValidationState();
+      this.cdr.markForCheck();
+    }
+  }
+
+  setFormat(format: FormatOption): void {
+    if (this.currentFormat !== format) {
+      this.currentFormat = format;
+      this.updateOverallValidationState();
+      this.cdr.markForCheck();
     }
   }
 
@@ -438,19 +595,46 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     const mapHasSelection = this.selectionService.getSelectedEntries().length > 0;
     let newOverallStatus: ValidationStatus = 'invalid';
 
+    const anlieferungSelected = !!this.currentAnlieferung;
+    const formatSelected = !!this.currentFormat;
+    const startDateSelected = !!this.verteilungStartdatum;
+    const endDateSelected = !!this.verteilungEnddatum;
+
+    const verteilungsDetailsCompleteBasic = anlieferungSelected && formatSelected && startDateSelected && endDateSelected;
+    // Wenn Express-Zuschlag *potenziell* anfällt (d.h. showExpressSurcharge wäre true, wenn nicht bestätigt),
+    // dann muss er auch bestätigt sein, um als "komplett" zu gelten.
+    // Die `checkExpressSurcharge` Methode setzt `showExpressSurcharge` auf false, wenn bestätigt.
+    // Daher prüfen wir hier, ob `showExpressSurcharge` (was bedeutet "Box ist sichtbar, Zuschlag nicht bestätigt")
+    // ODER ob `expressSurchargeConfirmed` (was bedeutet "Zuschlag ist aktiv und bestätigt").
+    // Es ist valide, wenn entweder kein Zuschlag anfällt ODER wenn er anfällt UND bestätigt ist.
+    const isExpressRelevant = this.parseYyyyMmDdToDate(this.verteilungStartdatum || '1970-01-01').getTime() < this.defaultStandardStartDate.getTime() && this.parseYyyyMmDdToDate(this.verteilungStartdatum || '1970-01-01').getTime() >= this.parseYyyyMmDdToDate(this.minVerteilungStartdatum).getTime();
+    const expressConditionMet = !isExpressRelevant || (isExpressRelevant && this.expressSurchargeConfirmed);
+
+    const verteilungsDetailsComplete = verteilungsDetailsCompleteBasic && expressConditionMet;
+
+
     if (this.showPlzUiContainer) {
       const searchTerm = this.typeaheadSearchTerm.trim();
       const isRangeInputValid = this.plzRangeRegex.test(searchTerm);
-
-      if (this.currentTypeaheadSelection || mapHasSelection || (isRangeInputValid && searchTerm !== '')) {
+      if ((this.currentTypeaheadSelection || mapHasSelection || (isRangeInputValid && searchTerm !== '')) && verteilungsDetailsComplete) {
         newOverallStatus = 'valid';
-      }
-      else if (this.textInputStatus === 'pending' && !mapHasSelection) {
+      } else if (this.textInputStatus === 'pending' && !mapHasSelection) {
         newOverallStatus = 'pending';
+      } else {
+        newOverallStatus = 'invalid';
       }
     } else if (this.showPerimeterUiContainer) {
-      newOverallStatus = 'valid';
+      if (verteilungsDetailsComplete) {
+        newOverallStatus = 'valid';
+      } else {
+        newOverallStatus = 'invalid';
+      }
     }
+
+    if (newOverallStatus === 'invalid' && this.textInputStatus === 'pending' && this.showPlzUiContainer && !mapHasSelection && !this.currentTypeaheadSelection && !this.plzRangeRegex.test(this.typeaheadSearchTerm.trim())) {
+      newOverallStatus = 'pending';
+    }
+
 
     if (this.validationChange.observers.length > 0) {
       this.validationChange.emit(newOverallStatus);
@@ -459,20 +643,47 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   proceedToNextStep(): void {
+    this.updateOverallValidationState();
     let currentOverallStatusForProceed: ValidationStatus = 'invalid';
+
     const mapHasSelection = this.selectionService.getSelectedEntries().length > 0;
     const searchTerm = this.typeaheadSearchTerm.trim();
     const isRangeInputValid = this.plzRangeRegex.test(searchTerm);
+    const anlieferungSelected = !!this.currentAnlieferung;
+    const formatSelected = !!this.currentFormat;
+    const startDateSelected = !!this.verteilungStartdatum;
+    const endDateSelected = !!this.verteilungEnddatum;
+
+    const verteilungsDetailsCompleteBasic = anlieferungSelected && formatSelected && startDateSelected && endDateSelected;
+    const isExpressRelevant = this.parseYyyyMmDdToDate(this.verteilungStartdatum || '1970-01-01').getTime() < this.defaultStandardStartDate.getTime() && this.parseYyyyMmDdToDate(this.verteilungStartdatum || '1970-01-01').getTime() >= this.parseYyyyMmDdToDate(this.minVerteilungStartdatum).getTime();
+    const expressConditionMet = !isExpressRelevant || (isExpressRelevant && this.expressSurchargeConfirmed);
+    const verteilungsDetailsComplete = verteilungsDetailsCompleteBasic && expressConditionMet;
+
 
     if (this.showPlzUiContainer) {
-      if (this.currentTypeaheadSelection || mapHasSelection || (isRangeInputValid && searchTerm !== '')) {
+      if ((this.currentTypeaheadSelection || mapHasSelection || (isRangeInputValid && searchTerm !== '')) && verteilungsDetailsComplete) {
         currentOverallStatusForProceed = 'valid';
-      } else if (this.textInputStatus === 'pending' && !mapHasSelection && searchTerm.length >=2) {
+      } else if (this.textInputStatus === 'pending' && !mapHasSelection) {
         currentOverallStatusForProceed = 'pending';
+      } else {
+        currentOverallStatusForProceed = 'invalid';
       }
     } else if (this.showPerimeterUiContainer) {
-      currentOverallStatusForProceed = 'valid';
+      if (verteilungsDetailsComplete) {
+        currentOverallStatusForProceed = 'valid';
+      } else {
+        currentOverallStatusForProceed = 'invalid';
+      }
     }
+
+    if (currentOverallStatusForProceed === 'pending' && !verteilungsDetailsComplete){
+      currentOverallStatusForProceed = 'invalid';
+    }
+    if (currentOverallStatusForProceed === 'valid' && this.textInputStatus === 'pending' && this.showPlzUiContainer && !mapHasSelection && !this.currentTypeaheadSelection && !this.plzRangeRegex.test(searchTerm.trim())) {
+      currentOverallStatusForProceed = 'pending';
+    }
+
+
     this.validationChange.emit(currentOverallStatusForProceed);
 
     if (currentOverallStatusForProceed === 'valid') {
@@ -485,17 +696,28 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
             this.nextStepRequest.emit();
           } else {
             if (isPlatformBrowser(this.platformId)) alert(`Für den Bereich "${searchTerm}" wurden keine gültigen PLZ-Gebiete gefunden. Ihre Auswahl wurde nicht geändert.`);
-            this.textInputStatus = 'invalid';
-            this.updateOverallValidationState();
+            this.textInputStatus = 'invalid'; this.updateOverallValidationState();
           }
         });
       } else {
         this.nextStepRequest.emit();
       }
     } else {
-      const message = currentOverallStatusForProceed === 'pending'
-        ? "Bitte vervollständigen Sie Ihre Eingabe im Suchfeld, wählen Sie einen Eintrag aus der Liste oder wählen Sie PLZ-Gebiete auf der Karte aus, um fortzufahren."
-        : "Die Eingabe im Suchfeld ist ungültig oder unvollständig und es sind keine PLZ-Gebiete auf der Karte ausgewählt. Bitte korrigieren Sie Ihre Auswahl oder geben Sie einen gültigen PLZ-Bereich ein (z.B. 8000-8045).";
+      let message = "Bitte vervollständigen Sie Ihre Auswahl. Stellen Sie sicher, dass ein Zielgebiet definiert und alle Verteilungsdetails (Zeitraum, Anlieferung, Format) ausgewählt sind.";
+      if (currentOverallStatusForProceed === 'pending') {
+        message = "Bitte vervollständigen Sie Ihre Eingabe im Suchfeld oder wählen Sie einen Eintrag aus der Liste.";
+      } else if (!verteilungsDetailsCompleteBasic) {
+        const missingDetails: string[] = [];
+        if (!startDateSelected) missingDetails.push("Startdatum");
+        if (!anlieferungSelected) missingDetails.push("Anlieferart");
+        if (!formatSelected) missingDetails.push("Format");
+        message = `Bitte wählen Sie folgende Details aus: ${missingDetails.join(', ')}.`;
+      } else if (isExpressRelevant && !this.expressSurchargeConfirmed) {
+        message = "Bitte bestätigen Sie den Express-Zuschlag oder wählen Sie ein späteres Startdatum.";
+      }
+      else if (this.showPlzUiContainer && !mapHasSelection && !(isRangeInputValid && searchTerm !== '') && !this.currentTypeaheadSelection) {
+        message = "Die Eingabe im Suchfeld ist ungültig oder unvollständig und es sind keine PLZ-Gebiete auf der Karte ausgewählt. Bitte korrigieren Sie Ihre Auswahl oder geben Sie einen gültigen PLZ-Bereich ein (z.B. 8000-8045).";
+      }
       if (isPlatformBrowser(this.platformId)) alert(message);
     }
   }
@@ -540,6 +762,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       if (item.isGroupHeader) {
         return `${item.ort || item.plz4}`;
       }
+      // Korrigiert: item statt result
       return `${item.plz4 ? item.plz4 + ' ' : ''}${item.ort}${item.kt && item.kt !== 'N/A' ? ' - ' + item.kt : ''}`;
     }
     if (this.currentTypeaheadSelection === null && this.plzRangeRegex.test(this.typeaheadSearchTerm)) {
