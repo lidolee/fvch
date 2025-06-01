@@ -21,26 +21,23 @@
   </div>
 </div>
 
-<!-- PLZ ////////////////////////////////////////////////////////////////////-->
-
 <div *ngIf="showPlzUiContainer">
 
-  <!-- GOOGLE MAP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-
   <div class="map-main-container">
-    <div id="map-container-angular">
-      <div #mapDiv id="map-angular"></div>
-    </div>
-    <div #loadingIndicator id="loading-indicator-angular">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Karte lädt...</span>
-      </div>
-      <p class="mt-2">Karte lädt...</p>
-    </div>
-    <div #hoverPlzDisplay id="hover-plz-display-angular">PLZ: --</div>
+    <app-map *ngIf="showPlzUiContainer"
+             [selectedPlzIds]="mapSelectedPlzIds"
+             [highlightOnHoverPlzIds]="typeaheadHoverResultsForMapIds"
+             [highlightFromTablePlzId]="mapTableHoverPlzId"
+             [zoomToPlzId]="mapZoomToPlzId"
+             [zoomToPlzIdList]="mapZoomToPlzIdList"
+             [kmlPath]="kmlPathConstant"
+             [apiKey]="apiKeyConstant"
+             [mapOptions]="mapConfig"
+             (plzClicked)="onPlzClickedOnMap($event)"
+             (loading)="onMapLoadingStatusChanged($event)"
+             (mapReady)="$event">
+    </app-map>
   </div>
-
-  <!-- ZIELGRUPPE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
   <div class="my-3 row">
     <label for="verteilung-zielgruppe" class="col-sm-4 col-form-label">Zielgruppe</label>
@@ -56,8 +53,6 @@
       </select>
     </div>
   </div>
-
-  <!-- SUCHFUNKTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
   <div class="typeahead-search-container position-relative">
     <input type="text"
@@ -162,9 +157,7 @@
   <ng-template #keineAuswahlVorlagePlz>
     <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer && (!selectedEntries$ || (selectedEntries$ | async)?.length === 0)">
       <div class="my-2"><strong>Beliebte Regionen</strong></div>
-
       <div class="popular-locations text-center">
-        <!--<span class="popular-locations-label me-2">Beliebte Suchen</span><br>-->
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Zürich')">Zürich</button>
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bern')">Bern</button>
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Basel')">Basel</button>
@@ -173,23 +166,19 @@
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Winterthur')">Winterthur</button>
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Schaffhausen')">Schaffhausen</button>
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Baden')">Baden</button>
-        <br>
+        <br/>
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Genève')">Genève</button>
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lausanne')">Lausanne</button>
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Biel/Bienne')">Biel/Bienne</button>
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Fribourg')">Fribourg</button>
-        <br>
+        <br/>
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lugano')">Lugano</button>
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bellinzona')">Bellinzona</button>
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Locarno')">Locarno</button>
       </div>
-
     </div>
   </ng-template>
-
-</div> <!-- Ende von *ngIf="showPlzUiContainer" -->
-
-<!-- PERIMETER //////////////////////////////////////////////////////////////-->
+</div>
 
 <div class="perimeter-container reminder" *ngIf="showPerimeterUiContainer">
   <div class="reminder-title">Verteilung nach GPS-Perimeter</div>
@@ -198,20 +187,20 @@
     <li>Öffnen Sie <a href="https://earth.google.com" target="_blank" rel="noopener noreferrer"><strong>Google Earth</strong></a></li>
     <li>Neue <strong>lokale KML-Datei</strong> erstellen <span class="badge text-bg-secondary">CTRL + K</span><br /><span class="mdi mdi-arrow-right-thin"></span>Projektname: GPS-Perimeter – Ihre Firma</li>
     <li>Zielgebiet als <strong>Pfad oder Polygon</strong> einzeichnen <span class="badge text-bg-secondary">CTRL + SHIFT + L</span><br /><span class="mdi mdi-arrow-right-thin"></span>In Projekt speichern</li>
-    <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><span class="mdi mdi-arrow-right-thin"></span>KML exportieren o. Platz als KML speichern</li>
+    <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><span class="mdi mdi-arrow-right-thin"></span>Ort als KML-Datei exportieren</li>
     <li>KML-Datei hochladen - nutzen Sie unsere Upload-Funktion weiter unten</li>
   </ol>
-  <span><strong>Preise ab CHF 250.– pro 1’000 Flyer</strong><br>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte.</span>
+  <span><strong>Preise ab CHF 250.– pro 1’000 Flyer</strong><br/>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte.</span>
 </div>
 
 <h3 class="section-title"><span>2. Verteilung Details</span></h3>
 
 <div class="mb-3 row">
-  <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Zeitraum * <span class="badge rounded-pill text-bg-light hint" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="tooltip-wide" title="Wir empfehlen eine Vorlaufzeit von mindestens 10 Arbeitstagen."></span></label>
+  <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Zeitraum * <span class="badge rounded-pill text-bg-light hint" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Für optimale Ergebnisse empfehlen wir einen Verteilzeitraum von mindestens 7 Tagen.">Hinweis</span></label>
   <div class="col-sm-8">
     <div class="input-group">
-      <input class="form-control border border-required" type="date" name="verteilung-startdatum" id="verteilung-startdatum" placeholder="tt.mm.yyyy" required data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="tooltip-wide" title="Frühestes Startdatum für die Verteilung."/>
-      <input class="form-control border border-required" type="date" name="verteilung-enddatum" id="verteilung-enddatum" placeholder="tt.mm.yyyy" required data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="tooltip-wide" title="Spätestes Enddatum für die Verteilung."/>
+      <input class="form-control border border-required" type="date" name="verteilung-startdatum" id="verteilung-startdatum" placeholder="tt.mm.yyyy" required data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Frühestes Startdatum für die Verteilung."/>
+      <input class="form-control border border-required" type="date" name="verteilung-enddatum" id="verteilung-enddatum" placeholder="tt.mm.yyyy" required data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Spätestes Enddatum für die Verteilung."/>
     </div>
   </div>
 </div>
