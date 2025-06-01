@@ -1,55 +1,156 @@
-import { Component, Output, EventEmitter } from '@angular/core';
+import { Component, Output, EventEmitter, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms'; // Hinzugefügt für ngModel
-import { ValidationStatus } from '../../app.component'; // Pfad anpassen
+import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+import { ValidationStatus } from '../../app.component';
+import { OrderDataService } from '../../services/order-data.service'; // Import OrderDataService
+
+export type DesignPackage = 'basis' | 'plus' | 'premium' | 'eigenes' | '';
+export type PrintOption = 'anliefern' | 'service' | '';
+export type DruckFormat = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN_Lang' | 'anderes' | '';
+export type DruckGrammatur = 90 | 115 | 130 | 170 | 250 | 300;
+export type DruckArt = 'einseitig' | 'zweiseitig' | '';
+export type DruckAusfuehrung = 'glaenzend' | 'matt' | '';
+
+// Moved from distribution-step.component.ts
+export type AnlieferungOption = 'selbst' | 'abholung' | ''; // Leerstring für "nicht ausgewählt"
+export type FormatOption = 'A5_A6' | 'DIN_Lang' | 'A4' | 'A3' | ''; // Leerstring für "nicht ausgewählt"
 
 @Component({
   selector: 'app-design-print-step',
   standalone: true,
-  imports: [CommonModule, FormsModule], // FormsModule hinzugefügt
+  imports: [CommonModule, FormsModule],
   templateUrl: './design-print-step.component.html',
-  styleUrls: ['./design-print-step.component.scss']
+  styleUrls: ['./design-print-step.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DesignPrintStepComponent {
+export class DesignPrintStepComponent implements OnInit, OnDestroy {
   @Output() prevStepRequest = new EventEmitter<void>();
   @Output() nextStepRequest = new EventEmitter<void>();
   @Output() validationChange = new EventEmitter<ValidationStatus>();
 
-  selectedDesignOption: string = ''; // Um die Auswahl der Radio-Buttons zu speichern
-  expressDruckSelected: boolean = false; // Um die Auswahl der Checkbox zu speichern
+  selectedDesignPackage: DesignPackage = '';
+  selectedPrintOption: PrintOption = '';
 
-  private currentStatus: ValidationStatus = 'neutral';
+  druckFormat: DruckFormat = '';
+  druckGrammatur: DruckGrammatur | null = null;
+  druckArt: DruckArt = '';
+  druckAusfuehrung: DruckAusfuehrung = '';
+  druckAuflage: number = 0;
+  druckReserve: number = 1000;
 
-  constructor() {
-    // Initialen Status senden, wenn die Komponente geladen wird.
-    // Da initial nichts ausgewählt ist, könnte es 'invalid' oder 'pending' sein,
-    // je nach deinen Anforderungen.
+  readonly formatOptions: DruckFormat[] = ['A6', 'A5', 'A4', 'A3', 'DIN_Lang', 'anderes'];
+  readonly grammaturOptions: DruckGrammatur[] = [90, 115, 130, 170, 250, 300];
+
+  // Moved from distribution-step.component.ts
+  currentAnlieferung: AnlieferungOption = ''; // Initialisiert mit Leerstring
+  currentFormat: FormatOption = ''; // Initialisiert mit Leerstring
+
+
+  public currentStatus: ValidationStatus = 'pending';
+  private destroy$ = new Subject<void>();
+  private isDruckAuflageManuallySet: boolean = false;
+
+  constructor(
+    private cdr: ChangeDetectorRef,
+    private orderDataService: OrderDataService
+  ) {}
+
+  ngOnInit() {
+    this.orderDataService.totalFlyersCount$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(count => {
+        if (this.selectedPrintOption === 'service' && !this.isDruckAuflageManuallySet) {
+          this.druckAuflage = count;
+          this.cdr.markForCheck();
+          this.determineAndEmitValidationStatus();
+        }
+      });
+    this.determineAndEmitValidationStatus(); // Initial validation check
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  onSelectionChange() {
+    if (this.selectedPrintOption === 'service') {
+      if (!this.isDruckAuflageManuallySet) {
+        this.druckAuflage = this.orderDataService.getCurrentTotalFlyersCount();
+      }
+    } else {
+      this.resetPrintServiceDetails();
+      this.isDruckAuflageManuallySet = false;
+    }
     this.determineAndEmitValidationStatus();
   }
 
-  // Diese Methode wird aufgerufen, wenn sich eine Auswahl ändert
-  onSelectionChange() {
-    this.determineAndEmitValidationStatus();
+  onDruckAuflageChange() {
+    this.isDruckAuflageManuallySet = true;
+    this.determineAndEmitValidationStatus(); // Re-validate on change
+  }
+
+  // Moved from distribution-step.component.ts
+  setAnlieferung(anlieferung: AnlieferungOption): void {
+    if (this.currentAnlieferung !== anlieferung) {
+      this.currentAnlieferung = anlieferung;
+      this.determineAndEmitValidationStatus();
+      this.cdr.markForCheck();
+    }
+  }
+
+  // Moved from distribution-step.component.ts
+  setFormat(format: FormatOption): void {
+    if (this.currentFormat !== format) {
+      this.currentFormat = format;
+      this.determineAndEmitValidationStatus();
+      this.cdr.markForCheck();
+    }
+  }
+
+  private resetPrintServiceDetails() {
+    this.druckFormat = '';
+    this.druckGrammatur = null;
+    this.druckArt = '';
+    this.druckAusfuehrung = '';
+    // this.druckAuflage = 0; // Nur zurücksetzen, wenn nicht 'service' oder manuell gesetzt
   }
 
   private determineAndEmitValidationStatus() {
-    if (this.selectedDesignOption) {
-      // Wenn eine Design-Option gewählt ist, ist es mindestens 'valid' oder 'pending'
-      // (je nachdem, ob Express-Druck eine Bedingung für 'valid' ist, falls gewählt)
-      this.currentStatus = 'valid'; // Vereinfacht: Sobald Design gewählt, ist es valide
-    } else {
-      // Wenn keine Design-Option gewählt ist
-      this.currentStatus = 'pending'; // Oder 'invalid', wenn Design eine harte Anforderung ist
+    let isValid = true;
+
+    if (!this.selectedDesignPackage) {
+      isValid = false;
     }
-    // Hier könntest du noch die Logik für expressDruckSelected einbauen,
-    // falls das den Status weiter beeinflusst (z.B. wenn es Pflicht wäre, falls eine andere Option gewählt ist)
-    this.validationChange.emit(this.currentStatus);
-  }
 
+    if (!this.selectedPrintOption) {
+      isValid = false;
+    }
 
-  updateLocalValidationStatus(newStatus: ValidationStatus) {
-    this.currentStatus = newStatus;
+    // Validierung für Anlieferung und Format (verschobene Logik)
+    if (!this.currentAnlieferung) {
+      isValid = false;
+    }
+
+    if (!this.currentFormat) {
+      isValid = false;
+    }
+
+    if (this.selectedPrintOption === 'service') {
+      if (!this.druckFormat || this.druckGrammatur === null || !this.druckArt || !this.druckAusfuehrung) {
+        isValid = false;
+      }
+      // Die Auflage wird in proceedToNextStep geprüft, um eine spezifischere Meldung zu geben.
+      // if (this.druckAuflage <= 0) {
+      //   isValid = false;
+      // }
+    }
+
+    this.currentStatus = isValid ? 'valid' : 'pending';
     this.validationChange.emit(this.currentStatus);
+    this.cdr.markForCheck();
   }
 
   goBack() {
@@ -57,17 +158,41 @@ export class DesignPrintStepComponent {
   }
 
   proceedToNextStep() {
-    this.determineAndEmitValidationStatus();
+    this.determineAndEmitValidationStatus(); // Ensure status is up-to-date
 
-    if (this.currentStatus === 'valid' || this.currentStatus === 'pending') {
+    if (this.currentStatus === 'valid') {
+      if (this.selectedPrintOption === 'service' && this.druckAuflage <= 0) {
+        alert('Bitte geben Sie eine gültige Auflage für den Druck-Service an (größer als 0).');
+        return;
+      }
       this.nextStepRequest.emit();
     } else {
-      console.warn('Design & Print step: Validation failed.');
+      // More specific alert messages can be constructed here if needed
+      let message = "Bitte füllen Sie alle erforderlichen Felder aus.";
+      const missingFields: string[] = [];
+      if (!this.selectedDesignPackage) missingFields.push("Design-Paket");
+      if (!this.selectedPrintOption) missingFields.push("Druckoption");
+      if (!this.currentAnlieferung) missingFields.push("Anlieferung der Flyer");
+      if (!this.currentFormat) missingFields.push("Flyer Format");
+
+      if (this.selectedPrintOption === 'service') {
+        if (!this.druckFormat) missingFields.push("Druckformat");
+        if (this.druckGrammatur === null) missingFields.push("Grammatur");
+        if (!this.druckArt) missingFields.push("Druckart");
+        if (!this.druckAusfuehrung) missingFields.push("Ausführung");
+        if (this.druckAuflage <= 0) missingFields.push("Auflage (muss > 0 sein)");
+      }
+
+      if (missingFields.length > 0) {
+        message = `Bitte vervollständigen Sie die folgenden Angaben: ${missingFields.join(', ')}.`;
+      }
+      alert(message);
     }
   }
 
-  // Nur für Testzwecke, kann entfernt werden
   setExampleStatus(status: ValidationStatus) {
-    this.updateLocalValidationStatus(status);
+    this.currentStatus = status;
+    this.validationChange.emit(this.currentStatus);
+    this.cdr.markForCheck();
   }
 }

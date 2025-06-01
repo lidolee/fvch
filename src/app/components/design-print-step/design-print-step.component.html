@@ -6,56 +6,308 @@
 
 <h3 class="section-title"><span>1. Flyer Design</span></h3>
 
-<div class="mb-3">
-  <h6>Designoptionen <span class="text-danger">*</span></h6>
-  <div class="form-check">
-    <input class="form-check-input" type="radio" name="designOption" id="designEigenes" value="eigenes"
-           [(ngModel)]="selectedDesignOption" (ngModelChange)="onSelectionChange()">
-    <label class="form-check-label" for="designEigenes">
-      Eigenes Design hochladen
-    </label>
+<div class="choice-card-group design-package-group">
+  <!-- Basis Paket -->
+  <div class="choice-card clickable-card design-package" [class.selected]="selectedDesignPackage === 'basis'" (click)="selectedDesignPackage = 'basis'; onSelectionChange()">
+    <div class="card-header">
+      <h5 class="package-name">Basis</h5>
+      <p class="package-price">CHF 399</p>
+      <p class="package-price-old">statt CHF 449</p>
+    </div>
+    <div class="card-body">
+      <p class="package-slogan">Für einfache Anforderungen mit klarem Ziel.</p>
+      <ul class="features list-unstyled">
+        <li><i class="mdi mdi-check"></i> 1 Designvorschlag</li>
+        <li><i class="mdi mdi-check"></i> 1 Korrekturrunde</li>
+        <li><i class="mdi mdi-check"></i> Druckfähiges PDF</li>
+        <li><i class="mdi mdi-check"></i> Swiss Quality-Check</li>
+      </ul>
+    </div>
+    <div class="card-footer">
+      <span class="savings-info" *ngIf="selectedDesignPackage !== 'basis'">Sie sparen CHF 50</span>
+      <button type="button" class="btn btn-sm w-100" [class.btn-primary]="selectedDesignPackage === 'basis'" [class.btn-outline-primary]="selectedDesignPackage !== 'basis'" (click)="selectedDesignPackage = 'basis'; onSelectionChange()">
+        {{ selectedDesignPackage === 'basis' ? 'Ausgewählt' : 'Auswählen' }}
+      </button>
+    </div>
+    <i *ngIf="selectedDesignPackage === 'basis'" class="mdi mdi-check-circle selected-indicator-package"></i>
   </div>
-  <div class="form-check">
-    <input class="form-check-input" type="radio" name="designOption" id="designVorlage" value="vorlage"
-           [(ngModel)]="selectedDesignOption" (ngModelChange)="onSelectionChange()">
-    <label class="form-check-label" for="designVorlage">
-      Designvorlage verwenden
-    </label>
+
+  <!-- Plus Paket -->
+  <div class="choice-card clickable-card design-package most-popular" [class.selected]="selectedDesignPackage === 'plus'" (click)="selectedDesignPackage = 'plus'; onSelectionChange()">
+    <div class="popular-tag">Empfehlung</div>
+    <div class="card-header">
+      <h5 class="package-name">Plus</h5>
+      <p class="package-price">CHF 899</p>
+      <p class="package-price-old">statt CHF 999</p>
+    </div>
+    <div class="card-body">
+      <p class="package-slogan">Für KMU mit Anspruch auf Gestaltung & Flexibilität.</p>
+      <ul class="features list-unstyled">
+        <li><i class="mdi mdi-check"></i> 2 Designvorschläge</li>
+        <li><i class="mdi mdi-check"></i> 3 Korrekturen</li>
+        <li><i class="mdi mdi-check"></i> Druckfähiges PDF</li>
+        <li><i class="mdi mdi-check"></i> Swiss Quality-Check</li>
+        <li><i class="mdi mdi-check"></i> Quelldateien (AI, PSD etc.)</li>
+      </ul>
+    </div>
+    <div class="card-footer">
+      <span class="savings-info" *ngIf="selectedDesignPackage !== 'plus'">Sie sparen CHF 100</span>
+      <button type="button" class="btn btn-sm w-100" [class.btn-primary]="selectedDesignPackage === 'plus'" [class.btn-outline-primary]="selectedDesignPackage !== 'plus'" (click)="selectedDesignPackage = 'plus'; onSelectionChange()">
+        {{ selectedDesignPackage === 'plus' ? 'Ausgewählt' : 'Auswählen' }}
+      </button>
+    </div>
+    <i *ngIf="selectedDesignPackage === 'plus'" class="mdi mdi-check-circle selected-indicator-package"></i>
   </div>
-  <div class="form-check">
-    <input class="form-check-input" type="radio" name="designOption" id="designKeines" value="keines"
-           [(ngModel)]="selectedDesignOption" (ngModelChange)="onSelectionChange()">
-    <label class="form-check-label" for="designKeines">
-      Kein Design benötigt (nur Druck)
-    </label>
+
+  <!-- Premium Paket -->
+  <div class="choice-card clickable-card design-package" [class.selected]="selectedDesignPackage === 'premium'" (click)="selectedDesignPackage = 'premium'; onSelectionChange()">
+    <div class="card-header">
+      <h5 class="package-name">Premium</h5>
+      <p class="package-price">CHF 1’999</p>
+      <p class="package-price-old">statt CHF 2’499</p>
+    </div>
+    <div class="card-body">
+      <p class="package-slogan">Für umfassende Kommunikation mit Strategiebedarf.</p>
+      <ul class="features list-unstyled">
+        <li><i class="mdi mdi-check"></i> 3 Designvorschläge</li>
+        <li><i class="mdi mdi-check"></i> 5 Korrekturen</li>
+        <li><i class="mdi mdi-check"></i> Druckfähiges PDF</li>
+        <li><i class="mdi mdi-check"></i> Swiss Quality-Check</li>
+        <li><i class="mdi mdi-check"></i> Quelldateien</li>
+        <li><i class="mdi mdi-check"></i> Logo- & Branding-Beratung</li>
+        <li><i class="mdi mdi-check"></i> Marketing-Strategie</li>
+      </ul>
+    </div>
+    <div class="card-footer">
+      <span class="savings-info" *ngIf="selectedDesignPackage !== 'premium'">Sie sparen CHF 500</span>
+      <button type="button" class="btn btn-sm w-100" [class.btn-primary]="selectedDesignPackage === 'premium'" [class.btn-outline-primary]="selectedDesignPackage !== 'premium'" (click)="selectedDesignPackage = 'premium'; onSelectionChange()">
+        {{ selectedDesignPackage === 'premium' ? 'Ausgewählt' : 'Auswählen' }}
+      </button>
+    </div>
+    <i *ngIf="selectedDesignPackage === 'premium'" class="mdi mdi-check-circle selected-indicator-package"></i>
+  </div>
+
+  <!-- Eigenes Design -->
+  <div class="choice-card clickable-card design-package" [class.selected]="selectedDesignPackage === 'eigenes'" (click)="selectedDesignPackage = 'eigenes'; onSelectionChange()">
+    <div class="card-header">
+      <h5 class="package-name">Eigenes Design</h5>
+      <p class="package-price">Kostenlos</p>
+    </div>
+    <div class="card-body">
+      <p class="package-slogan">Sie haben bereits ein druckfertiges Design.</p>
+      <ul class="features list-unstyled">
+        <li><i class="mdi mdi-check"></i> Sie liefern ein druckfertiges PDF</li>
+        <li><i class="mdi mdi-check"></i> Swiss Quality-Check</li>
+      </ul>
+    </div>
+    <div class="card-footer">
+      <button type="button" class="btn btn-sm w-100" [class.btn-primary]="selectedDesignPackage === 'eigenes'" [class.btn-outline-primary]="selectedDesignPackage !== 'eigenes'" (click)="selectedDesignPackage = 'eigenes'; onSelectionChange()">
+        {{ selectedDesignPackage === 'eigenes' ? 'Ausgewählt' : 'Auswählen' }}
+      </button>
+    </div>
+    <i *ngIf="selectedDesignPackage === 'eigenes'" class="mdi mdi-check-circle selected-indicator-package"></i>
   </div>
 </div>
 
 <h3 class="section-title"><span>2. Flyer Druck</span></h3>
 
-<div class="mb-3">
-  <h6>Druckoptionen</h6>
-  <div class="form-check">
-    <input class="form-check-input" type="checkbox" id="druckExpress"
-           [(ngModel)]="expressDruckSelected" (ngModelChange)="onSelectionChange()">
-    <label class="form-check-label" for="druckExpress">
-      Express-Druck (optional)
-    </label>
+<div class="row align-items-center">
+  <div class="col-12">
+    <div class="choice-card-group">
+      <button type="button" class="choice-card" [class.active]="selectedPrintOption === 'anliefern'" (click)="selectedPrintOption = 'anliefern'; onSelectionChange()">
+        <i class="mdi mdi-upload-outline card-icon"></i>
+        <span class="card-content">
+      <span class="card-title">Eigene Flyer anliefern</span>
+      <span class="card-description">Kostenlos</span>
+    </span>
+        <span class="card-indicator"></span>
+      </button>
+
+      <button type="button" class="choice-card" [class.active]="selectedPrintOption === 'service'" (click)="selectedPrintOption = 'service'; onSelectionChange()">
+        <i class="mdi mdi-printer-outline card-icon"></i>
+        <span class="card-content">
+      <span class="card-title">Druck Service nutzen</span>
+      <span class="card-description">Wir drucken ihre Flyer</span>
+    </span>
+        <span class="card-indicator"></span>
+      </button>
+    </div>
   </div>
 </div>
 
-<!-- Weitere Optionen hier -->
+<div *ngIf="selectedPrintOption === 'anliefern'" class="print-service-details">
+  <!-- Anlieferung der Flyer -->
 
-<div class="d-flex justify-content-between mt-4">
-  <button type="button" class="btn btn-secondary" (click)="goBack()">
-    <i class="bi bi-arrow-left me-1"></i> Zurück zu Verteilung
-  </button>
-  <button type="button" class="btn btn-primary" (click)="proceedToNextStep()">Weiter zu Kontakt</button>
+  <!--<label class="col-sm-4 col-form-label">Anlieferung der Flyer *</label>-->
+  <fieldset class="mb-4">
+    <legend><span>Anlieferung der Flyer</span></legend>
+
+    <div class="choice-card-group">
+      <button type="button" class="choice-card"
+              [class.active]="currentAnlieferung === 'selbst'"
+              (click)="setAnlieferung('selbst')">
+        <i class="mdi mdi-package-check card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">Sie liefern</span>
+          <span class="card-description">kostenlos</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+
+      <button type="button" class="choice-card"
+              [class.active]="currentAnlieferung === 'abholung'"
+              (click)="setAnlieferung('abholung')">
+        <i class="mdi mdi-truck-fast card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">Wir holen ab</span>
+          <span class="card-description">+ CHF 75</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+    </div>
+  </fieldset>
+
+  <!-- Format -->
+  <fieldset class="mb-4 row">
+    <legend><span>Flyer Format</span></legend>
+    <!--<label class="col-sm-4 col-form-label">Format *</label>-->
+    <div class="choice-card-group">
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'A5_A6'"
+              (click)="setFormat('A5_A6')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">A5 / A6</span>
+          <span class="card-description">Kein Zuschlag</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'DIN_Lang'"
+              (click)="setFormat('DIN_Lang')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">DIN Lang</span>
+          <span class="card-description">+ CHF 20 / 1'000 Flyer</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'A4'"
+              (click)="setFormat('A4')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">A4</span>
+          <span class="card-description">+ CHF 30 / 1'000 Flyer</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'A3'"
+              (click)="setFormat('A3')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">A3</span>
+          <span class="card-description">+ CHF 50 / 1'000 Flyer</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+    </div>
+  </fieldset>
 </div>
-<!-- Nur für Testzwecke, kann entfernt werden -->
+
+
+<div *ngIf="selectedPrintOption === 'service'" class="print-service-details mb-4">
+  <h4 class="mb-3">Details für Druck Service</h4>
+
+  <div class="row">
+    <div class="col-md-6 mb-3">
+      <label for="druckFormat" class="form-label">Format</label>
+      <select class="form-select" id="druckFormat" name="druckFormat" [(ngModel)]="druckFormat" (ngModelChange)="onSelectionChange()">
+        <option value="" disabled>Bitte wählen...</option>
+        <option *ngFor="let format of formatOptions" [value]="format">{{ format }}</option>
+      </select>
+    </div>
+    <div class="col-md-6 mb-3">
+      <label for="druckGrammatur" class="form-label">Grammatur (g/m²)</label>
+      <select class="form-select" id="druckGrammatur" name="druckGrammatur" [(ngModel)]="druckGrammatur" (ngModelChange)="onSelectionChange()">
+        <option [ngValue]="null" disabled>Bitte wählen...</option>
+        <option *ngFor="let grammatur of grammaturOptions" [ngValue]="grammatur">{{ grammatur }}</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label d-block">Druckart</label>
+    <div class="choice-card-group">
+      <button type="button" class="choice-card" [class.active]="druckArt === 'einseitig'" (click)="druckArt = 'einseitig'; onSelectionChange()">
+        <i class="mdi mdi-book-open-blank-variant card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">Einseitig</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckArt === 'zweiseitig'" (click)="druckArt = 'zweiseitig'; onSelectionChange()">
+        <i class="mdi mdi-book-open-blank-variant-outline card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">Zweiseitig</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label d-block">Ausführung</label>
+    <div class="choice-card-group">
+      <button type="button" class="choice-card" [class.active]="druckAusfuehrung === 'glaenzend'" (click)="druckAusfuehrung = 'glaenzend'; onSelectionChange()">
+        <i class="mdi mdi-creation card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">Glänzend gestrichen</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckAusfuehrung === 'matt'" (click)="druckAusfuehrung = 'matt'; onSelectionChange()">
+        <i class="mdi mdi-creation-outline card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">Matt gestrichen</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6 mb-3">
+      <label for="druckAuflage" class="form-label">Auflage</label>
+      <input type="number" class="form-control" id="druckAuflage" name="druckAuflage" [(ngModel)]="druckAuflage" (ngModelChange)="onDruckAuflageChange()" placeholder="z.B. 5000" min="1">
+      <small class="form-text text-muted">Wird automatisch aus Verteilgebiet berechnet.</small>
+    </div>
+    <div class="col-md-6 mb-3">
+      <label for="druckReserve" class="form-label">Zusätzliche Flyer Reserve</label>
+      <input type="number" class="form-control" id="druckReserve" name="druckReserve" [(ngModel)]="druckReserve" (ngModelChange)="onSelectionChange()" step="100" min="0">
+    </div>
+  </div>
+
+  <div class="alert alert-info mt-3">
+    <i class="mdi mdi-information-outline"></i> Druck wird separat offeriert.
+  </div>
+</div>
+
+<div class="d-flex justify-content-between mt-5">
+  <button type="button" class="btn btn-secondary" (click)="goBack()">
+    <i class="mdi mdi-arrow-left me-1"></i> Zurück zu Verteilung
+  </button>
+  <button type="button" class="btn btn-primary" (click)="proceedToNextStep()">
+    Weiter zu Kontakt <i class="mdi mdi-arrow-right ms-1"></i>
+  </button>
+</div>
+
 <div class="mt-3 p-2 border rounded bg-light-subtle small">
   <p class="mb-1">Test-Buttons für Validierungsstatus:</p>
   <button class="btn btn-sm btn-outline-success me-1" (click)="setExampleStatus('valid')">Set Valid</button>
   <button class="btn btn-sm btn-outline-warning me-1" (click)="setExampleStatus('pending')">Set Pending</button>
   <button class="btn btn-sm btn-outline-danger" (click)="setExampleStatus('invalid')">Set Invalid</button>
+  <p class="mt-1">Aktueller Status: <strong>{{ currentStatus }}</strong></p>
 </div>

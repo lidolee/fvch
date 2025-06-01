@@ -1,29 +1,172 @@
-.clickable-card {
-  cursor: pointer;
-  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-  position: relative; // Für den selected-indicator
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+@import "../../../styles/variables";
+@import "bootstrap/scss/mixins";
 
-  &:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
+.choice-card-group {
 
-  &.selected {
-    border-color: var(--bs-primary); // oder deine Primärfarbe
-    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.5); // Ähnlich wie Bootstrap Focus-Ring
-    background-color: #f8f9fa; // Leichte Hervorhebung
-  }
-
-  .card-body {
+  &.design-package-group .design-package {
+    flex: 1 1 calc(50% - 0.75rem);
+    min-width: 280px;
     display: flex;
     flex-direction: column;
+    background-color: $white;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius;
+    transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover {
+      border-color: $gray-400;
+      box-shadow: 0 4px 12px rgba($black, 0.05);
+    }
+
+    &.selected {
+      border-color: $primary !important;
+      box-shadow: 0 0 0 2px rgba(red($primary), green($primary), blue($primary), 0.3) !important;
+      background-color: $white;
+
+      .selected-indicator-package {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .card-header {
+      padding: 1.25rem 1.25rem 0.5rem;
+      border-bottom: none;
+      background-color: transparent;
+
+      .package-name {
+        font-size: 1.15rem;
+        font-weight: $headings-font-weight;
+        color: $gray-900;
+        margin-bottom: 0.25rem;
+      }
+      .package-price {
+        font-size: 1.5rem;
+        font-weight: $headings-font-weight;
+        color: $primary;
+        margin-bottom: 0.1rem;
+        line-height: 1.2;
+      }
+      .package-price-old {
+        font-size: 0.8rem;
+        color: $gray-600;
+        text-decoration: line-through;
+        margin-bottom: 0.5rem;
+        display: block;
+      }
+    }
+
+    .card-body {
+      padding: 0.5rem 1.25rem 1rem;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+
+      .package-slogan {
+        font-size: 0.85rem;
+        color: $gray-700;
+        margin-bottom: 1rem;
+        line-height: 1.5;
+        min-height: 2.5em;
+      }
+
+      .features {
+        font-size: 0.875rem;
+        padding-left: 0;
+        list-style: none;
+        width: 100%;
+        color: $gray-800;
+        margin-bottom: 0;
+
+        li {
+          margin-bottom: 0.4rem;
+          display: flex;
+          align-items: flex-start;
+          .mdi {
+            margin-right: 0.5em;
+            color: $primary;
+            font-size: 1rem;
+            margin-top: 0.15em;
+          }
+        }
+      }
+    }
+
+    .card-footer {
+      padding: 1rem 1.25rem;
+      background-color: transparent;
+      border-top: 1px solid $gray-200;
+      margin-top: auto;
+
+      .savings-info {
+        display: block;
+        font-size: 0.75rem;
+        color: $success;
+        text-align: center;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+      }
+
+      .btn {
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+      }
+    }
+
+    .selected-indicator-package {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      font-size: 1.5rem;
+      color: $primary;
+      opacity: 0;
+      transform: scale(0.7);
+      transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+    }
+
+    &.most-popular {
+      border-top: 3px solid $warning;
+      padding-top: calc(1.25rem - 3px);
+
+      .popular-tag {
+        display: none;
+      }
+
+      &.selected {
+        border-top-color: $primary;
+        padding-top: calc(1.25rem - 3px);
+      }
+    }
+
+    @media (max-width: 991px) {
+      flex-basis: calc(50% - 0.75rem);
+    }
+    @media (max-width: 767px) {
+      flex-basis: 100%;
+      &.most-popular {
+        padding-top: 1.25rem;
+      }
+    }
   }
 
-  .selected-indicator {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    font-size: 1.5rem;
-    color: var(--bs-primary); // oder deine Primärfarbe
+  &.print-option-group button.choice-card,
+  .print-service-details .choice-card-group button.choice-card {
+    flex-basis: calc(50% - 0.5rem);
+    padding: 1rem;
+
+    @media (max-width: 767px) {
+      flex-basis: 100%;
+    }
+    .card-description {
+      font-size: 0.85rem;
+    }
   }
+}
+
+legend span:has(+ .text-danger) {
+  margin-right: 0.25rem;
 }

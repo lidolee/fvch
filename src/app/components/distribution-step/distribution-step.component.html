@@ -1,5 +1,5 @@
 <div class="step-intro">
-  <p class="step-title">Zielgebiet & Verteilung</p>
+  <p class="step-title">Zielgebiet & Zeitraum</p>
   <h2>Wo und wann sollen Ihre Flyer verteilt werden?</h2>
   <p>Definieren Sie das Zielgebiet und Verteilungsdaten für Ihre Flyerverteilung.</p>
 </div>
@@ -114,7 +114,7 @@
     <div *ngIf="selectedEntries && selectedEntries.length > 0">
       <h3 class="section-title mt-4 mb-0"><span>Ihre Auswahl: {{ selectedEntries.length }} PLZ</span></h3>
       <div class="delete-plz-list text-end mb-4">
-        <button class="btn btn-sm btn-link text-danger" type="button" (click)="clearPlzTable()"><i class="mdi mdi-playlist-remove fs-6"></i>&nbsp;Liste löschen</button>
+        <button class="btn btn-sm btn-outline-danger" type="button" (click)="clearPlzTable()"><i class="mdi mdi-playlist-remove fs-6"></i>&nbsp;Liste löschen</button>
       </div>
     </div>
 
@@ -257,7 +257,7 @@
   <span><strong>Preise ab CHF 250.– pro 1’000 Flyer</strong><br/>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte.</span>
 </div>
 
-<h3 class="section-title"><span>2. Verteilung Details</span></h3>
+<h3 class="section-title"><span>2. Zeitraum</span></h3>
 
 <div class="mb-3 row">
   <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Zeitraum der Verteilung</label>
@@ -305,86 +305,3 @@
   </div>
 </div>
 
-
-<!-- Anlieferung der Flyer -->
-
-<div class="mb-3 row align-items-center">
-  <!--<label class="col-sm-4 col-form-label">Anlieferung der Flyer *</label>-->
-  <fieldset>
-    <legend><span>Anlieferung der Flyer</span></legend>
-
-    <div class="choice-card-group">
-      <button type="button" class="choice-card"
-              [class.active]="currentAnlieferung === 'selbst'"
-              (click)="setAnlieferung('selbst')">
-        <i class="mdi mdi-package-check card-icon"></i>
-        <span class="card-content">
-        <span class="card-title">Sie liefern</span>
-        <span class="card-description">kostenlos</span>
-      </span>
-        <span class="card-indicator"></span>
-      </button>
-
-      <button type="button" class="choice-card"
-              [class.active]="currentAnlieferung === 'abholung'"
-              (click)="setAnlieferung('abholung')">
-        <i class="mdi mdi-truck-fast card-icon"></i>
-        <span class="card-content">
-        <span class="card-title">Wir holen ab</span>
-        <span class="card-description">+ CHF 75</span>
-      </span>
-        <span class="card-indicator"></span>
-      </button>
-    </div>
-  </fieldset>
-</div>
-
-<!-- Format -->
-<div class="mb-3 row align-items-center">
-  <fieldset>
-    <legend><span>Flyer Format</span></legend>
-  <!--<label class="col-sm-4 col-form-label">Format *</label>-->
-    <div class="choice-card-group">
-      <button type="button" class="choice-card"
-              [class.active]="currentFormat === 'A5_A6'"
-              (click)="setFormat('A5_A6')">
-        <i class="mdi mdi-invoice-text card-icon"></i>
-        <span class="card-content">
-          <span class="card-title">A5 / A6</span>
-          <span class="card-description">Kein Zuschlag</span>
-        </span>
-        <span class="card-indicator"></span>
-      </button>
-      <button type="button" class="choice-card"
-              [class.active]="currentFormat === 'DIN_Lang'"
-              (click)="setFormat('DIN_Lang')">
-        <i class="mdi mdi-invoice-text card-icon"></i>
-        <span class="card-content">
-          <span class="card-title">DIN Lang</span>
-          <span class="card-description">+ CHF 20 / 1'000 Flyer</span>
-        </span>
-        <span class="card-indicator"></span>
-      </button>
-      <button type="button" class="choice-card"
-              [class.active]="currentFormat === 'A4'"
-              (click)="setFormat('A4')">
-        <i class="mdi mdi-invoice-text card-icon"></i>
-        <span class="card-content">
-          <span class="card-title">A4</span>
-          <span class="card-description">+ CHF 30 / 1'000 Flyer</span>
-        </span>
-        <span class="card-indicator"></span>
-      </button>
-      <button type="button" class="choice-card"
-              [class.active]="currentFormat === 'A3'"
-              (click)="setFormat('A3')">
-        <i class="mdi mdi-invoice-text card-icon"></i>
-        <span class="card-content">
-          <span class="card-title">A3</span>
-          <span class="card-description">+ CHF 50 / 1'000 Flyer</span>
-        </span>
-        <span class="card-indicator"></span>
-      </button>
-    </div>
-  </fieldset>
-</div>
