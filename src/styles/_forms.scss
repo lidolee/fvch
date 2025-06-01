@@ -59,6 +59,13 @@ button,
   text-transform: uppercase;
   border-radius: $btn-border-radius;
   letter-spacing: 0.5px;
+
+  &.btn-sm {
+    font-size: 13px;
+    line-height: 22px;
+    vertical-align: top;
+    padding-top: 5px;
+  }
 }
 
 .choice-card-group {
