@@ -14,6 +14,8 @@ const LOG_PREFIX_DIST = '[DistributionStep]';
 const COLUMN_HIGHLIGHT_DURATION = 300;
 
 export type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
+export type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
+
 
 interface CloseTypeaheadOptions {
   clearSearchTerm?: boolean;
@@ -44,7 +46,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   public typeaheadHoverResultsForMapIds: string[] = [];
   searching: boolean = false;
   selectedEntries$: Observable<PlzEntry[]>;
-  currentVerteilungTyp: 'Nach PLZ' | 'Nach Perimeter' = 'Nach PLZ';
+  currentVerteilungTyp: VerteilungTypOption = 'Nach PLZ';
   showPlzUiContainer: boolean = true;
   showPerimeterUiContainer: boolean = false;
   currentZielgruppe: ZielgruppeOption = 'Alle Haushalte';
@@ -110,8 +112,21 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     this.destroy$.next(); this.destroy$.complete();
   }
 
-  onVerteilungTypChangeFromTemplate(newVerteilungTyp: 'Nach PLZ' | 'Nach Perimeter'): void {
-    this.currentVerteilungTyp = newVerteilungTyp;
+  setVerteilungTyp(typ: VerteilungTypOption): void {
+    if (this.currentVerteilungTyp !== typ) {
+      this.currentVerteilungTyp = typ;
+      this.onVerteilungTypChangeFromTemplate(typ);
+    }
+  }
+
+  setZielgruppe(zielgruppe: ZielgruppeOption): void {
+    if (this.currentZielgruppe !== zielgruppe) {
+      this.currentZielgruppe = zielgruppe;
+      this.onZielgruppeChange();
+    }
+  }
+
+  onVerteilungTypChangeFromTemplate(newVerteilungTyp: VerteilungTypOption): void {
     this.updateUiFlagsAndMapState();
   }
 
@@ -121,7 +136,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     this.updateOverallValidationState();
   }
 
-  private updateUiFlags(verteilungTyp: 'Nach PLZ' | 'Nach Perimeter'): void {
+  private updateUiFlags(verteilungTyp: VerteilungTypOption): void {
     this.showPlzUiContainer = verteilungTyp === 'Nach PLZ';
     this.showPerimeterUiContainer = verteilungTyp === 'Nach Perimeter';
   }

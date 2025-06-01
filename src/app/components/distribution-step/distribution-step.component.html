@@ -6,18 +6,30 @@
 
 <h3 class="section-title"><span>1. Zielgebiet</span></h3>
 
-<div class="mb-3 row">
-  <label for="verteilung-typ-select" class="col-sm-4 col-form-label">Verteilung *</label>
-  <div class="col-sm-8">
-    <select class="form-select form-control border border-required"
-            id="verteilung-typ-select"
-            name="verteilung-typ"
-            required
-            [(ngModel)]="currentVerteilungTyp"
-            (ngModelChange)="onVerteilungTypChangeFromTemplate($event)">
-      <option value="Nach PLZ">Nach PLZ Ort</option>
-      <option value="Nach Perimeter">Nach Perimeter</option>
-    </select>
+<div class="mb-4 row align-items-center">
+  <div class="col-12">
+    <div class="choice-card-group">
+      <button type="button" class="choice-card"
+              [class.active]="currentVerteilungTyp === 'Nach PLZ'"
+              (click)="setVerteilungTyp('Nach PLZ')">
+        <i class="mdi mdi-map-marker card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">Nach PLZ Ort</span>
+          <span class="card-description">Auswahl nach PLZ oder Ort</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card"
+              [class.active]="currentVerteilungTyp === 'Nach Perimeter'"
+              (click)="setVerteilungTyp('Nach Perimeter')">
+        <i class="mdi mdi-map-marker-radius card-icon"></i>
+        <span class="card-content">
+          <span class="card-title">Nach Perimeter</span>
+          <span class="card-description">Freie Gebietsauswahl auf der Karte</span>
+        </span>
+        <span class="card-indicator"></span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -39,41 +51,171 @@
     </app-map>
   </div>
 
-  <div class="my-3 row">
-    <label for="verteilung-zielgruppe" class="col-sm-4 col-form-label">Zielgruppe</label>
-    <div class="col-sm-8">
-      <select class="form-select form-control border border-required"
-              id="verteilung-zielgruppe"
-              name="verteilung-zielgruppe"
-              [(ngModel)]="currentZielgruppe"
-              (ngModelChange)="onZielgruppeChange()">
-        <option value="Alle Haushalte">Alle Häuser</option>
-        <option value="Mehrfamilienhäuser">Mehrfamilienhäuser</option>
-        <option value="Ein- und Zweifamilienhäuser">Ein- und Zweifamilienhäuser</option>
-      </select>
-    </div>
-  </div>
+  <ng-container *ngIf="(selectedEntries$ | async) as selectedEntries; else showBeliebteRegionenInitially">
 
-  <div class="typeahead-search-container position-relative">
-    <input type="text"
-           #typeaheadInputEl
-           id="typeahead-plz-search"
-           class="form-control"
-           placeholder="8001 oder 8001-8055 oder Zürich"
-           aria-label="PLZ, Ort oder PLZ-Bereich Suche"
-           [(ngModel)]="typeaheadSearchTerm"
-           (ngModelChange)="onTypeaheadInputChange($event)"
-           [ngbTypeahead]="searchPlzTypeahead"
-           #typeaheadInstance="ngbTypeahead"
-           [resultTemplate]="rtPhase2"
-           [inputFormatter]="typeaheadInputFormatter"
-           (selectItem)="typeaheadItemSelected($event)"
-           [editable]="true"
-           [focusFirst]="false"
-           (focus)="onSearchFocus()"
-           (blur)="onSearchBlur()"/>
-    <i class="mdi mdi-magnify search-icon"></i>
-  </div>
+    <div class="typeahead-search-container position-relative mt-3"> <!-- mt-3 hinzugefügt für Abstand -->
+      <input type="text"
+             #typeaheadInputEl
+             id="typeahead-plz-search"
+             class="form-control"
+             placeholder="8001 oder 8001-8055 oder Zürich"
+             aria-label="PLZ, Ort oder PLZ-Bereich Suche"
+             [(ngModel)]="typeaheadSearchTerm"
+             (ngModelChange)="onTypeaheadInputChange($event)"
+             [ngbTypeahead]="searchPlzTypeahead"
+             #typeaheadInstance="ngbTypeahead"
+             [resultTemplate]="rtPhase2"
+             [inputFormatter]="typeaheadInputFormatter"
+             (selectItem)="typeaheadItemSelected($event)"
+             [editable]="true"
+             [focusFirst]="false"
+             (focus)="onSearchFocus()"
+             (blur)="onSearchBlur()"/>
+      <i class="mdi mdi-magnify search-icon"></i>
+    </div>
+
+    <!-- Zielgruppen-Auswahl: Wird nur angezeigt, wenn selectedEntries existiert und Einträge hat -->
+    <div class="my-4 row" *ngIf="selectedEntries && selectedEntries.length > 0">
+      <div class="col-sm-12"> <!-- Geändert von col-sm-8 und Label entfernt für mehr Platz -->
+        <div class="choice-card-group choice-card-group-zielgruppe">
+          <button type="button" class="choice-card"
+                  [class.active]="currentZielgruppe === 'Alle Haushalte'"
+                  (click)="setZielgruppe('Alle Haushalte')">
+            <i class="mdi mdi-home-city card-icon"></i>
+            <span class="card-content">
+              <span class="card-title">Alle Häuser</span>
+              <span class="card-description">Max. Reichweite</span>
+            </span>
+            <span class="card-indicator"></span>
+          </button>
+          <button type="button" class="choice-card"
+                  [class.active]="currentZielgruppe === 'Mehrfamilienhäuser'"
+                  (click)="setZielgruppe('Mehrfamilienhäuser')">
+            <i class="mdi mdi-office-building card-icon"></i>
+            <span class="card-content">
+              <span class="card-title">MFH</span>
+              <span class="card-description">Mehrfamilienhäuser</span>
+            </span>
+            <span class="card-indicator"></span>
+          </button>
+          <button type="button" class="choice-card"
+                  [class.active]="currentZielgruppe === 'Ein- und Zweifamilienhäuser'"
+                  (click)="setZielgruppe('Ein- und Zweifamilienhäuser')">
+            <i class="mdi mdi-home-variant card-icon"></i>
+            <span class="card-content">
+              <span class="card-title">EFH & ZFH</span>
+              <span class="card-description">1–2 Familienhäuser</span>
+            </span>
+            <span class="card-indicator"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- "Ihre Auswahl" Titel und "Liste löschen" Button: Anzeigen, wenn selectedEntries existiert und Einträge hat -->
+    <div *ngIf="selectedEntries && selectedEntries.length > 0">
+      <h3 class="section-title mt-4 mb-0"><span>Ihre Auswahl: {{ selectedEntries.length }} PLZ</span></h3>
+      <div class="delete-plz-list text-end mb-4">
+        <button class="btn btn-sm btn-link text-danger" type="button" (click)="clearPlzTable()"><i class="mdi mdi-playlist-remove fs-6"></i>&nbsp;Liste löschen</button>
+      </div>
+    </div>
+
+    <!-- Tabelle ODER "Beliebte Regionen", wenn selectedEntries ein leeres Array ist -->
+    <div *ngIf="selectedEntries && selectedEntries.length > 0; else showBeliebteRegionenWhenEmpty">
+      <div class="plz-table table-responsive">
+        <table class="table table-responsive-sm table-hover table-sm">
+          <thead>
+          <tr>
+            <th scope="col" class="plz">PLZ</th>
+            <th scope="col" class="ort">Ort</th>
+            <th scope="col" class="canton">KANTON</th>
+            <th scope="col" class="flyer-max text-end"
+                [title]="'Flyer Max basierend auf Zielgruppe: ' + currentZielgruppe">Flyer</th>
+            <th scope="col" class="flyer-limit">Flyer Limit</th>
+            <th scope="col" class="actions-zoom text-end">&nbsp;</th>
+            <th scope="col" class="actions-delete text-end">&nbsp;</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr *ngFor="let entry of selectedEntries"
+              [class.table-info]="entry.id === currentTypeaheadSelection?.id"
+              (mouseenter)="highlightPlacemarkOnMapFromTable(entry.id, true)"
+              (mouseleave)="highlightPlacemarkOnMapFromTable(null, false)">
+            <td class="plz">{{ entry.plz4 }}</td>
+            <td class="ort">{{ entry.ort }}</td>
+            <td class="canton">{{ entry.kt }}</td>
+            <td class="flyer-max text-end" [class.column-highlighted]="highlightFlyerMaxColumn">{{ getFlyerMaxForEntry(entry) | number }}</td>
+            <td class="flyer-limit" title="Feste Anzahl an Flyern, die wir für diese PLZ verteilen. Bitte runden Sie auf die nächste 100er Zahl">
+              <input class="form-control form-control-sm" type="number" [value]="getFlyerMaxForEntry(entry)" min="1" step="100" [max]="getFlyerMaxForEntry(entry) | number"/>
+            </td>
+            <td class="has-icon actions-zoom text-end">
+              <button class="btn btn-link btn-sm p-0" (click)="zoomToTableEntryOnMap(entry)" placement="start" ngbTooltip="Auf Karte anzeigen">
+                <i class="mdi mdi-magnify-plus-cursor fs-5"></i>
+              </button>
+            </td>
+            <td class="has-icon actions-delete text-end">
+              <button class="btn btn-link btn-sm p-0" (click)="removePlzFromTable(entry)" placement="start" ngbTooltip="Eintrag löschen">
+                <i class="mdi mdi-close fs-5"></i>
+              </button>
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <ng-template #showBeliebteRegionenWhenEmpty>
+      <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer">
+        <div class="my-2"><strong>Beliebte Regionen</strong></div>
+        <div class="popular-locations text-center">
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Zürich')">Zürich</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bern')">Bern</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Basel')">Basel</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Luzern')">Luzern</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('St. Gallen')">St. Gallen</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Winterthur')">Winterthur</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Schaffhausen')">Schaffhausen</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Baden')">Baden</button>
+          <br/>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Genève')">Genève</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lausanne')">Lausanne</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Biel/Bienne')">Biel/Bienne</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Fribourg')">Fribourg</button>
+          <br/>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lugano')">Lugano</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bellinzona')">Bellinzona</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Locarno')">Locarno</button>
+        </div>
+      </div>
+    </ng-template>
+  </ng-container>
+
+  <ng-template #showBeliebteRegionenInitially>
+    <!-- Dieser Block wird angezeigt, wenn (selectedEntries$ | async) initial null/undefined ist -->
+    <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer">
+      <div class="my-2"><strong>Beliebte Regionen</strong></div>
+      <div class="popular-locations text-center">
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Zürich')">Zürich</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bern')">Bern</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Basel')">Basel</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Luzern')">Luzern</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('St. Gallen')">St. Gallen</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Winterthur')">Winterthur</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Schaffhausen')">Schaffhausen</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Baden')">Baden</button>
+        <br/>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Genève')">Genève</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lausanne')">Lausanne</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Biel/Bienne')">Biel/Bienne</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Fribourg')">Fribourg</button>
+        <br/>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lugano')">Lugano</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bellinzona')">Bellinzona</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Locarno')">Locarno</button>
+      </div>
+    </div>
+  </ng-template>
+
 
   <div *ngIf="isCustomHeaderOpen && currentSearchResultsContainer && currentSearchResultsContainer.headerText"
        class="typeahead-custom-header alert alert-info py-2 px-3 mb-0 border-bottom-0 rounded-bottom-0"
@@ -105,80 +247,7 @@
       </div>
     </div>
   </ng-template>
-
-  <div *ngIf="(selectedEntries$ | async)?.length">
-    <h3 class="section-title mt-4 mb-0"><span>Ihre Auswahl: {{ (selectedEntries$ | async)?.length || 0 }} PLZ</span></h3>
-    <div class="delete-plz-list text-end mb-2">
-      <button class="btn btn-sm btn-link text-danger" type="button" (click)="clearPlzTable()"><i class="mdi mdi-playlist-remove fs-6"></i>&nbsp;Liste löschen</button>
-    </div>
-  </div>
-
-  <div class="plz-table table-responsive" *ngIf="(selectedEntries$ | async)?.length; else keineAuswahlVorlagePlz">
-    <table class="table table-responsive-sm table-hover table-sm">
-      <thead>
-      <tr>
-        <th scope="col" class="plz">PLZ</th>
-        <th scope="col" class="ort">Ort</th>
-        <th scope="col" class="canton">KANTON</th>
-        <th scope="col" class="flyer-max text-end"
-            [title]="'Flyer Max basierend auf Zielgruppe: ' + currentZielgruppe">Flyer</th>
-        <th scope="col" class="flyer-limit">Flyer Limit</th>
-        <th scope="col" class="actions-zoom text-end">&nbsp;</th>
-        <th scope="col" class="actions-delete text-end">&nbsp;</th>
-      </tr>
-      </thead>
-      <tbody>
-      <tr *ngFor="let entry of (selectedEntries$ | async)"
-          [class.table-info]="entry.id === currentTypeaheadSelection?.id"
-          (mouseenter)="highlightPlacemarkOnMapFromTable(entry.id, true)"
-          (mouseleave)="highlightPlacemarkOnMapFromTable(null, false)">
-        <td class="plz">{{ entry.plz4 }}</td>
-        <td class="ort">{{ entry.ort }}</td>
-        <td class="canton">{{ entry.kt }}</td>
-        <td class="flyer-max text-end" [class.column-highlighted]="highlightFlyerMaxColumn">{{ getFlyerMaxForEntry(entry) | number }}</td>
-        <td class="flyer-limit" title="Feste Anzahl an Flyern, die wir für diese PLZ verteilen. Bitte runden Sie auf die nächste 100er Zahl">
-          <input class="form-control form-control-sm" type="number" [value]="getFlyerMaxForEntry(entry)" min="1" step="100" [max]="getFlyerMaxForEntry(entry) | number"/>
-        </td>
-        <td class="has-icon actions-zoom text-end">
-          <button class="btn btn-link btn-sm p-0" (click)="zoomToTableEntryOnMap(entry)" placement="start" ngbTooltip="Auf Karte anzeigen">
-            <i class="mdi mdi-map-marker-radius fs-5"></i>
-          </button>
-        </td>
-        <td class="has-icon actions-delete text-end">
-          <button class="btn btn-link btn-sm p-0" (click)="removePlzFromTable(entry)" placement="start" ngbTooltip="Eintrag löschen">
-            <i class="mdi mdi-close fs-5"></i>
-          </button>
-        </td>
-      </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <ng-template #keineAuswahlVorlagePlz>
-    <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer && (!selectedEntries$ || (selectedEntries$ | async)?.length === 0)">
-      <div class="my-2"><strong>Beliebte Regionen</strong></div>
-      <div class="popular-locations text-center">
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Zürich')">Zürich</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bern')">Bern</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Basel')">Basel</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Luzern')">Luzern</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('St. Gallen')">St. Gallen</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Winterthur')">Winterthur</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Schaffhausen')">Schaffhausen</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Baden')">Baden</button>
-        <br/>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Genève')">Genève</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lausanne')">Lausanne</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Biel/Bienne')">Biel/Bienne</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Fribourg')">Fribourg</button>
-        <br/>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lugano')">Lugano</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bellinzona')">Bellinzona</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Locarno')">Locarno</button>
-      </div>
-    </div>
-  </ng-template>
-</div>
+</div> <!-- Ende von *ngIf="showPlzUiContainer" -->
 
 <div class="perimeter-container reminder" *ngIf="showPerimeterUiContainer">
   <div class="reminder-title">Verteilung nach GPS-Perimeter</div>
