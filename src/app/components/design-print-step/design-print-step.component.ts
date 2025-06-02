@@ -4,18 +4,17 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ValidationStatus } from '../../app.component';
-import { OrderDataService } from '../../services/order-data.service'; // Import OrderDataService
+import { OrderDataService } from '../../services/order-data.service';
 
 export type DesignPackage = 'basis' | 'plus' | 'premium' | 'eigenes' | '';
 export type PrintOption = 'anliefern' | 'service' | '';
-export type DruckFormat = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN_Lang' | 'anderes' | '';
-export type DruckGrammatur = 90 | 115 | 130 | 170 | 250 | 300;
+export type DruckFormat = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN-Lang' | 'anderes' | '';
+export type DruckGrammatur = '90' | '115' | '130' | '170' | '250' | '300' | '';
 export type DruckArt = 'einseitig' | 'zweiseitig' | '';
 export type DruckAusfuehrung = 'glaenzend' | 'matt' | '';
 
-// Moved from distribution-step.component.ts
-export type AnlieferungOption = 'selbst' | 'abholung' | ''; // Leerstring für "nicht ausgewählt"
-export type FormatOption = 'A5_A6' | 'DIN_Lang' | 'A4' | 'A3' | ''; // Leerstring für "nicht ausgewählt"
+export type AnlieferungOption = 'selbst' | 'abholung' | '';
+export type FormatOption = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN-Lang' |'';
 
 @Component({
   selector: 'app-design-print-step',
@@ -34,14 +33,12 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
   selectedPrintOption: PrintOption = '';
 
   druckFormat: DruckFormat = '';
-  druckGrammatur: DruckGrammatur | null = null;
+  druckGrammatur: DruckGrammatur = '';
   druckArt: DruckArt = '';
   druckAusfuehrung: DruckAusfuehrung = '';
   druckAuflage: number = 0;
   druckReserve: number = 1000;
 
-  readonly formatOptions: DruckFormat[] = ['A6', 'A5', 'A4', 'A3', 'DIN_Lang', 'anderes'];
-  readonly grammaturOptions: DruckGrammatur[] = [90, 115, 130, 170, 250, 300];
 
   // Moved from distribution-step.component.ts
   currentAnlieferung: AnlieferungOption = ''; // Initialisiert mit Leerstring
@@ -85,6 +82,7 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
       this.isDruckAuflageManuallySet = false;
     }
     this.determineAndEmitValidationStatus();
+    this.cdr.markForCheck(); // Ensure UI updates with new selections
   }
 
   onDruckAuflageChange() {
@@ -112,7 +110,7 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
 
   private resetPrintServiceDetails() {
     this.druckFormat = '';
-    this.druckGrammatur = null;
+    this.druckGrammatur = '';
     this.druckArt = '';
     this.druckAusfuehrung = '';
     // this.druckAuflage = 0; // Nur zurücksetzen, wenn nicht 'service' oder manuell gesetzt
@@ -130,13 +128,16 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
     }
 
     // Validierung für Anlieferung und Format (verschobene Logik)
-    if (!this.currentAnlieferung) {
-      isValid = false;
+    // Diese Felder sind nur relevant, wenn 'anliefern' ausgewählt ist.
+    if (this.selectedPrintOption === 'anliefern') {
+      if (!this.currentAnlieferung) {
+        isValid = false;
+      }
+      if (!this.currentFormat) {
+        isValid = false;
+      }
     }
 
-    if (!this.currentFormat) {
-      isValid = false;
-    }
 
     if (this.selectedPrintOption === 'service') {
       if (!this.druckFormat || this.druckGrammatur === null || !this.druckArt || !this.druckAusfuehrung) {
@@ -172,8 +173,11 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
       const missingFields: string[] = [];
       if (!this.selectedDesignPackage) missingFields.push("Design-Paket");
       if (!this.selectedPrintOption) missingFields.push("Druckoption");
-      if (!this.currentAnlieferung) missingFields.push("Anlieferung der Flyer");
-      if (!this.currentFormat) missingFields.push("Flyer Format");
+
+      if (this.selectedPrintOption === 'anliefern') {
+        if (!this.currentAnlieferung) missingFields.push("Anlieferung der Flyer");
+        if (!this.currentFormat) missingFields.push("Flyer Format (Anlieferung)");
+      }
 
       if (this.selectedPrintOption === 'service') {
         if (!this.druckFormat) missingFields.push("Druckformat");

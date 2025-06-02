@@ -6,8 +6,8 @@
 .choice-card-group {
 
   &.design-package-group .design-package {
-    flex: 1 1 calc(50% - 0.75rem);
-    min-width: 280px;
+    flex: 1 1 calc(50% - 72px);
+    min-width: 321px;
     display: flex;
     flex-direction: column;
     background-color: $white;
@@ -16,6 +16,13 @@
     transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out;
     cursor: pointer;
     text-align: left;
+    padding: 8px 36px;
+
+    @include media-breakpoint-down(md) {
+      flex: 1 1 100%;
+      min-width: 0; // ⬅️ zwingend notwendig!
+    }
+
 
     &:hover {
       border-color: $gray-400;
@@ -25,7 +32,17 @@
     &.selected {
       border-color: $primary !important;
       box-shadow: 0 0 0 2px rgba(red($primary), green($primary), blue($primary), 0.3) !important;
-      background-color: $white;
+      background-color: mix($primary, $white, 10%);
+
+      .card-header {
+        .package-name {
+          color: $primary;
+        }
+
+        .package-slogan {
+          color: darken($primary, 10%);
+        }
+      }
 
       .selected-indicator-package {
         opacity: 1;
@@ -34,86 +51,109 @@
     }
 
     .card-header {
-      padding: 1.25rem 1.25rem 0.5rem;
-      border-bottom: none;
+      padding: 16px 0;
+      border-bottom: 1px solid $gray-400;
       background-color: transparent;
+      width: 100%;
+      position: relative;
 
       .package-name {
-        font-size: 1.15rem;
-        font-weight: $headings-font-weight;
+        text-transform: uppercase;
+        font-size: 18px;
+        font-weight: 900;
         color: $gray-900;
-        margin-bottom: 0.25rem;
+        margin-bottom: 6px;
+        letter-spacing: 1px;
       }
+
+      .package-slogan {
+        text-transform: uppercase;
+        font-size: 14px;
+        font-weight: 900;
+        letter-spacing: .5px;
+        color: $gray-600;
+        margin-bottom: 18px;
+        line-height: 1;
+      }
+
       .package-price {
-        font-size: 1.5rem;
-        font-weight: $headings-font-weight;
+        font-family: $font-family-sans-serif;
+        font-size: 26px;
+        font-weight: 800;
         color: $primary;
-        margin-bottom: 0.1rem;
+        margin: 0 6px 0 0;
         line-height: 1.2;
+        display: inline-block;
       }
       .package-price-old {
-        font-size: 0.8rem;
+        font-family: $font-family-sans-serif;
+        font-size: 16px;
         color: $gray-600;
-        text-decoration: line-through;
-        margin-bottom: 0.5rem;
-        display: block;
+        font-weight: bold;
+        margin-bottom: 0;
+        display: inline-block;
       }
     }
 
     .card-body {
-      padding: 0.5rem 1.25rem 1rem;
+      padding: 16px 0;
       flex-grow: 1;
       display: flex;
       flex-direction: column;
-
-      .package-slogan {
-        font-size: 0.85rem;
-        color: $gray-700;
-        margin-bottom: 1rem;
-        line-height: 1.5;
-        min-height: 2.5em;
-      }
+      width: 100%;
+      border-bottom: 1px solid $gray-200;
 
       .features {
-        font-size: 0.875rem;
+        //font-family: $font-family-sans-serif;
+        text-transform: uppercase;
+        letter-spacing: .3px;
+        font-size: 13px;
+        font-weight: 800;
         padding-left: 0;
         list-style: none;
         width: 100%;
         color: $gray-800;
         margin-bottom: 0;
 
+        @include media-breakpoint-down(sm) {
+          font-size: 14px;
+        }
+
         li {
-          margin-bottom: 0.4rem;
+          margin-bottom: 8px;
+          padding: 0;
           display: flex;
           align-items: flex-start;
+          line-height: 110%;
+
           .mdi {
-            margin-right: 0.5em;
-            color: $primary;
-            font-size: 1rem;
-            margin-top: 0.15em;
+            margin: 0 8px 0 0;
+            color: $success;
+            font-size: 16px;
           }
         }
       }
     }
 
     .card-footer {
-      padding: 1rem 1.25rem;
+      padding: 16px 36px;
       background-color: transparent;
-      border-top: 1px solid $gray-200;
       margin-top: auto;
+      width: 100%;
 
       .savings-info {
+        font-family: $font-family-sans-serif;
         display: block;
-        font-size: 0.75rem;
+        font-size: 16px;
         color: $success;
         text-align: center;
-        margin-bottom: 0.5rem;
-        font-weight: 500;
+        margin-bottom: 8px;
+        font-weight: 600;
       }
 
       .btn {
-        font-weight: 600;
-        padding: 0.5rem 1rem;
+        font-weight: 900;
+        padding: 8px 16px;
       }
     }
 
@@ -128,17 +168,18 @@
       transition: opacity 0.2s ease-out, transform 0.2s ease-out;
     }
 
-    &.most-popular {
-      border-top: 3px solid $warning;
-      padding-top: calc(1.25rem - 3px);
-
-      .popular-tag {
-        display: none;
+    &.bestseller {
+      .bestseller-badge {
+        background-color: $gray-500 !important;
+        font-size: 13px;
+        padding-top: 4px !important;
+        text-transform: uppercase !important;
+        font-weight: 800 !important;
+        letter-spacing: .5px !important;
       }
 
       &.selected {
-        border-top-color: $primary;
-        padding-top: calc(1.25rem - 3px);
+        //border-top-color: $primary;
       }
     }
 
@@ -147,7 +188,7 @@
     }
     @media (max-width: 767px) {
       flex-basis: 100%;
-      &.most-popular {
+      &.bestseller {
         padding-top: 1.25rem;
       }
     }

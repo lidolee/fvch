@@ -183,6 +183,10 @@
   position: relative;
   z-index: 2;
 
+  @include media-breakpoint-down(sm) {
+    font-size: 18px;
+  }
+
   .reminder-title {
     font-weight: bold;
     margin-top: 6px;
