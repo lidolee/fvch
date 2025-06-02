@@ -1,5 +1,6 @@
 @import "bootstrap/scss/functions";
 @import "../styles/variables";
+@import "../styles/mixins";
 @import "bootstrap/scss/variables";
 @import "bootstrap/scss/mixins";
 
@@ -11,10 +12,11 @@
 .nav.nav-tabs {
 
   .nav-link {
+    @include font-headline();
     text-transform: uppercase;
-    font-size: 14px;
-    letter-spacing: 0.5px;
-    font-weight: bold;
+    font-size: 15px;
+    letter-spacing: .5px;
+    font-weight: 800;
     background-color: transparent;
     padding: 20px 16px !important;
     line-height: 100%;
@@ -32,7 +34,7 @@
     &.active {
       background-color: $white;
       color: $primary;
-      font-weight: 800;
+      font-weight: 900;
       border-top: 3px solid $primary;
       border-right: 1px solid $border-color;
       border-bottom: 1px solid transparent;

@@ -113,7 +113,7 @@
 
     <div *ngIf="selectedEntries && selectedEntries.length > 0">
       <h3 class="section-title mt-4 mb-0"><span>Ihre Auswahl: {{ selectedEntries.length }} PLZ</span></h3>
-      <div class="delete-plz-list text-end mb-4">
+      <div class="delete-plz-list text-end mt-2 mb-4">
         <button class="btn btn-sm btn-outline-danger" type="button" (click)="clearPlzTable()"><i class="mdi mdi-playlist-remove fs-6"></i>&nbsp;Liste löschen</button>
       </div>
     </div>
@@ -143,7 +143,7 @@
             <td class="canton">{{ entry.kt }}</td>
             <td class="flyer-max text-end" [class.column-highlighted]="highlightFlyerMaxColumn">{{ getFlyerMaxForEntry(entry) | number }}</td>
             <td class="flyer-limit" title="Feste Anzahl an Flyern, die wir für diese PLZ verteilen. Bitte runden Sie auf die nächste 100er Zahl">
-              <input class="form-control form-control-sm" type="number" [value]="getFlyerMaxForEntry(entry)" min="1" step="100" [max]="getFlyerMaxForEntry(entry) | number"/>
+              <input class="form-control form-control-sm" type="number" [value]="getFlyerMaxForEntry(entry)" min="0" step="100" [max]="getFlyerMaxForEntry(entry) | number"/>
             </td>
             <td class="has-icon actions-zoom text-end">
               <button class="btn btn-link btn-sm p-0" (click)="zoomToTableEntryOnMap(entry)" placement="start" ngbTooltip="Auf Karte anzeigen">
@@ -163,8 +163,8 @@
 
     <ng-template #showBeliebteRegionenWhenEmpty>
       <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer">
-        <div class="my-2"><strong class="text-uppercase">Beliebte Regionen</strong></div>
         <div class="popular-locations text-center">
+          <div class="my-2"><h6 class="text-uppercase">Beliebte Regionen</h6></div>
           <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Zürich')">Zürich</button>
           <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bern')">Bern</button>
           <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Basel')">Basel</button>
