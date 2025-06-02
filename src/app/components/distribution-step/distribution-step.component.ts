@@ -60,7 +60,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   // Datum Properties
   verteilungStartdatum: string = '';
-  verteilungEnddatum: string = '';
   minVerteilungStartdatum: string = '';
   showExpressSurcharge: boolean = false;
   expressSurchargeConfirmed: boolean = false;
@@ -129,17 +128,13 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     minStartDate.setUTCDate(today.getUTCDate() + 1);
     this.minVerteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
 
-    this.defaultStandardStartDate = this.addWorkingDays(new Date(today.getTime()), 4);
+    this.defaultStandardStartDate = this.addWorkingDays(new Date(today.getTime()), 3);
 
     let initialStartDate = new Date(this.defaultStandardStartDate.getTime());
     if (initialStartDate.getTime() < minStartDate.getTime()) {
       initialStartDate = new Date(minStartDate.getTime());
     }
     this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialStartDate);
-
-    const initialEndDate = new Date(initialStartDate.getTime());
-    initialEndDate.setUTCDate(initialStartDate.getUTCDate() + 7);
-    this.verteilungEnddatum = this.formatDateToYyyyMmDd(initialEndDate);
 
     this.checkExpressSurcharge();
   }
@@ -182,7 +177,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   onStartDateChange(): void {
     this.expressSurchargeConfirmed = false;
     if (!this.verteilungStartdatum) {
-      this.verteilungEnddatum = '';
       this.showExpressSurcharge = false;
       this.updateOverallValidationState();
       this.cdr.markForCheck();
@@ -201,7 +195,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
     const newEndDate = new Date(selectedStartDate.getTime());
     newEndDate.setUTCDate(selectedStartDate.getUTCDate() + 7);
-    this.verteilungEnddatum = this.formatDateToYyyyMmDd(newEndDate);
 
     this.checkExpressSurcharge();
     this.updateOverallValidationState();
@@ -603,57 +596,70 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private updateOverallValidationState(): void {
-    const mapHasSelection = this.selectionService.getSelectedEntries().length > 0;
-    let newOverallStatus: ValidationStatus = 'invalid';
-
-    // const anlieferungSelected = !!this.currentAnlieferung; // Removed
-    // const formatSelected = !!this.currentFormat; // Removed
-    const startDateSelected = !!this.verteilungStartdatum;
-    const endDateSelected = !!this.verteilungEnddatum; // This is derived, so start date is key
-
-    // Verteilungsdetails now only depend on dates and express surcharge confirmation
-    const verteilungsDetailsCompleteBasic = startDateSelected && endDateSelected;
-    const isExpressRelevant = this.verteilungStartdatum && this.defaultStandardStartDate &&
-      this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime() < this.defaultStandardStartDate.getTime() &&
-      this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime() >= this.parseYyyyMmDdToDate(this.minVerteilungStartdatum).getTime();
-    const expressConditionMet = !isExpressRelevant || (isExpressRelevant && this.expressSurchargeConfirmed);
-
-    const verteilungsDetailsComplete = verteilungsDetailsCompleteBasic && expressConditionMet;
-
-
-    if (this.showPlzUiContainer) {
-      const searchTerm = this.typeaheadSearchTerm.trim();
-      const isRangeInputValid = this.plzRangeRegex.test(searchTerm);
-      // Valid if: (item selected OR map has items OR valid range input) AND distribution details are complete
-      if ((this.currentTypeaheadSelection || mapHasSelection || (isRangeInputValid && searchTerm !== '')) && verteilungsDetailsComplete) {
-        newOverallStatus = 'valid';
-      } else if (this.textInputStatus === 'pending' && !mapHasSelection && verteilungsDetailsComplete) {
-        // If input is pending (e.g. typing) but other conditions for 'valid' are not met (no map selection yet)
-        // and distribution details are complete, overall can be pending.
-        newOverallStatus = 'pending';
-      } else {
-        newOverallStatus = 'invalid';
-      }
-    } else if (this.showPerimeterUiContainer) {
-      // For perimeter, only distribution details matter for this step's validation
-      if (verteilungsDetailsComplete) {
-        newOverallStatus = 'valid';
-      } else {
-        newOverallStatus = 'invalid';
-      }
-    }
-
-    // Refined pending state: if overall is invalid due to text input, but text input itself is 'pending'
-    // and other criteria (like date selection) are met, then overall should be 'pending'.
-    if (newOverallStatus === 'invalid' && this.textInputStatus === 'pending' && this.showPlzUiContainer && !mapHasSelection && !this.currentTypeaheadSelection && !this.plzRangeRegex.test(this.typeaheadSearchTerm.trim()) && verteilungsDetailsComplete) {
-      newOverallStatus = 'pending';
-    }
-
+    const newOverallStatus = this.calculateValidationStatus();
 
     if (this.validationChange.observers.length > 0) {
       this.validationChange.emit(newOverallStatus);
     }
-    this.cdr.markForCheck(); // Ensure UI updates with validation changes
+    this.cdr.markForCheck();
+  }
+
+  private calculateValidationStatus(): ValidationStatus {
+    // Basic validation checks
+    const mapHasSelection = this.selectionService.getSelectedEntries().length > 0;
+    const startDateSelected = !!this.verteilungStartdatum;
+
+    // Check if distribution details are complete
+    const isExpressRelevant = this.isExpressSurchargeRelevant();
+    const expressConditionMet = !isExpressRelevant || (isExpressRelevant && this.expressSurchargeConfirmed);
+    const verteilungsDetailsComplete = startDateSelected && expressConditionMet;
+
+    // Handle validation based on UI container type
+    if (this.showPlzUiContainer) {
+      return this.validatePlzContainer(mapHasSelection, verteilungsDetailsComplete);
+    } else if (this.showPerimeterUiContainer) {
+      return verteilungsDetailsComplete ? 'valid' : 'invalid';
+    }
+
+    return 'invalid';
+  }
+
+  private isExpressSurchargeRelevant(): boolean {
+    if (!this.verteilungStartdatum || !this.defaultStandardStartDate) {
+      return false;
+    }
+
+    const selectedStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime();
+    const standardStartDate = this.defaultStandardStartDate.getTime();
+    const minStartDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum).getTime();
+
+    return selectedStartDate < standardStartDate && selectedStartDate >= minStartDate;
+  }
+
+  private validatePlzContainer(mapHasSelection: boolean, verteilungsDetailsComplete: boolean): ValidationStatus {
+    const searchTerm = this.typeaheadSearchTerm.trim();
+    const isRangeInputValid = this.plzRangeRegex.test(searchTerm);
+    const hasValidSelection = this.currentTypeaheadSelection || mapHasSelection;
+    const hasValidRangeInput = isRangeInputValid && searchTerm !== '';
+
+    // Valid if: proper selection present AND distribution details complete
+    if ((hasValidSelection || hasValidRangeInput) && verteilungsDetailsComplete) {
+      return 'valid';
+    }
+
+    // Check for pending state
+    const isPendingInput = this.textInputStatus === 'pending';
+    const missingSelectionButPending = isPendingInput && !mapHasSelection && !this.currentTypeaheadSelection;
+    const invalidSearchButPending = isPendingInput && !this.plzRangeRegex.test(searchTerm.trim());
+
+    if (verteilungsDetailsComplete && (
+      (isPendingInput && !mapHasSelection) ||
+      (missingSelectionButPending && invalidSearchButPending)
+    )) {
+      return 'pending';
+    }
+
+    return 'invalid';
   }
 
   proceedToNextStep(): void {
@@ -669,9 +675,8 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     const searchTerm = this.typeaheadSearchTerm.trim();
     const isRangeInputValid = this.plzRangeRegex.test(searchTerm);
     const startDateSelected = !!this.verteilungStartdatum;
-    const endDateSelected = !!this.verteilungEnddatum;
 
-    const verteilungsDetailsCompleteBasic = startDateSelected && endDateSelected;
+    const verteilungsDetailsCompleteBasic = startDateSelected;
     const isExpressRelevant = this.verteilungStartdatum && this.defaultStandardStartDate &&
       this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime() < this.defaultStandardStartDate.getTime() &&
       this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime() >= this.parseYyyyMmDdToDate(this.minVerteilungStartdatum).getTime();

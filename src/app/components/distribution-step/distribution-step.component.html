@@ -1,7 +1,7 @@
 <div class="step-intro">
-  <p class="step-title">Zielgebiet & Zeitraum</p>
+  <p class="step-title">Zielgebiet & Startdatum</p>
   <h2>Wo und wann sollen Ihre Flyer verteilt werden?</h2>
-  <p>Definieren Sie das Zielgebiet und Verteilungsdaten für Ihre Flyerverteilung.</p>
+  <p>Definieren Sie das Zielgebiet und Startdatum für Ihre Flyerverteilung.</p>
 </div>
 
 <h3 class="section-title"><span>1. Zielgebiet</span></h3>
@@ -102,7 +102,7 @@
                   (click)="setZielgruppe('Ein- und Zweifamilienhäuser')">
             <i class="mdi mdi-home-variant card-icon"></i>
             <span class="card-content">
-              <span class="card-title">EFH & ZFH</span>
+              <span class="card-title">EFH</span>
               <span class="card-description">1–2 Familienhäuser</span>
             </span>
             <span class="card-indicator"></span>
@@ -257,10 +257,10 @@
   <span><strong>Preise ab CHF 250.– pro 1’000 Flyer</strong><br/>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte.</span>
 </div>
 
-<h3 class="section-title"><span>2. Zeitraum</span></h3>
+<h3 class="section-title"><span>2. Startdatum</span></h3>
 
 <div class="mb-3 row">
-  <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Zeitraum der Verteilung</label>
+  <label for="verteilung-startdatum" class="col-sm-4 col-form-label">Startdatum der Verteilung</label>
   <div class="col-sm-8">
     <div class="input-group">
       <input class="form-control border border-required" type="date" name="verteilung-startdatum" id="verteilung-startdatum"
@@ -268,12 +268,7 @@
              [min]="minVerteilungStartdatum"
              (change)="onStartDateChange()"
              required
-             data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Frühestes Startdatum für die Verteilung."/>
-      <input class="form-control border border-required" type="date" name="verteilung-enddatum" id="verteilung-enddatum"
-             [(ngModel)]="verteilungEnddatum"
-             [disabled]="true"
-             required
-             data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip" title="Spätestes Enddatum für die Verteilung."/>
+             title="Frühestes Startdatum für die Verteilung."/>
     </div>
   </div>
 </div>

@@ -20,10 +20,10 @@
     </div>
     <div class="card-body">
       <ul class="features list-unstyled">
-        <li><i class="mdi mdi-check"></i> 1 Designvorschlag</li>
-        <li><i class="mdi mdi-check"></i> 1 Korrektur</li>
-        <li><i class="mdi mdi-check"></i> Druckfähiges PDF</li>
-        <li><i class="mdi mdi-check"></i> Swiss Quality-Check</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> 1 Designvorschlag</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> 1 Korrektur</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> Druckfähiges PDF</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> Swiss Quality-Check</li>
       </ul>
     </div>
     <div class="card-footer">
@@ -45,11 +45,11 @@
     </div>
     <div class="card-body">
       <ul class="features list-unstyled">
-        <li><i class="mdi mdi-check"></i> 2 Designvorschläge</li>
-        <li><i class="mdi mdi-check"></i> 3 Korrekturen</li>
-        <li><i class="mdi mdi-check"></i> Druckfähiges PDF</li>
-        <li><i class="mdi mdi-check"></i> Swiss Quality-Check</li>
-        <li><i class="mdi mdi-check"></i> Quelldateien inklusive</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> 2 Designvorschläge</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> 3 Korrekturen</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> Druckfähiges PDF</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> Swiss Quality-Check</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> Quelldateien inklusive</li>
       </ul>
     </div>
     <div class="card-footer">
@@ -71,13 +71,13 @@
     </div>
     <div class="card-body">
       <ul class="features list-unstyled">
-        <li><i class="mdi mdi-check"></i> 3 Designvorschläge</li>
-        <li><i class="mdi mdi-check"></i> 5 Korrekturen</li>
-        <li><i class="mdi mdi-check"></i> Druckfähiges PDF</li>
-        <li><i class="mdi mdi-check"></i> Swiss Quality-Check</li>
-        <li><i class="mdi mdi-check"></i> Quelldateien inklusive</li>
-        <li><i class="mdi mdi-check"></i> Logo & Branding Beratung</li>
-        <li><i class="mdi mdi-check"></i> Marketing-Strategie</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> 3 Designvorschläge</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> 5 Korrekturen</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> Druckfähiges PDF</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> Swiss Quality-Check</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> Quelldateien inklusive</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> Logo & Branding Beratung</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> Marketing-Strategie</li>
       </ul>
     </div>
     <div class="card-footer">
@@ -98,9 +98,9 @@
     </div>
     <div class="card-body">
       <ul class="features list-unstyled">
-        <li><i class="mdi mdi-check"></i> Sie liefern uns Ihre Flyer</li>
-        <li><i class="mdi mdi-check"></i> Sie liefern ein druckfertiges PDF</li>
-        <li><i class="mdi mdi-check"></i> Swiss Quality-Check</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> Sie liefern uns Ihre Flyer</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> Sie liefern ein druckfertiges PDF</li>
+        <li><i class="mdi mdi-star-four-points-small"></i> Swiss Quality-Check</li>
       </ul>
     </div>
     <div class="card-footer">
@@ -151,6 +151,7 @@
         <div class="d-flex align-items-center mb-2"><span class="alert-title"><i class="mdi mdi-alert-box me-2 fs-5"></i>Hinweis</span></div>
         <ul>
           <li>Grosse Formate verursachen bei der Verteilung zusätzlichen Aufwand in der Logistik.<br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Deshalb erheben wir für die Verteilung einen <strong>pauschalen Zuschlag pro 1'000 Flyer.</strong></li>
+          <li>Berechnungsgrundlage ist das <strong>Endformat im aufgeklappten/ungefalteten Zustand</strong><br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Beispiel: Ein gefalteter A5-Flyer <strong>wird als A4 berechnet.</strong></li>
         </ul>
       </div>
 
@@ -192,6 +193,12 @@
             <span class="card-content"><span class="card-title">DIN Lang</span><span class="card-description">+ CHF 20 / 1'000 Flyer</span></span>
             <span class="card-indicator"></span>
           </button>
+          <button type="button" class="choice-card"
+                  [class.active]="currentFormat === 'anderes'" (click)="currentFormat = 'anderes'; onSelectionChange()">
+            <i class="mdi mdi-invoice-text card-icon"></i>
+            <span class="card-content"><span class="card-title">Anderes Format</span><span class="card-description">Wird separat offeriert</span></span>
+            <span class="card-indicator"></span>
+          </button>
         </div>
       </fieldset>
     </div>
@@ -219,7 +226,7 @@
             <i class="mdi mdi-truck-fast card-icon"></i>
             <span class="card-content">
           <span class="card-title">Wir holen ab</span>
-          <span class="card-description">+ CHF 75</span>
+          <span class="card-description">+ CHF 50</span>
         </span>
             <span class="card-indicator"></span>
           </button>
@@ -241,7 +248,10 @@
         <div class="d-flex align-items-center mb-2"><span class="alert-title"><i class="mdi mdi-alert-box me-2 fs-5"></i>Hinweise</span></div>
         <ul>
           <li>Grosse Formate verursachen bei der Verteilung zusätzlichen Aufwand in der Logistik.<br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Deshalb erheben wir für die Verteilung einen <strong>pauschalen Zuschlag pro 1'000 Flyer.</strong></li>
-          <li>Flyer Druck wird separat offeriert und wird in dieser Berechnung nicht berücksichtigt.<br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Sie erhalten dazu eine <strong>separate Offerte per Mail.</strong></li>
+          <li>Flyer Druck wird separat offeriert und wird in dieser Berechnung nicht berücksichtigt.
+            <br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Die aufgeführten Zuschläge gelten <strong>nur für die Verteilung - nicht für den Druck.</strong>
+            <br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Sie erhalten für den Druck eine <strong>separate Offerte per Mail.</strong>
+          </li>
         </ul>
       </div>
 
@@ -294,37 +304,37 @@
         <div class="choice-card-group">
           <button type="button" class="choice-card"
                   [class.active]="druckGrammatur === '90'" (click)="druckGrammatur = '90'; onSelectionChange()">
-            <i class="mdi mdi-invoice-text card-icon"></i>
+            <i class="mdi mdi-format-line-weight card-icon"></i>
             <span class="card-content"><span class="card-title">90g/m²</span><span class="card-description">Für grosse Auflagen</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
                   [class.active]="druckGrammatur === '115'" (click)="druckGrammatur = '115'; onSelectionChange()">
-            <i class="mdi mdi-invoice-text card-icon"></i>
+            <i class="mdi mdi-format-line-weight card-icon"></i>
             <span class="card-content"><span class="card-title">115g/m²</span><span class="card-description">Standard Flyer</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
                   [class.active]="druckGrammatur === '130'" (click)="druckGrammatur = '130'; onSelectionChange()">
-            <i class="mdi mdi-invoice-text card-icon"></i>
+            <i class="mdi mdi-format-line-weight card-icon"></i>
             <span class="card-content"><span class="card-title">130g/m²</span><span class="card-description">Werbeflyer mit Anspruch</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
                   [class.active]="druckGrammatur === '170'" (click)="druckGrammatur = '170'; onSelectionChange()">
-            <i class="mdi mdi-invoice-text card-icon"></i>
+            <i class="mdi mdi-format-line-weight card-icon"></i>
             <span class="card-content"><span class="card-title">170g/m²</span><span class="card-description">Für längere Haltbarkeit</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
                   [class.active]="druckGrammatur === '250'" (click)="druckGrammatur = '250'; onSelectionChange()">
-            <i class="mdi mdi-invoice-text card-icon"></i>
+            <i class="mdi mdi-format-line-weight card-icon"></i>
             <span class="card-content"><span class="card-title">250g/m²</span><span class="card-description">Stabil & hochwertig</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
                   [class.active]="druckGrammatur === '300'" (click)="druckGrammatur = '300'; onSelectionChange()">
-            <i class="mdi mdi-invoice-text card-icon"></i>
+            <i class="mdi mdi-format-line-weight card-icon"></i>
             <span class="card-content"><span class="card-title">300g/m²</span><span class="card-description">Exklusive premium Karten</span></span>
             <span class="card-indicator"></span>
           </button>

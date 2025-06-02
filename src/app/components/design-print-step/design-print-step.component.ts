@@ -14,7 +14,7 @@ export type DruckArt = 'einseitig' | 'zweiseitig' | '';
 export type DruckAusfuehrung = 'glaenzend' | 'matt' | '';
 
 export type AnlieferungOption = 'selbst' | 'abholung' | '';
-export type FormatOption = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN-Lang' |'';
+export type FormatOption = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN-Lang' | 'anderes' | '';
 
 @Component({
   selector: 'app-design-print-step',
