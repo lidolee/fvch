@@ -28,7 +28,14 @@ interface CloseTypeaheadOptions {
 @Component({
   selector: 'app-distribution-step',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgbTypeaheadModule, NgbAlertModule, MapComponent, PlzSelectionTableComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    NgbTypeaheadModule,
+    NgbAlertModule,
+    MapComponent,
+    PlzSelectionTableComponent
+  ],
   templateUrl: './distribution-step.component.html',
   styleUrls: ['./distribution-step.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -43,40 +50,46 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   private destroy$ = new Subject<void>();
 
-  typeaheadSearchTerm = '';
+  typeaheadSearchTerm: string = '';
   currentTypeaheadSelection: EnhancedSearchResultItem | null = null;
-  typeaheadHoverResultsForMapIds: string[] = [];
-  searching = false;
+  public typeaheadHoverResultsForMapIds: string[] = [];
+  searching: boolean = false;
   selectedEntries$: Observable<PlzEntry[]>;
   currentVerteilungTyp: VerteilungTypOption = 'Nach PLZ';
-  showPlzUiContainer = true;
-  showPerimeterUiContainer = false;
+  showPlzUiContainer: boolean = true;
+  showPerimeterUiContainer: boolean = false;
   currentZielgruppe: ZielgruppeOption = 'Alle Haushalte';
-  highlightFlyerMaxColumn = false;
+  highlightFlyerMaxColumn: boolean = false;
   textInputStatus: ValidationStatus = 'invalid';
 
-  verteilungStartdatum = '';
-  minVerteilungStartdatum = '';
-  showExpressSurcharge = false;
-  expressSurchargeConfirmed = false;
-  defaultStandardStartDate!: Date;
+  verteilungStartdatum: string = '';
+  minVerteilungStartdatum: string = '';
+  showExpressSurcharge: boolean = false;
+  expressSurchargeConfirmed: boolean = false;
+  public defaultStandardStartDate!: Date;
 
   currentSearchResultsContainer: SearchResultsContainer | null = null;
   isTypeaheadListOpen = false;
   isCustomHeaderOpen = false;
   isMouseOverPopupOrHeader = false;
   private focusEmitter = new Subject<string>();
+  private suppressNextBlur = false;
 
-  mapSelectedPlzIds: string[] = [];
-  mapZoomToPlzId: string | null = null;
-  mapZoomToPlzIdList: string[] | null = null;
-  mapTableHoverPlzId: string | null = null;
-  mapIsLoading = false;
-  mapConfig: MapOptions;
-  readonly kmlPathConstant = 'assets/ch_plz.kml';
-  readonly apiKeyConstant = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc';
+  private isInputFocused = false;
+  private lastBlurTimestamp = 0;
+  private lastFocusTimestamp = 0;
+  private blurBlockTimeout: any = null;
 
-  readonly plzRangeRegex = /^\s*(\d{4,6})\s*-\s*(\d{4,6})\s*$/;
+  public mapSelectedPlzIds: string[] = [];
+  public mapZoomToPlzId: string | null = null;
+  public mapZoomToPlzIdList: string[] | null = null;
+  public mapTableHoverPlzId: string | null = null;
+  public mapIsLoading: boolean = false;
+  public mapConfig: MapOptions;
+  public readonly kmlPathConstant: string = 'assets/ch_plz.kml';
+  public readonly apiKeyConstant: string = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc';
+
+  public readonly plzRangeRegex = /^\s*(\d{4,6})\s*-\s*(\d{4,6})\s*$/;
 
   constructor(
     private ngZone: NgZone,
@@ -86,8 +99,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     private cdr: ChangeDetectorRef
   ) {
     this.selectedEntries$ = this.selectionService.selectedEntries$;
-    this.updateUiFlags(this.currentVerteilungTyp);
-
     this.mapConfig = {
       initialCenter: { lat: 46.8182, lng: 8.2275 },
       initialZoom: 8,
@@ -101,6 +112,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   ngOnInit(): void {
     this.initializeDates();
+
     this.selectedEntries$
       .pipe(takeUntil(this.destroy$))
       .subscribe(entries => {
@@ -311,54 +323,51 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     this.currentTypeaheadSelection = null;
     this.focusEmitter.next('');
     this.focusEmitter.next(term);
-    if (this.typeaheadInputEl?.nativeElement) {
-      this.typeaheadInputEl.nativeElement.focus();
-    }
+    this.suppressNextBlur = true;
+    setTimeout(() => {
+      if (this.typeaheadInputEl?.nativeElement) {
+        this.typeaheadInputEl.nativeElement.focus();
+      }
+    }, 0);
     this.cdr.markForCheck();
+  }
+
+  onTypeaheadPopupMouseEnter() {
+    this.isMouseOverPopupOrHeader = true;
+  }
+  onTypeaheadPopupMouseLeave() {
+    this.isMouseOverPopupOrHeader = false;
   }
 
   private closeTypeaheadAndHeader(options: CloseTypeaheadOptions = {}): void {
     const { clearSearchTerm = false, clearSelectionModel = false, clearResults = true } = options;
-
     if (this.typeaheadInstance && this.typeaheadInstance.isPopupOpen()) {
       this.typeaheadInstance.dismissPopup();
     }
     this.isTypeaheadListOpen = false;
-
     if (clearResults) {
       this.currentSearchResultsContainer = null;
       this.isCustomHeaderOpen = false;
     } else if (!this.currentSearchResultsContainer || !this.currentSearchResultsContainer.headerText) {
       this.isCustomHeaderOpen = false;
     }
-
     if (clearSearchTerm) this.typeaheadSearchTerm = '';
     if (clearSelectionModel) this.currentTypeaheadSelection = null;
-
     this.cdr.markForCheck();
   }
 
   searchPlzTypeahead = (text$: Observable<string>): Observable<EnhancedSearchResultItem[]> =>
     merge(text$, this.focusEmitter).pipe(
-      debounceTime(text$ === this.focusEmitter ? 0 : 250),
+      debounceTime(150),
       distinctUntilChanged(),
       switchMap(term => {
         this.typeaheadHoverResultsForMapIds = [];
-
-        if (this.plzRangeRegex.test(term)) {
-          this.closeTypeaheadAndHeader({ clearSearchTerm: false, clearSelectionModel: true, clearResults: true });
-          this.textInputStatus = 'valid';
-          this.updateOverallValidationState();
-          return of([]);
-        }
-
-        if (term === '' || term.length < 2) {
+        if (!term || term.trim().length < 2) {
           this.closeTypeaheadAndHeader({ clearSearchTerm: term === '', clearSelectionModel: true, clearResults: true });
           this.textInputStatus = 'invalid';
           this.updateOverallValidationState();
           return of([]);
         }
-
         this.searching = true;
         this.textInputStatus = 'pending';
         this.updateOverallValidationState();
@@ -368,14 +377,11 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
           tap(resultsContainer => {
             this.searching = false;
             this.currentSearchResultsContainer = resultsContainer;
-
             const hasItems = resultsContainer.itemsForDisplay.length > 0;
             const hasHeaderMessage = !!resultsContainer.headerText && resultsContainer.headerText !== `Keine Einträge für "${term}" gefunden.`;
             const hasActionableHeader = hasHeaderMessage && resultsContainer.showSelectAllButton && resultsContainer.entriesForSelectAllAction.length > 0;
-
             this.isCustomHeaderOpen = hasItems || hasHeaderMessage;
             this.isTypeaheadListOpen = hasItems;
-
             if (hasItems) {
               this.textInputStatus = 'pending';
               this.typeaheadHoverResultsForMapIds = resultsContainer.itemsForDisplay
@@ -386,12 +392,10 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
             } else {
               this.textInputStatus = 'invalid';
             }
-            if (term.length >= 2 && !this.plzRangeRegex.test(term) && !hasItems && !hasActionableHeader) {
+            if (term.length >= 2 && !hasItems && !hasActionableHeader) {
               this.textInputStatus = 'invalid';
             }
-
             this.cdr.markForCheck();
-
             if (this.isTypeaheadListOpen || this.isCustomHeaderOpen) {
               setTimeout(() => this.setInitialFocusInTypeahead(), 0);
             }
@@ -419,16 +423,13 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     if (this.currentTypeaheadSelection && this.typeaheadInputFormatter(this.currentTypeaheadSelection) !== term) {
       this.currentTypeaheadSelection = null;
     }
-
-    if (term === '') {
+    if (term === '' || term.trim().length < 2) {
+      this.textInputStatus = 'invalid';
       this.currentTypeaheadSelection = null;
       this.typeaheadHoverResultsForMapIds = [];
-      this.textInputStatus = 'invalid';
-    } else if (this.plzRangeRegex.test(term)) {
+    } else if (/^\s*\d{4,6}\s*-\s*\d{4,6}\s*$/.test(term)) {
       this.textInputStatus = 'valid';
       this.currentTypeaheadSelection = null;
-    } else if (term.length < 2) {
-      this.textInputStatus = 'invalid';
     } else {
       this.textInputStatus = this.currentTypeaheadSelection ? 'valid' : 'pending';
     }
@@ -477,6 +478,11 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   onSearchFocus(): void {
+    this.isInputFocused = true;
+    this.lastFocusTimestamp = Date.now();
+    setTimeout(() => {
+      this.suppressNextBlur = false;
+    }, 300);
     const term = this.typeaheadSearchTerm;
     if ((term.length >= 2 && !this.plzRangeRegex.test(term)) || term === '' || this.currentSearchResultsContainer) {
       this.focusEmitter.next(term);
@@ -485,6 +491,21 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   onSearchBlur(): void {
+    this.isInputFocused = false;
+    this.lastBlurTimestamp = Date.now();
+    if (this.suppressNextBlur) {
+      return;
+    }
+    if (this.isMouseOverPopupOrHeader) {
+      // Block Blur, refocus input
+      clearTimeout(this.blurBlockTimeout);
+      this.blurBlockTimeout = setTimeout(() => {
+        if (!this.isInputFocused && this.typeaheadInputEl?.nativeElement) {
+          this.typeaheadInputEl.nativeElement.focus();
+        }
+      }, 0);
+      return;
+    }
     setTimeout(() => {
       if (!this.isMouseOverPopupOrHeader) {
         const isRange = this.plzRangeRegex.test(this.typeaheadSearchTerm.trim());
@@ -567,7 +588,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   private updateOverallValidationState(): void {
     const newOverallStatus = this.calculateValidationStatus();
-
     if (this.validationChange.observers.length > 0) {
       this.validationChange.emit(newOverallStatus);
     }

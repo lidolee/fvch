@@ -58,7 +58,7 @@
              #typeaheadInputEl
              id="typeahead-plz-search"
              class="form-control"
-             placeholder="8001 oder 8001-8055 oder Zürich"
+             placeholder="PLZ (z.B. 80), Ort (z.B. Ad), Bereich (z.B. 8000-8050)"
              aria-label="PLZ, Ort oder PLZ-Bereich Suche"
              [(ngModel)]="typeaheadSearchTerm"
              (ngModelChange)="onTypeaheadInputChange($event)"
@@ -72,6 +72,29 @@
              (focus)="onSearchFocus()"
              (blur)="onSearchBlur()"/>
       <i class="mdi mdi-magnify search-icon"></i>
+      <div *ngIf="typeaheadSearchTerm.trim().length > 0 && typeaheadSearchTerm.trim().length < 2"
+           class="form-text text-muted ps-2 pt-1">
+        Bitte mindestens 2 Zeichen eingeben.
+      </div>
+    </div>
+
+    <div *ngIf="isTypeaheadListOpen"
+         class="typeahead-popup"
+         (mouseenter)="onTypeaheadPopupMouseEnter()"
+         (mouseleave)="onTypeaheadPopupMouseLeave()">
+      <!-- Typeahead-Liste wird vom ngbTypeahead-Service gerendert -->
+    </div>
+    <div *ngIf="isCustomHeaderOpen && currentSearchResultsContainer && currentSearchResultsContainer.headerText"
+         class="typeahead-custom-header alert alert-info py-2 px-3 mb-0 border-bottom-0 rounded-bottom-0"
+         (mouseenter)="onTypeaheadPopupMouseEnter()" (mouseleave)="onTypeaheadPopupMouseLeave()">
+      <div class="d-flex justify-content-between align-items-center">
+        <small [innerHTML]="currentSearchResultsContainer.headerText"></small>
+        <button #selectAllButtonEl *ngIf="currentSearchResultsContainer.showSelectAllButton && currentSearchResultsContainer.entriesForSelectAllAction.length > 0"
+                type="button" class="btn btn-sm btn-primary"
+                (click)="handleSelectAllFromTypeaheadHeader()">
+          Alle {{ currentSearchResultsContainer.entriesForSelectAllAction.length }} übernehmen
+        </button>
+      </div>
     </div>
 
     <div class="my-4 row" *ngIf="selectedEntries && selectedEntries.length > 0">
@@ -180,19 +203,6 @@
     </div>
   </ng-template>
 
-  <div *ngIf="isCustomHeaderOpen && currentSearchResultsContainer && currentSearchResultsContainer.headerText"
-       class="typeahead-custom-header alert alert-info py-2 px-3 mb-0 border-bottom-0 rounded-bottom-0"
-       (mouseenter)="isMouseOverPopupOrHeader = true" (mouseleave)="isMouseOverPopupOrHeader = false">
-    <div class="d-flex justify-content-between align-items-center">
-      <small [innerHTML]="currentSearchResultsContainer.headerText"></small>
-      <button #selectAllButtonEl *ngIf="currentSearchResultsContainer.showSelectAllButton && currentSearchResultsContainer.entriesForSelectAllAction.length > 0"
-              type="button" class="btn btn-sm btn-primary"
-              (click)="handleSelectAllFromTypeaheadHeader()">
-        Alle {{ currentSearchResultsContainer.entriesForSelectAllAction.length }} übernehmen
-      </button>
-    </div>
-  </div>
-
   <ng-template #rtPhase2 let-r="result" let-t="term" let-i="index">
     <div class="typeahead-result-row"
          role="option" [id]="(typeaheadInstance?.popupId || 'default-typeahead') + '-' + (i !== undefined ? i : 'unknown_index')">
@@ -210,7 +220,7 @@
       </div>
     </div>
   </ng-template>
-</div> <!-- Ende von *ngIf="showPlzUiContainer" -->
+</div>
 
 <div class="perimeter-container reminder" *ngIf="showPerimeterUiContainer">
   <div class="reminder-title">Verteilung nach GPS-Perimeter</div>
@@ -241,7 +251,6 @@
   </div>
 </div>
 
-<!-- Express Zuschlag Warnung -->
 <div class="row mb-3" *ngIf="showExpressSurcharge">
   <div class="col-sm-8 offset-sm-4">
     <div class="alert alert-light" role="alert">
@@ -249,7 +258,9 @@
         <span class="alert-title"><i class="mdi mdi-alert-box me-2 fs-5"></i>Express-Zuschlag</span>
       </div>
       <div>Kurzfristiges Startdatum <strong class="text-danger">50% Express-Zuschlag</strong></div>
+
       <div class="mt-2">Start ab <strong>{{ getFormattedDefaultStandardDateForDisplay() }}</strong> oder später: kein Zuschlag.</div>
+
       <div class="row gx-3">
         <div class="col-6">
           <button type="button" class="btn btn-sm w-100 btn-outline-danger mt-3" (click)="avoidExpressSurcharge()">
