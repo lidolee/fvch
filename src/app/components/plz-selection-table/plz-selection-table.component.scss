@@ -1,0 +1,38 @@
+.plz-table {
+  margin-top: 0.5rem;
+  position: relative;
+  z-index: 2;
+  th:first-of-type,
+  td:first-of-type {
+    padding-left: 0;
+  }
+  th:last-of-type,
+  td:last-of-type {
+    padding-right: 0;
+  }
+  td.has-icon {
+    vertical-align: middle;
+  }
+  td.plz,
+  td.ort {
+    font-weight: 600;
+  }
+  .btn-link {
+    text-decoration: none;
+    color: #6c757d;
+    &:hover {
+      color: #0063D6;
+    }
+  }
+  td.actions-delete .btn-link:hover {
+    color: #dc3545;
+  }
+  .table-hover > tbody > tr:hover > * {
+    transition: all .2s ease-in-out;
+    background-color: #f3f9ff;
+  }
+  .form-control-sm {
+    max-width: 100px;
+    text-align: right;
+  }
+}

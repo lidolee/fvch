@@ -119,46 +119,14 @@
     </div>
 
     <div *ngIf="selectedEntries && selectedEntries.length > 0; else showBeliebteRegionenWhenEmpty">
-      <div class="plz-table table-responsive">
-        <table class="table table-responsive-sm table-hover table-sm">
-          <thead>
-          <tr>
-            <th scope="col" class="plz">PLZ</th>
-            <th scope="col" class="ort">Ort</th>
-            <th scope="col" class="canton">KANTON</th>
-            <th scope="col" class="flyer-max text-end"
-                [title]="'Flyer Max basierend auf Zielgruppe: ' + currentZielgruppe">Flyer</th>
-            <th scope="col" class="flyer-limit">Flyer Limit</th>
-            <th scope="col" class="actions-zoom text-end">&nbsp;</th>
-            <th scope="col" class="actions-delete text-end">&nbsp;</th>
-          </tr>
-          </thead>
-          <tbody>
-          <tr *ngFor="let entry of selectedEntries"
-              [class.table-info]="entry.id === currentTypeaheadSelection?.id"
-              (mouseenter)="highlightPlacemarkOnMapFromTable(entry.id, true)"
-              (mouseleave)="highlightPlacemarkOnMapFromTable(null, false)">
-            <td class="plz">{{ entry.plz4 }}</td>
-            <td class="ort">{{ entry.ort }}</td>
-            <td class="canton">{{ entry.kt }}</td>
-            <td class="flyer-max text-end" [class.column-highlighted]="highlightFlyerMaxColumn">{{ getFlyerMaxForEntry(entry) | number }}</td>
-            <td class="flyer-limit" title="Feste Anzahl an Flyern, die wir für diese PLZ verteilen. Bitte runden Sie auf die nächste 100er Zahl">
-              <input class="form-control form-control-sm" type="number" [value]="getFlyerMaxForEntry(entry)" min="0" step="100" [max]="getFlyerMaxForEntry(entry) | number"/>
-            </td>
-            <td class="has-icon actions-zoom text-end">
-              <button class="btn btn-link btn-sm p-0" (click)="zoomToTableEntryOnMap(entry)" placement="start" ngbTooltip="Auf Karte anzeigen">
-                <i class="mdi mdi-magnify-plus-cursor fs-5"></i>
-              </button>
-            </td>
-            <td class="has-icon actions-delete text-end">
-              <button class="btn btn-link btn-sm p-0" (click)="removePlzFromTable(entry)" placement="start" ngbTooltip="Eintrag löschen">
-                <i class="mdi mdi-close fs-5"></i>
-              </button>
-            </td>
-          </tr>
-          </tbody>
-        </table>
-      </div>
+      <app-plz-selection-table
+        [entries]="selectedEntries"
+        [currentZielgruppe]="currentZielgruppe"
+        [highlightFlyerMaxColumn]="highlightFlyerMaxColumn"
+        (remove)="removePlzFromTable($event)"
+        (zoom)="zoomToTableEntryOnMap($event)"
+        (highlight)="highlightPlacemarkOnMapFromTable($event.plzId, $event.highlight)">
+      </app-plz-selection-table>
     </div>
 
     <ng-template #showBeliebteRegionenWhenEmpty>
@@ -251,7 +219,7 @@
     <li>Öffnen Sie <a href="https://earth.google.com" target="_blank" rel="noopener noreferrer"><strong>Google Earth</strong></a></li>
     <li>Neue <strong>lokale KML-Datei</strong> erstellen <span class="badge text-bg-secondary">CTRL + K</span><br /><i class="mdi mdi-arrow-right-thin"></i>Projektname: GPS-Perimeter – Ihre Firma</li>
     <li>Zielgebiet als <strong>Pfad oder Polygon</strong> einzeichnen <span class="badge text-bg-secondary">CTRL + SHIFT + L</span><br /><i class="mdi mdi-arrow-right-thin"></i>In Projekt speichern</li>
-    <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><i class="mdi mdi-arrow-right-thin"></i>Ort als KML-Datei exportieren</li>
+    <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><i class="mdi mdi-arrow-right-thin"></i>KML-Datei exportieren</li>
     <li>KML-Datei hochladen - nutzen Sie unsere Upload-Funktion weiter unten</li>
   </ol>
   <span><strong>Preise ab CHF 250.– pro 1’000 Flyer</strong><br/>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte.</span>
@@ -281,9 +249,7 @@
         <span class="alert-title"><i class="mdi mdi-alert-box me-2 fs-5"></i>Express-Zuschlag</span>
       </div>
       <div>Kurzfristiges Startdatum <strong class="text-danger">50% Express-Zuschlag</strong></div>
-
       <div class="mt-2">Start ab <strong>{{ getFormattedDefaultStandardDateForDisplay() }}</strong> oder später: kein Zuschlag.</div>
-
       <div class="row gx-3">
         <div class="col-6">
           <button type="button" class="btn btn-sm w-100 btn-outline-danger mt-3" (click)="avoidExpressSurcharge()">
@@ -299,4 +265,3 @@
     </div>
   </div>
 </div>
-

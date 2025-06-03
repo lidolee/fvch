@@ -1,0 +1,39 @@
+<div class="plz-table table-responsive">
+  <table class="table table-responsive-sm table-hover table-sm">
+    <thead>
+    <tr>
+      <th scope="col" class="plz">PLZ</th>
+      <th scope="col" class="ort">Ort</th>
+      <th scope="col" class="canton">KANTON</th>
+      <th scope="col" class="flyer-max text-end"
+          [title]="'Flyer Max basierend auf Zielgruppe: ' + currentZielgruppe">Flyer</th>
+      <th scope="col" class="flyer-limit">Flyer Limit</th>
+      <th scope="col" class="actions-zoom text-end">&nbsp;</th>
+      <th scope="col" class="actions-delete text-end">&nbsp;</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr *ngFor="let entry of entries; trackBy: trackByPlzId"
+        (mouseenter)="highlight.emit({plzId: entry.id, highlight: true})"
+        (mouseleave)="highlight.emit({plzId: null, highlight: false})">
+      <td class="plz">{{ entry.plz4 }}</td>
+      <td class="ort">{{ entry.ort }}</td>
+      <td class="canton">{{ entry.kt }}</td>
+      <td class="flyer-max text-end" [class.column-highlighted]="highlightFlyerMaxColumn">{{ getFlyerMaxForEntry(entry) | number }}</td>
+      <td class="flyer-limit" title="Feste Anzahl an Flyern, die wir für diese PLZ verteilen. Bitte runden Sie auf die nächste 100er Zahl">
+        <input class="form-control form-control-sm" type="number" [value]="getFlyerMaxForEntry(entry)" min="0" step="100" [max]="getFlyerMaxForEntry(entry)"/>
+      </td>
+      <td class="has-icon actions-zoom text-end">
+        <button class="btn btn-link btn-sm p-0" (click)="zoom.emit(entry)" placement="start" ngbTooltip="Auf Karte anzeigen">
+          <i class="mdi mdi-magnify-plus-cursor fs-5"></i>
+        </button>
+      </td>
+      <td class="has-icon actions-delete text-end">
+        <button class="btn btn-link btn-sm p-0" (click)="remove.emit(entry)" placement="start" ngbTooltip="Eintrag löschen">
+          <i class="mdi mdi-close fs-5"></i>
+        </button>
+      </td>
+    </tr>
+    </tbody>
+  </table>
+</div>

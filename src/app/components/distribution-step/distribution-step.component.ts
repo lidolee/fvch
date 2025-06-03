@@ -1,7 +1,10 @@
-import { Component, Output, EventEmitter, AfterViewInit, OnDestroy, ViewChild, ElementRef, NgZone, Inject, PLATFORM_ID, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, HostListener } from '@angular/core';
+import {
+  Component, Output, EventEmitter, AfterViewInit, OnDestroy, ViewChild, ElementRef,
+  NgZone, Inject, PLATFORM_ID, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, HostListener
+} from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NgbTypeaheadModule, NgbTypeaheadSelectItemEvent, NgbAlertModule, NgbTypeahead, NgbTooltip } from '@ng-bootstrap/ng-bootstrap';
+import { NgbTypeaheadModule, NgbTypeaheadSelectItemEvent, NgbAlertModule, NgbTypeahead } from '@ng-bootstrap/ng-bootstrap';
 import { Observable, of, Subject, merge } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError, takeUntil, tap, map } from 'rxjs/operators';
 
@@ -9,14 +12,12 @@ import { ValidationStatus } from '../../app.component';
 import { PlzDataService, PlzEntry, SearchResultsContainer, EnhancedSearchResultItem } from '../../services/plz-data.service';
 import { SelectionService } from '../../services/selection.service';
 import { MapOptions, MapComponent } from '../map/map.component';
+import { PlzSelectionTableComponent } from '../plz-selection-table/plz-selection-table.component';
 
-const LOG_PREFIX_DIST = '[DistributionStep]';
 const COLUMN_HIGHLIGHT_DURATION = 300;
 
 export type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
 export type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
-// Removed AnlieferungOption and FormatOption as they are moved to design-print-step.component.ts
-
 
 interface CloseTypeaheadOptions {
   clearSearchTerm?: boolean;
@@ -27,7 +28,7 @@ interface CloseTypeaheadOptions {
 @Component({
   selector: 'app-distribution-step',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgbTypeaheadModule, NgbAlertModule, NgbTooltip, MapComponent],
+  imports: [CommonModule, FormsModule, NgbTypeaheadModule, NgbAlertModule, MapComponent, PlzSelectionTableComponent],
   templateUrl: './distribution-step.component.html',
   styleUrls: ['./distribution-step.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -42,29 +43,23 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   private destroy$ = new Subject<void>();
 
-  typeaheadSearchTerm: string = '';
+  typeaheadSearchTerm = '';
   currentTypeaheadSelection: EnhancedSearchResultItem | null = null;
-  public typeaheadHoverResultsForMapIds: string[] = [];
-  searching: boolean = false;
+  typeaheadHoverResultsForMapIds: string[] = [];
+  searching = false;
   selectedEntries$: Observable<PlzEntry[]>;
   currentVerteilungTyp: VerteilungTypOption = 'Nach PLZ';
-  showPlzUiContainer: boolean = true;
-  showPerimeterUiContainer: boolean = false;
+  showPlzUiContainer = true;
+  showPerimeterUiContainer = false;
   currentZielgruppe: ZielgruppeOption = 'Alle Haushalte';
-  highlightFlyerMaxColumn: boolean = false;
+  highlightFlyerMaxColumn = false;
   textInputStatus: ValidationStatus = 'invalid';
 
-  // Removed currentAnlieferung and currentFormat
-  // currentAnlieferung: AnlieferungOption = 'selbst';
-  // currentFormat: FormatOption = 'A5_A6';
-
-  // Datum Properties
-  verteilungStartdatum: string = '';
-  minVerteilungStartdatum: string = '';
-  showExpressSurcharge: boolean = false;
-  expressSurchargeConfirmed: boolean = false;
-  public defaultStandardStartDate!: Date;
-
+  verteilungStartdatum = '';
+  minVerteilungStartdatum = '';
+  showExpressSurcharge = false;
+  expressSurchargeConfirmed = false;
+  defaultStandardStartDate!: Date;
 
   currentSearchResultsContainer: SearchResultsContainer | null = null;
   isTypeaheadListOpen = false;
@@ -72,16 +67,16 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   isMouseOverPopupOrHeader = false;
   private focusEmitter = new Subject<string>();
 
-  public mapSelectedPlzIds: string[] = [];
-  public mapZoomToPlzId: string | null = null;
-  public mapZoomToPlzIdList: string[] | null = null;
-  public mapTableHoverPlzId: string | null = null;
-  public mapIsLoading: boolean = false;
-  public mapConfig: MapOptions;
-  public readonly kmlPathConstant: string = 'assets/ch_plz.kml';
-  public readonly apiKeyConstant: string = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc';
+  mapSelectedPlzIds: string[] = [];
+  mapZoomToPlzId: string | null = null;
+  mapZoomToPlzIdList: string[] | null = null;
+  mapTableHoverPlzId: string | null = null;
+  mapIsLoading = false;
+  mapConfig: MapOptions;
+  readonly kmlPathConstant = 'assets/ch_plz.kml';
+  readonly apiKeyConstant = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc';
 
-  public readonly plzRangeRegex = /^\s*(\d{4,6})\s*-\s*(\d{4,6})\s*$/;
+  readonly plzRangeRegex = /^\s*(\d{4,6})\s*-\s*(\d{4,6})\s*$/;
 
   constructor(
     private ngZone: NgZone,
@@ -106,7 +101,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   ngOnInit(): void {
     this.initializeDates();
-
     this.selectedEntries$
       .pipe(takeUntil(this.destroy$))
       .subscribe(entries => {
@@ -121,7 +115,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private initializeDates(): void {
-    const today = new Date("2025-06-01T18:53:56Z"); // Verwende das von GitHub Copilot bereitgestellte UTC-Datum
+    const today = new Date("2025-06-01T18:53:56Z");
     today.setUTCHours(0, 0, 0, 0);
 
     const minStartDate = new Date(today.getTime());
@@ -138,7 +132,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
     this.checkExpressSurcharge();
   }
-
 
   private formatDateToYyyyMmDd(date: Date): string {
     const year = date.getUTCFullYear();
@@ -160,19 +153,17 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     return new Date(Date.UTC(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])));
   }
 
-
   private addWorkingDays(baseDate: Date, daysToAdd: number): Date {
     let currentDate = new Date(baseDate.getTime());
     let workingDaysAdded = 0;
     while (workingDaysAdded < daysToAdd) {
       currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-      if (currentDate.getUTCDay() !== 0) { // 0 = Sonntag in UTC
+      if (currentDate.getUTCDay() !== 0) {
         workingDaysAdded++;
       }
     }
     return currentDate;
   }
-
 
   onStartDateChange(): void {
     this.expressSurchargeConfirmed = false;
@@ -188,13 +179,10 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
     if (selectedStartDate.getTime() < minStartDate.getTime()) {
       this.verteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
-      this.cdr.detectChanges(); // Ensure change is picked up before recursive call
-      this.onStartDateChange(); // Re-trigger logic with corrected date
+      this.cdr.detectChanges();
+      this.onStartDateChange();
       return;
     }
-
-    const newEndDate = new Date(selectedStartDate.getTime());
-    newEndDate.setUTCDate(selectedStartDate.getUTCDate() + 7);
 
     this.checkExpressSurcharge();
     this.updateOverallValidationState();
@@ -215,35 +203,36 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       this.showExpressSurcharge = !this.expressSurchargeConfirmed;
     } else {
       this.showExpressSurcharge = false;
-      this.expressSurchargeConfirmed = false; // Reset if no longer applicable
+      this.expressSurchargeConfirmed = false;
     }
   }
 
   public avoidExpressSurcharge(): void {
-    this.expressSurchargeConfirmed = false; // Ensure this is reset
+    this.expressSurchargeConfirmed = false;
     if (this.defaultStandardStartDate) {
       this.verteilungStartdatum = this.formatDateToYyyyMmDd(this.defaultStandardStartDate);
-      this.onStartDateChange(); // This will call checkExpressSurcharge and updateOverallValidationState
+      this.onStartDateChange();
     }
-    // this.showExpressSurcharge = false; // onStartDateChange will handle this via checkExpressSurcharge
-    // this.updateOverallValidationState(); // onStartDateChange handles this
     this.cdr.markForCheck();
   }
 
   public confirmExpressSurcharge(): void {
     this.expressSurchargeConfirmed = true;
-    this.showExpressSurcharge = false; // Hide the surcharge UI
+    this.showExpressSurcharge = false;
     this.updateOverallValidationState();
     this.cdr.markForCheck();
   }
 
-
   ngAfterViewInit(): void {
-    Promise.resolve().then(() => { this.updateOverallValidationState(); this.cdr.markForCheck(); });
+    Promise.resolve().then(() => {
+      this.updateOverallValidationState();
+      this.cdr.markForCheck();
+    });
   }
 
   ngOnDestroy(): void {
-    this.destroy$.next(); this.destroy$.complete();
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   setVerteilungTyp(typ: VerteilungTypOption): void {
@@ -260,15 +249,17 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  // Removed setAnlieferung and setFormat methods
-
   onVerteilungTypChangeFromTemplate(newVerteilungTyp: VerteilungTypOption): void {
     this.updateUiFlagsAndMapState();
   }
 
   onZielgruppeChange(): void {
-    this.highlightFlyerMaxColumn = true; this.cdr.markForCheck();
-    setTimeout(() => { this.highlightFlyerMaxColumn = false; this.cdr.markForCheck(); }, COLUMN_HIGHLIGHT_DURATION);
+    this.highlightFlyerMaxColumn = true;
+    this.cdr.markForCheck();
+    setTimeout(() => {
+      this.highlightFlyerMaxColumn = false;
+      this.cdr.markForCheck();
+    }, COLUMN_HIGHLIGHT_DURATION);
     this.updateOverallValidationState();
   }
 
@@ -279,8 +270,8 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   private updateUiFlagsAndMapState(): void {
     this.updateUiFlags(this.currentVerteilungTyp);
-    this.cdr.detectChanges(); // Allow UI to update based on flags
-    this.updateOverallValidationState(); // Then validate
+    this.cdr.detectChanges();
+    this.updateOverallValidationState();
     this.cdr.markForCheck();
   }
 
@@ -297,19 +288,17 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
         if (entry && this.selectionService.validateEntry(entry)) {
           this.selectionService.addEntry(entry);
         } else {
-          // Fallback for entries not in PlzDataService, e.g., custom KML entries if applicable
-          const plz6 = entryIdFromMap; // Assuming ID is PLZ6 or similar unique ID
+          const plz6 = entryIdFromMap;
           const plz4 = plz6.length >= 4 ? plz6.substring(0, 4) : plz6;
-          const pseudoOrt = event.name || 'Unbekannt'; // Use name from map event if available
+          const pseudoOrt = event.name || 'Unbekannt';
           const pseudoEntry: PlzEntry = { id: entryIdFromMap, plz6, plz4, ort: pseudoOrt, kt: 'N/A', all: 0, mfh: 0, efh: 0 };
-          if (this.selectionService.validateEntry(pseudoEntry)) { // Ensure validation still applies
+          if (this.selectionService.validateEntry(pseudoEntry)) {
             this.selectionService.addEntry(pseudoEntry);
           }
         }
-        this.cdr.markForCheck(); // Update UI after async operation
+        this.cdr.markForCheck();
       });
     }
-    // No need to call updateOverallValidationState here, as it's called by selectedEntries$ subscription
   }
 
   onMapLoadingStatusChanged(isLoading: boolean): void {
@@ -319,9 +308,9 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   quickSearch(term: string): void {
     this.typeaheadSearchTerm = term;
-    this.currentTypeaheadSelection = null; // Clear any previous selection
-    this.focusEmitter.next(''); // Trigger typeahead update
-    this.focusEmitter.next(term); // Trigger typeahead update
+    this.currentTypeaheadSelection = null;
+    this.focusEmitter.next('');
+    this.focusEmitter.next(term);
     if (this.typeaheadInputEl?.nativeElement) {
       this.typeaheadInputEl.nativeElement.focus();
     }
@@ -334,16 +323,14 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     if (this.typeaheadInstance && this.typeaheadInstance.isPopupOpen()) {
       this.typeaheadInstance.dismissPopup();
     }
-    this.isTypeaheadListOpen = false; // Explicitly set
+    this.isTypeaheadListOpen = false;
 
     if (clearResults) {
       this.currentSearchResultsContainer = null;
-      this.isCustomHeaderOpen = false; // Explicitly set
+      this.isCustomHeaderOpen = false;
     } else if (!this.currentSearchResultsContainer || !this.currentSearchResultsContainer.headerText) {
-      // If not clearing results, but there's no container or header, ensure header is closed
       this.isCustomHeaderOpen = false;
     }
-    // If clearResults is false and there IS a header, isCustomHeaderOpen remains as is.
 
     if (clearSearchTerm) this.typeaheadSearchTerm = '';
     if (clearSelectionModel) this.currentTypeaheadSelection = null;
@@ -353,16 +340,16 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   searchPlzTypeahead = (text$: Observable<string>): Observable<EnhancedSearchResultItem[]> =>
     merge(text$, this.focusEmitter).pipe(
-      debounceTime(text$ === this.focusEmitter ? 0 : 250), // No debounce for focus, 250ms for text input
+      debounceTime(text$ === this.focusEmitter ? 0 : 250),
       distinctUntilChanged(),
       switchMap(term => {
-        this.typeaheadHoverResultsForMapIds = []; // Clear map highlights
+        this.typeaheadHoverResultsForMapIds = [];
 
         if (this.plzRangeRegex.test(term)) {
           this.closeTypeaheadAndHeader({ clearSearchTerm: false, clearSelectionModel: true, clearResults: true });
-          this.textInputStatus = 'valid'; // Range is a valid input type
+          this.textInputStatus = 'valid';
           this.updateOverallValidationState();
-          return of([]); // Don't show typeahead list for ranges
+          return of([]);
         }
 
         if (term === '' || term.length < 2) {
@@ -373,7 +360,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
         }
 
         this.searching = true;
-        this.textInputStatus = 'pending'; // Input is being processed
+        this.textInputStatus = 'pending';
         this.updateOverallValidationState();
         this.cdr.markForCheck();
 
@@ -386,89 +373,84 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
             const hasHeaderMessage = !!resultsContainer.headerText && resultsContainer.headerText !== `Keine Einträge für "${term}" gefunden.`;
             const hasActionableHeader = hasHeaderMessage && resultsContainer.showSelectAllButton && resultsContainer.entriesForSelectAllAction.length > 0;
 
-            this.isCustomHeaderOpen = hasItems || hasHeaderMessage; // Show header if items or a message exists
-            this.isTypeaheadListOpen = hasItems; // Open list only if there are items
+            this.isCustomHeaderOpen = hasItems || hasHeaderMessage;
+            this.isTypeaheadListOpen = hasItems;
 
             if (hasItems) {
-              this.textInputStatus = 'pending'; // Still pending until an item is selected or input cleared
+              this.textInputStatus = 'pending';
               this.typeaheadHoverResultsForMapIds = resultsContainer.itemsForDisplay
-                .filter(item => !item.isGroupHeader && item.id) // Ensure id exists
-                .map(item => item.id!); // Use non-null assertion if id is guaranteed
+                .filter(item => !item.isGroupHeader && item.id)
+                .map(item => item.id!);
             } else if (hasActionableHeader) {
-              this.textInputStatus = 'pending'; // Header provides an action
+              this.textInputStatus = 'pending';
             } else {
-              this.textInputStatus = 'invalid'; // No items, no actionable header
+              this.textInputStatus = 'invalid';
             }
-            // Explicitly set to invalid if term is too short for a non-range search and no results/header
-            if (term.length >=2 && !this.plzRangeRegex.test(term) && !hasItems && !hasActionableHeader) {
+            if (term.length >= 2 && !this.plzRangeRegex.test(term) && !hasItems && !hasActionableHeader) {
               this.textInputStatus = 'invalid';
             }
 
-
             this.cdr.markForCheck();
 
-            // Focus management after results are processed
             if (this.isTypeaheadListOpen || this.isCustomHeaderOpen) {
-              setTimeout(() => this.setInitialFocusInTypeahead(), 0); // Ensure UI is updated before focus
+              setTimeout(() => this.setInitialFocusInTypeahead(), 0);
             }
-            this.updateOverallValidationState(); // Re-validate with new search state
+            this.updateOverallValidationState();
           }),
           map(resultsContainer => resultsContainer.itemsForDisplay),
           catchError(() => {
             this.searching = false;
-            this.currentSearchResultsContainer = { searchTerm: term, searchTypeDisplay: 'none', itemsForDisplay: [], headerText: 'Fehler bei der Suche.', showSelectAllButton: false, entriesForSelectAllAction: [] };
+            this.currentSearchResultsContainer = {
+              searchTerm: term, searchTypeDisplay: 'none', itemsForDisplay: [],
+              headerText: 'Fehler bei der Suche.', showSelectAllButton: false, entriesForSelectAllAction: []
+            };
             this.isCustomHeaderOpen = true; this.isTypeaheadListOpen = false;
             this.textInputStatus = 'invalid';
             this.typeaheadHoverResultsForMapIds = [];
             this.updateOverallValidationState();
-            this.cdr.markForCheck(); return of([]);
+            this.cdr.markForCheck();
+            return of([]);
           })
         );
       })
     );
 
   onTypeaheadInputChange(term: string): void {
-    // If a selection was made and then input changes, clear the selection model
     if (this.currentTypeaheadSelection && this.typeaheadInputFormatter(this.currentTypeaheadSelection) !== term) {
       this.currentTypeaheadSelection = null;
     }
 
     if (term === '') {
-      this.currentTypeaheadSelection = null; // Clear selection if input is empty
+      this.currentTypeaheadSelection = null;
       this.typeaheadHoverResultsForMapIds = [];
       this.textInputStatus = 'invalid';
     } else if (this.plzRangeRegex.test(term)) {
-      this.textInputStatus = 'valid'; // A range is a valid input state
-      this.currentTypeaheadSelection = null; // No specific item selected for a range
+      this.textInputStatus = 'valid';
+      this.currentTypeaheadSelection = null;
     } else if (term.length < 2) {
-      this.textInputStatus = 'invalid'; // Too short for a meaningful search (unless it's a range)
+      this.textInputStatus = 'invalid';
     } else {
-      // If term is >= 2 chars and not a range, it's 'pending' until a selection or it's confirmed invalid by search results
       this.textInputStatus = this.currentTypeaheadSelection ? 'valid' : 'pending';
     }
     this.updateOverallValidationState();
     this.cdr.markForCheck();
   }
 
-
   typeaheadItemSelected(event: NgbTypeaheadSelectItemEvent<EnhancedSearchResultItem>): void {
-    event.preventDefault(); // Prevent ngbTypeahead from putting the object in the input
+    event.preventDefault();
     const selectedItem = event.item;
     if (!selectedItem) return;
     this.handleTakeItemFromTypeahead(selectedItem);
   }
 
   handleTakeItemFromTypeahead(item: EnhancedSearchResultItem, event?: MouseEvent): void {
-    event?.stopPropagation(); event?.preventDefault(); // Prevent default actions if called from click
+    event?.stopPropagation(); event?.preventDefault();
     if (!item) return;
 
     if (item.isGroupHeader) {
-      // If it's a group header, attempt to add all related entries
       if (this.currentSearchResultsContainer?.entriesForSelectAllAction && this.currentSearchResultsContainer.entriesForSelectAllAction.length > 0 && this.currentSearchResultsContainer.searchTypeDisplay === 'ort' && this.currentSearchResultsContainer.searchTerm.toLowerCase() === item.ort.toLowerCase()) {
-        // Use pre-fetched entries if available and relevant to the clicked group header
         this.selectionService.addMultipleEntries(this.currentSearchResultsContainer.entriesForSelectAllAction);
       } else {
-        // Fallback to fetching entries by Ort if specific group entries aren't pre-loaded
         this.plzDataService.getEntriesByOrt(item.ort).subscribe(entries => {
           if (entries.length > 0) {
             this.selectionService.addMultipleEntries(entries);
@@ -476,7 +458,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
         });
       }
     } else {
-      // Add single entry
       const entryToAdd: PlzEntry = {
         id: item.id, plz6: item.plz6, plz4: item.plz4, ort: item.ort, kt: item.kt,
         all: item.all, mfh: item.mfh, efh: item.efh, isGroupEntry: item.isGroupEntry ?? false
@@ -484,8 +465,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       this.selectionService.addEntry(entryToAdd);
     }
     this.closeTypeaheadAndHeader({ clearSearchTerm: true, clearSelectionModel: true, clearResults: true });
-    this.typeaheadHoverResultsForMapIds = []; // Clear highlights
-    // No need to call updateOverallValidationState, selectedEntries$ subscription handles it
+    this.typeaheadHoverResultsForMapIds = [];
   }
 
   handleSelectAllFromTypeaheadHeader(): void {
@@ -494,40 +474,35 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     }
     this.closeTypeaheadAndHeader({ clearSearchTerm: true, clearSelectionModel: true, clearResults: true });
     this.typeaheadHoverResultsForMapIds = [];
-    // No need to call updateOverallValidationState, selectedEntries$ subscription handles it
   }
-
 
   onSearchFocus(): void {
     const term = this.typeaheadSearchTerm;
-    // Re-trigger search on focus if term is valid for search or if results were previously shown
     if ((term.length >= 2 && !this.plzRangeRegex.test(term)) || term === '' || this.currentSearchResultsContainer) {
-      this.focusEmitter.next(term); // Use current term to re-open/refresh typeahead
+      this.focusEmitter.next(term);
     }
     this.cdr.markForCheck();
   }
 
   onSearchBlur(): void {
     setTimeout(() => {
-      if (!this.isMouseOverPopupOrHeader) { // Don't close if mouse is over popup/header
+      if (!this.isMouseOverPopupOrHeader) {
         const isRange = this.plzRangeRegex.test(this.typeaheadSearchTerm.trim());
         if ((isRange && this.textInputStatus === 'valid') || this.currentTypeaheadSelection) {
-          // If input is a valid range or an item is selected, keep the input text but close popup
           this.closeTypeaheadAndHeader({ clearSearchTerm: false, clearSelectionModel: false, clearResults: false });
         } else {
-          // Otherwise, clear everything (or just the popup and selection model)
           this.closeTypeaheadAndHeader({ clearSearchTerm: false, clearSelectionModel: true, clearResults: true });
         }
-        this.typeaheadHoverResultsForMapIds = []; // Clear map highlights on blur
+        this.typeaheadHoverResultsForMapIds = [];
       }
-    }, 200); // Delay to allow click on typeahead/header
+    }, 200);
   }
 
   addCurrentSelectionToTable(): void {
     const searchTerm = this.typeaheadSearchTerm.trim();
     const rangeMatch = searchTerm.match(this.plzRangeRegex);
 
-    if (rangeMatch && searchTerm !== '') { // It's a PLZ range
+    if (rangeMatch && searchTerm !== '') {
       this.plzDataService.getEntriesByPlzRange(searchTerm).subscribe(entries => {
         if (entries.length > 0) {
           this.selectionService.addMultipleEntries(entries);
@@ -537,30 +512,25 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
         this.closeTypeaheadAndHeader({ clearSearchTerm: true, clearSelectionModel: true, clearResults: true });
         this.typeaheadHoverResultsForMapIds = [];
       });
-    } else if (this.currentTypeaheadSelection) { // An item was selected from typeahead
+    } else if (this.currentTypeaheadSelection) {
       this.handleTakeItemFromTypeahead(this.currentTypeaheadSelection);
-      // handleTakeItemFromTypeahead already closes typeahead and clears term
     }
-    // No action if neither condition is met (e.g. invalid text input)
-    // updateOverallValidationState is handled by selectedEntries$ subscription
   }
 
   removePlzFromTable(entry: PlzEntry): void {
     this.selectionService.removeEntry(entry.id);
-    // updateOverallValidationState is handled by selectedEntries$ subscription
   }
 
   clearPlzTable(): void {
     this.selectionService.clearEntries();
-    this.typeaheadHoverResultsForMapIds = []; // Clear any lingering highlights
-    // updateOverallValidationState is handled by selectedEntries$ subscription
+    this.typeaheadHoverResultsForMapIds = [];
   }
 
   zoomToTableEntryOnMap(entry: PlzEntry): void {
     this.mapZoomToPlzId = entry.id;
-    this.mapZoomToPlzIdList = null; // Clear list zoom if single zoom is triggered
+    this.mapZoomToPlzIdList = null;
     this.cdr.markForCheck();
-    setTimeout(() => { this.mapZoomToPlzId = null; this.cdr.markForCheck(); }, 100); // Reset after a short delay
+    setTimeout(() => { this.mapZoomToPlzId = null; this.cdr.markForCheck(); }, 100);
   }
 
   highlightPlacemarkOnMapFromTable(plzId: string | null, highlight: boolean): void {
@@ -573,7 +543,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     switch (this.currentZielgruppe) {
       case 'Mehrfamilienhäuser': return entry.mfh ?? 0;
       case 'Ein- und Zweifamilienhäuser': return entry.efh ?? 0;
-      default: return entry.all ?? 0; // Alle Haushalte
+      default: return entry.all ?? 0;
     }
   }
 
@@ -588,8 +558,8 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   setExampleStatus(status: ValidationStatus): void {
     this.textInputStatus = status;
     if (status === 'invalid') {
-      this.currentTypeaheadSelection = null; // Clear selection if status is forced to invalid
-      this.typeaheadSearchTerm = ''; // Optionally clear search term too
+      this.currentTypeaheadSelection = null;
+      this.typeaheadSearchTerm = '';
     }
     this.updateOverallValidationState();
     this.cdr.markForCheck();
@@ -605,22 +575,18 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private calculateValidationStatus(): ValidationStatus {
-    // Basic validation checks
     const mapHasSelection = this.selectionService.getSelectedEntries().length > 0;
     const startDateSelected = !!this.verteilungStartdatum;
 
-    // Check if distribution details are complete
     const isExpressRelevant = this.isExpressSurchargeRelevant();
     const expressConditionMet = !isExpressRelevant || (isExpressRelevant && this.expressSurchargeConfirmed);
     const verteilungsDetailsComplete = startDateSelected && expressConditionMet;
 
-    // Handle validation based on UI container type
     if (this.showPlzUiContainer) {
       return this.validatePlzContainer(mapHasSelection, verteilungsDetailsComplete);
     } else if (this.showPerimeterUiContainer) {
       return verteilungsDetailsComplete ? 'valid' : 'invalid';
     }
-
     return 'invalid';
   }
 
@@ -628,7 +594,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     if (!this.verteilungStartdatum || !this.defaultStandardStartDate) {
       return false;
     }
-
     const selectedStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime();
     const standardStartDate = this.defaultStandardStartDate.getTime();
     const minStartDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum).getTime();
@@ -642,12 +607,9 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     const hasValidSelection = this.currentTypeaheadSelection || mapHasSelection;
     const hasValidRangeInput = isRangeInputValid && searchTerm !== '';
 
-    // Valid if: proper selection present AND distribution details complete
     if ((hasValidSelection || hasValidRangeInput) && verteilungsDetailsComplete) {
       return 'valid';
     }
-
-    // Check for pending state
     const isPendingInput = this.textInputStatus === 'pending';
     const missingSelectionButPending = isPendingInput && !mapHasSelection && !this.currentTypeaheadSelection;
     const invalidSearchButPending = isPendingInput && !this.plzRangeRegex.test(searchTerm.trim());
@@ -658,18 +620,13 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     )) {
       return 'pending';
     }
-
     return 'invalid';
   }
 
   proceedToNextStep(): void {
-    // Re-run validation before proceeding to ensure latest state
-    this.updateOverallValidationState(); // This will emit the latest status
+    this.updateOverallValidationState();
 
-    // Use a local variable to check the status after re-validation
-    // This avoids race conditions if validationChange emission is async or has side effects
-    // For this direct check, we re-evaluate conditions similarly to updateOverallValidationState
-    let currentOverallStatusForProceed: ValidationStatus = 'invalid'; // Default to invalid
+    let currentOverallStatusForProceed: ValidationStatus = 'invalid';
 
     const mapHasSelection = this.selectionService.getSelectedEntries().length > 0;
     const searchTerm = this.typeaheadSearchTerm.trim();
@@ -682,7 +639,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime() >= this.parseYyyyMmDdToDate(this.minVerteilungStartdatum).getTime();
     const expressConditionMet = !isExpressRelevant || (isExpressRelevant && this.expressSurchargeConfirmed);
     const verteilungsDetailsComplete = verteilungsDetailsCompleteBasic && expressConditionMet;
-
 
     if (this.showPlzUiContainer) {
       if ((this.currentTypeaheadSelection || mapHasSelection || (isRangeInputValid && searchTerm !== '')) && verteilungsDetailsComplete) {
@@ -700,21 +656,16 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       }
     }
 
-    // If overall status is pending solely due to text input, but dates are not complete, it's invalid.
-    if (currentOverallStatusForProceed === 'pending' && !verteilungsDetailsComplete){
+    if (currentOverallStatusForProceed === 'pending' && !verteilungsDetailsComplete) {
       currentOverallStatusForProceed = 'invalid';
     }
-    // If status is valid, but text input is pending (e.g. user typed valid chars but didn't select/confirm range)
-    // and there's no map selection or confirmed typeahead selection or valid range, it should be pending.
     if (currentOverallStatusForProceed === 'valid' && this.textInputStatus === 'pending' && this.showPlzUiContainer && !mapHasSelection && !this.currentTypeaheadSelection && !this.plzRangeRegex.test(searchTerm.trim())) {
       currentOverallStatusForProceed = 'pending';
     }
 
-
-    this.validationChange.emit(currentOverallStatusForProceed); // Emit final decision
+    this.validationChange.emit(currentOverallStatusForProceed);
 
     if (currentOverallStatusForProceed === 'valid') {
-      // If a valid PLZ range is typed but not yet processed into selectionService, do it now.
       if (this.showPlzUiContainer && isRangeInputValid && searchTerm !== '' && !this.currentTypeaheadSelection && !mapHasSelection) {
         this.plzDataService.getEntriesByPlzRange(searchTerm).subscribe(entries => {
           if (entries.length > 0) {
@@ -723,30 +674,25 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
             this.typeaheadHoverResultsForMapIds = [];
             this.nextStepRequest.emit();
           } else {
-            // Range was valid format but yielded no results.
             if (isPlatformBrowser(this.platformId)) alert(`Für den Bereich "${searchTerm}" wurden keine gültigen PLZ-Gebiete gefunden. Ihre Auswahl wurde nicht geändert.`);
-            this.textInputStatus = 'invalid'; // Mark input as invalid now
-            this.updateOverallValidationState(); // Re-validate
+            this.textInputStatus = 'invalid';
+            this.updateOverallValidationState();
           }
         });
       } else {
         this.nextStepRequest.emit();
       }
     } else {
-      // Construct and show alert message
       let message = "Bitte vervollständigen Sie Ihre Auswahl. Stellen Sie sicher, dass ein Zielgebiet definiert und alle Verteilungsdetails (Zeitraum) ausgewählt sind.";
       if (currentOverallStatusForProceed === 'pending') {
         message = "Bitte vervollständigen Sie Ihre Eingabe im Suchfeld oder wählen Sie einen Eintrag aus der Liste.";
-      } else if (!verteilungsDetailsCompleteBasic) { // Check basic date selection first
+      } else if (!verteilungsDetailsCompleteBasic) {
         const missingDetails: string[] = [];
         if (!startDateSelected) missingDetails.push("Startdatum");
-        // Removed Anlieferart and Format from here
         message = `Bitte wählen Sie folgende Details aus: ${missingDetails.join(', ')}.`;
       } else if (isExpressRelevant && !this.expressSurchargeConfirmed) {
         message = "Bitte bestätigen Sie den Express-Zuschlag oder wählen Sie ein späteres Startdatum.";
-      }
-      // Message for invalid PLZ input if other details are fine
-      else if (this.showPlzUiContainer && !mapHasSelection && !(isRangeInputValid && searchTerm !== '') && !this.currentTypeaheadSelection) {
+      } else if (this.showPlzUiContainer && !mapHasSelection && !(isRangeInputValid && searchTerm !== '') && !this.currentTypeaheadSelection) {
         message = "Die Eingabe im Suchfeld ist ungültig oder unvollständig und es sind keine PLZ-Gebiete auf der Karte ausgewählt. Bitte korrigieren Sie Ihre Auswahl oder geben Sie einen gültigen PLZ-Bereich ein (z.B. 8000-8045).";
       }
       if (isPlatformBrowser(this.platformId)) alert(message);
@@ -758,15 +704,14 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     const R_SPECIAL = /[-\/\\^$*+?.()|[\]{}]/g;
     const safeTerm = term.replace(R_SPECIAL, '\\$&');
     const regex = new RegExp(`(${safeTerm})`, 'gi');
-    try { return text.replace(regex, '<mark>$1</mark>'); } catch (e) { return text; } // Fallback for safety
+    try { return text.replace(regex, '<mark>$1</mark>'); } catch (e) { return text; }
   }
 
   isAddButtonDisabled(): boolean {
     const searchTerm = this.typeaheadSearchTerm.trim();
     const isRange = this.plzRangeRegex.test(searchTerm);
-    if (isRange && searchTerm !== '') return false; // Can add if it's a valid range format
-    if (this.currentTypeaheadSelection) return false; // Can add if an item is selected
-    // Disable if neither of above and text input is not in a 'valid' (but unselected) state
+    if (isRange && searchTerm !== '') return false;
+    if (this.currentTypeaheadSelection) return false;
     return !(this.textInputStatus === 'valid' && searchTerm !== '');
   }
 
@@ -775,14 +720,9 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   isMixedSearchForTemplate(): boolean { return this.currentSearchResultsContainer?.searchTypeDisplay === 'mixed'; }
 
   private setInitialFocusInTypeahead(): void {
-    // Focus selectAllButton if it's visible and relevant
     if (this.isCustomHeaderOpen && this.currentSearchResultsContainer?.showSelectAllButton && this.selectAllButtonEl?.nativeElement) {
       this.selectAllButtonEl.nativeElement.focus({ preventScroll: true });
     }
-    // else if (this.isTypeaheadListOpen && this.typeaheadInstance?.popupId) {
-    // Potentially focus the first item in the typeahead list if selectAllButton is not available
-    // This is often handled by ngbTypeahead's focusFirst option, but can be customized here if needed.
-    // }
   }
 
   resultFormatter = (result: EnhancedSearchResultItem): string => {
@@ -790,25 +730,19 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     if (result.isGroupHeader) {
       return `${result.ort || result.plz4}${result.childPlzCount ? ` (${result.childPlzCount} PLZ)` : ''}`;
     }
-    // For individual items, show PLZ, Ort, and KT
     return `${result.plz4 ? result.plz4 + ' ' : ''}${result.ort}${result.kt && result.kt !== 'N/A' ? ' - ' + result.kt : ''}`;
   };
 
   typeaheadInputFormatter = (item: EnhancedSearchResultItem | string | null): string => {
-    if (typeof item === 'string') return item; // Handles direct string input (e.g., when typing a range)
-    if (item) { // If item is an EnhancedSearchResultItem object
-      if (item.isGroupHeader) {
-        return `${item.ort || item.plz4}`; // For group headers, display Ort or PLZ4
-      }
-      // For individual items, format similarly to resultFormatter
+    if (typeof item === 'string') return item;
+    if (item) {
+      if (item.isGroupHeader) return `${item.ort || item.plz4}`;
       return `${item.plz4 ? item.plz4 + ' ' : ''}${item.ort}${item.kt && item.kt !== 'N/A' ? ' - ' + item.kt : ''}`;
     }
-    // If no item is selected (e.g. currentTypeaheadSelection is null)
-    // and the current search term is a valid PLZ range, display the search term itself.
     if (this.currentTypeaheadSelection === null && this.plzRangeRegex.test(this.typeaheadSearchTerm)) {
       return this.typeaheadSearchTerm;
     }
-    return ''; // Default to empty string if no item or specific condition met
+    return '';
   };
 
   @HostListener('document:keydown.escape', ['$event'])
@@ -817,16 +751,15 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       event.preventDefault();
       this.closeTypeaheadAndHeader({ clearSearchTerm: false, clearSelectionModel: true, clearResults: true });
       this.typeaheadHoverResultsForMapIds = [];
-      this.onTypeaheadInputChange(this.typeaheadSearchTerm); // Re-evaluate input state
+      this.onTypeaheadInputChange(this.typeaheadSearchTerm);
     }
   }
 
-  // Handles Enter key on the "Select All" button in the typeahead header
   @HostListener('keydown', ['$event'])
   handleFormKeyDown(event: KeyboardEvent) {
     if (this.isCustomHeaderOpen && this.currentSearchResultsContainer?.showSelectAllButton) {
       if (document.activeElement === this.selectAllButtonEl?.nativeElement && event.key === 'Enter') {
-        event.preventDefault(); // Prevent form submission or other default Enter behavior
+        event.preventDefault();
         this.handleSelectAllFromTypeaheadHeader();
       }
     }
