@@ -53,49 +53,18 @@
 
   <ng-container *ngIf="(selectedEntries$ | async) as selectedEntries; else showBeliebteRegionenInitially">
 
-    <div class="typeahead-search-container position-relative mt-3">
-      <input type="text"
-             #typeaheadInputEl
-             id="typeahead-plz-search"
-             class="form-control"
-             placeholder="PLZ (z.B. 80), Ort (z.B. Ad), Bereich (z.B. 8000-8050)"
-             aria-label="PLZ, Ort oder PLZ-Bereich Suche"
-             [(ngModel)]="typeaheadSearchTerm"
-             (ngModelChange)="onTypeaheadInputChange($event)"
-             [ngbTypeahead]="searchPlzTypeahead"
-             #typeaheadInstance="ngbTypeahead"
-             [resultTemplate]="rtPhase2"
-             [inputFormatter]="typeaheadInputFormatter"
-             (selectItem)="typeaheadItemSelected($event)"
-             [editable]="true"
-             [focusFirst]="false"
-             (focus)="onSearchFocus()"
-             (blur)="onSearchBlur()"/>
-      <i class="mdi mdi-magnify search-icon"></i>
-      <div *ngIf="typeaheadSearchTerm.trim().length > 0 && typeaheadSearchTerm.trim().length < 2"
-           class="form-text text-muted ps-2 pt-1">
-        Bitte mindestens 2 Zeichen eingeben.
-      </div>
-    </div>
-
-    <div *ngIf="isTypeaheadListOpen"
-         class="typeahead-popup"
-         (mouseenter)="onTypeaheadPopupMouseEnter()"
-         (mouseleave)="onTypeaheadPopupMouseLeave()">
-      <!-- Typeahead-Liste wird vom ngbTypeahead-Service gerendert -->
-    </div>
-    <div *ngIf="isCustomHeaderOpen && currentSearchResultsContainer && currentSearchResultsContainer.headerText"
-         class="typeahead-custom-header alert alert-info py-2 px-3 mb-0 border-bottom-0 rounded-bottom-0"
-         (mouseenter)="onTypeaheadPopupMouseEnter()" (mouseleave)="onTypeaheadPopupMouseLeave()">
-      <div class="d-flex justify-content-between align-items-center">
-        <small [innerHTML]="currentSearchResultsContainer.headerText"></small>
-        <button #selectAllButtonEl *ngIf="currentSearchResultsContainer.showSelectAllButton && currentSearchResultsContainer.entriesForSelectAllAction.length > 0"
-                type="button" class="btn btn-sm btn-primary"
-                (click)="handleSelectAllFromTypeaheadHeader()">
-          Alle {{ currentSearchResultsContainer.entriesForSelectAllAction.length }} übernehmen
-        </button>
-      </div>
-    </div>
+    <!-- Hier wird die ursprüngliche Suche durch die neue search-input Komponente ersetzt -->
+    <app-search-input
+      #searchInputComponent
+      class="mt-3"
+      [placeholderText]="'PLZ (z.B. 80), Ort (z.B. Ad), Bereich (z.B. 8000-8050)'"
+      (itemSelected)="onSearchItemSelected($event)"
+      (selectAllRequest)="onSearchGroupItemsSelected($event)"
+      (hoveredPlzIdsChanged)="onSearchHoveredPlzIdsChanged($event)"
+      (statusChange)="onSearchValidityChanged($event)"
+      (searchInProgress)="onSearchInProgressChanged($event)"
+      (quickSearchRequest)="quickSearch($event)">
+    </app-search-input>
 
     <div class="my-4 row" *ngIf="selectedEntries && selectedEntries.length > 0">
       <div class="col-sm-12">
@@ -202,24 +171,6 @@
       </div>
     </div>
   </ng-template>
-
-  <ng-template #rtPhase2 let-r="result" let-t="term" let-i="index">
-    <div class="typeahead-result-row"
-         role="option" [id]="(typeaheadInstance?.popupId || 'default-typeahead') + '-' + (i !== undefined ? i : 'unknown_index')">
-      <div (click)="handleTakeItemFromTypeahead(r, $event)" class="d-flex align-items-center w-100">
-        <div class="typeahead-col-icon me-2">
-          <i *ngIf="r.isGroupHeader" class="mdi mdi-select-group" title="Ortsgruppe"></i>
-          <span *ngIf="!r.isGroupHeader" [innerHTML]="highlight(r.plz4, t)"></span>
-        </div>
-        <div class="typeahead-col-main flex-grow-1">
-          <span *ngIf="r.isGroupHeader" class="fw-bold" [innerHTML]="highlight(r.ort || r.plz4, t)"></span>
-          <span *ngIf="r.isGroupHeader && r.childPlzCount" class="text-muted small"> ({{r.childPlzCount}} PLZ)</span>
-          <span *ngIf="!r.isGroupHeader" [innerHTML]="highlight(r.ort, t)"></span>
-        </div>
-        <div class="typeahead-col-key text-muted small ms-2" *ngIf="r.kt && r.kt !== 'N/A' && !r.isGroupHeader">{{ r.kt }}</div>
-      </div>
-    </div>
-  </ng-template>
 </div>
 
 <div class="perimeter-container reminder" *ngIf="showPerimeterUiContainer">
@@ -232,7 +183,7 @@
     <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><i class="mdi mdi-arrow-right-thin"></i>KML-Datei exportieren</li>
     <li>KML-Datei hochladen - nutzen Sie unsere Upload-Funktion weiter unten</li>
   </ol>
-  <span><strong>Preise ab CHF 250.– pro 1’000 Flyer</strong><br/>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte.</span>
+  <span><strong>Preise ab CHF 250.– pro 1'000 Flyer</strong><br/>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte.</span>
 </div>
 
 <h3 class="section-title"><span>2. Startdatum</span></h3>

@@ -11,18 +11,53 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError, takeUntil, t
 import { ValidationStatus } from '../../app.component';
 import { PlzDataService, PlzEntry, SearchResultsContainer, EnhancedSearchResultItem } from '../../services/plz-data.service';
 import { SelectionService } from '../../services/selection.service';
-import { MapOptions, MapComponent } from '../map/map.component';
+import { MapComponent } from '../map/map.component';
 import { PlzSelectionTableComponent } from '../plz-selection-table/plz-selection-table.component';
+import { SearchInputComponent, CloseTypeaheadOptions } from '../search-input/search-input.component';
 
 const COLUMN_HIGHLIGHT_DURATION = 300;
 
 export type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
 export type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
 
-interface CloseTypeaheadOptions {
-  clearSearchTerm?: boolean;
-  clearSelectionModel?: boolean;
-  clearResults?: boolean;
+interface MapOptions {
+  initialCenter: { lat: number; lng: number };
+  initialZoom: number;
+  defaultPolygonOptions: {
+    strokeColor: string;
+    strokeOpacity: number;
+    strokeWeight: number;
+    fillColor: string;
+    fillOpacity: number;
+  };
+  highlightedPolygonOptions: {
+    strokeColor: string;
+    strokeOpacity: number;
+    strokeWeight: number;
+    fillColor: string;
+    fillOpacity: number;
+  };
+  selectedPolygonOptions: {
+    strokeColor: string;
+    strokeOpacity: number;
+    strokeWeight: number;
+    fillColor: string;
+    fillOpacity: number;
+  };
+  selectedHighlightedPolygonOptions: {
+    strokeColor: string;
+    strokeOpacity: number;
+    strokeWeight: number;
+    fillColor: string;
+    fillOpacity: number;
+  };
+  typeaheadHoverPolygonOptions: {
+    strokeColor: string;
+    strokeOpacity: number;
+    strokeWeight: number;
+    fillColor: string;
+    fillOpacity: number;
+  };
 }
 
 @Component({
@@ -34,7 +69,8 @@ interface CloseTypeaheadOptions {
     NgbTypeaheadModule,
     NgbAlertModule,
     MapComponent,
-    PlzSelectionTableComponent
+    PlzSelectionTableComponent,
+    SearchInputComponent
   ],
   templateUrl: './distribution-step.component.html',
   styleUrls: ['./distribution-step.component.scss'],
@@ -47,6 +83,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   @ViewChild('typeaheadInstance') typeaheadInstance!: NgbTypeahead;
   @ViewChild('selectAllButtonEl') selectAllButtonEl!: ElementRef<HTMLButtonElement>;
   @ViewChild('typeaheadInputEl') typeaheadInputEl!: ElementRef<HTMLInputElement>;
+  @ViewChild('searchInputComponent') searchInputComponent!: SearchInputComponent;
 
   private destroy$ = new Subject<void>();
 
@@ -160,7 +197,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     return `${day}.${month}.${year}`;
   }
 
-  private parseYyyyMmDdToDate(dateString: string): Date {
+  public parseYyyyMmDdToDate(dateString: string): Date {
     const parts = dateString.split('-');
     return new Date(Date.UTC(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])));
   }
@@ -319,17 +356,21 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   quickSearch(term: string): void {
-    this.typeaheadSearchTerm = term;
-    this.currentTypeaheadSelection = null;
-    this.focusEmitter.next('');
-    this.focusEmitter.next(term);
-    this.suppressNextBlur = true;
-    setTimeout(() => {
-      if (this.typeaheadInputEl?.nativeElement) {
-        this.typeaheadInputEl.nativeElement.focus();
-      }
-    }, 0);
-    this.cdr.markForCheck();
+    if (this.searchInputComponent) {
+      this.searchInputComponent.triggerQuickSearch(term);
+    } else {
+      this.typeaheadSearchTerm = term;
+      this.currentTypeaheadSelection = null;
+      this.focusEmitter.next('');
+      this.focusEmitter.next(term);
+      this.suppressNextBlur = true;
+      setTimeout(() => {
+        if (this.typeaheadInputEl?.nativeElement) {
+          this.typeaheadInputEl.nativeElement.focus();
+        }
+      }, 0);
+      this.cdr.markForCheck();
+    }
   }
 
   onTypeaheadPopupMouseEnter() {
@@ -340,6 +381,11 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private closeTypeaheadAndHeader(options: CloseTypeaheadOptions = {}): void {
+    if (this.searchInputComponent) {
+      this.searchInputComponent.closeTypeaheadAndHeader(options);
+      return;
+    }
+
     const { clearSearchTerm = false, clearSelectionModel = false, clearResults = true } = options;
     if (this.typeaheadInstance && this.typeaheadInstance.isPopupOpen()) {
       this.typeaheadInstance.dismissPopup();
@@ -765,23 +811,38 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     return '';
   };
 
-  @HostListener('document:keydown.escape', ['$event'])
-  onKeydownHandler(event: KeyboardEvent) {
-    if (this.isTypeaheadListOpen || this.isCustomHeaderOpen) {
-      event.preventDefault();
-      this.closeTypeaheadAndHeader({ clearSearchTerm: false, clearSelectionModel: true, clearResults: true });
-      this.typeaheadHoverResultsForMapIds = [];
-      this.onTypeaheadInputChange(this.typeaheadSearchTerm);
+  // Methods to handle events from the SearchInputComponent
+  onSearchItemSelected(item: EnhancedSearchResultItem): void {
+    this.handleTakeItemFromTypeahead(item);
+  }
+
+  onSearchGroupItemsSelected(items: PlzEntry[]): void {
+    if (items && items.length > 0) {
+      this.selectionService.addMultipleEntries(items);
     }
   }
 
-  @HostListener('keydown', ['$event'])
-  handleFormKeyDown(event: KeyboardEvent) {
-    if (this.isCustomHeaderOpen && this.currentSearchResultsContainer?.showSelectAllButton) {
-      if (document.activeElement === this.selectAllButtonEl?.nativeElement && event.key === 'Enter') {
-        event.preventDefault();
-        this.handleSelectAllFromTypeaheadHeader();
+  onSearchRangeEntered(range: string): void {
+    this.plzDataService.getEntriesByPlzRange(range).subscribe(entries => {
+      if (entries.length > 0) {
+        this.selectionService.addMultipleEntries(entries);
+      } else {
+        if (isPlatformBrowser(this.platformId)) alert(`Für den Bereich "${range}" wurden keine gültigen PLZ-Gebiete gefunden.`);
       }
-    }
+    });
+  }
+
+  onSearchHoveredPlzIdsChanged(plzIds: string[]): void {
+    this.typeaheadHoverResultsForMapIds = plzIds;
+  }
+
+  onSearchValidityChanged(status: ValidationStatus): void {
+    this.textInputStatus = status;
+    this.updateOverallValidationState();
+  }
+
+  onSearchInProgressChanged(searching: boolean): void {
+    this.searching = searching;
+    this.cdr.markForCheck();
   }
 }
