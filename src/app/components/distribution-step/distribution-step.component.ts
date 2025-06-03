@@ -1,121 +1,67 @@
 import {
-  Component, Output, EventEmitter, AfterViewInit, OnDestroy, ViewChild, ElementRef,
-  NgZone, Inject, PLATFORM_ID, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, HostListener
+  Component, OnInit, AfterViewInit, OnDestroy, ViewChild, Output, EventEmitter,
+  Inject, PLATFORM_ID, NgZone, ChangeDetectorRef
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NgbTypeaheadModule, NgbTypeaheadSelectItemEvent, NgbAlertModule, NgbTypeahead } from '@ng-bootstrap/ng-bootstrap';
-import { Observable, of, Subject, merge } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap, catchError, takeUntil, tap, map } from 'rxjs/operators';
+import { Observable, Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
-import { ValidationStatus } from '../../app.component';
-import { PlzDataService, PlzEntry, SearchResultsContainer, EnhancedSearchResultItem } from '../../services/plz-data.service';
+import { PlzDataService, PlzEntry } from '../../services/plz-data.service';
 import { SelectionService } from '../../services/selection.service';
-import { MapComponent } from '../map/map.component';
+import { MapOptions, MapComponent } from '../map/map.component';
+import { SearchInputComponent, SimpleValidationStatus } from '../search-input/search-input.component';
 import { PlzSelectionTableComponent } from '../plz-selection-table/plz-selection-table.component';
-import { SearchInputComponent, CloseTypeaheadOptions } from '../search-input/search-input.component';
 
-const COLUMN_HIGHLIGHT_DURATION = 300;
 
-export type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
-export type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
+const COLUMN_HIGHLIGHT_DURATION = 1500;
+type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
+type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
+type OverallValidationStatus = 'valid' | 'invalid' | 'pending';
 
-interface MapOptions {
-  initialCenter: { lat: number; lng: number };
-  initialZoom: number;
-  defaultPolygonOptions: {
-    strokeColor: string;
-    strokeOpacity: number;
-    strokeWeight: number;
-    fillColor: string;
-    fillOpacity: number;
-  };
-  highlightedPolygonOptions: {
-    strokeColor: string;
-    strokeOpacity: number;
-    strokeWeight: number;
-    fillColor: string;
-    fillOpacity: number;
-  };
-  selectedPolygonOptions: {
-    strokeColor: string;
-    strokeOpacity: number;
-    strokeWeight: number;
-    fillColor: string;
-    fillOpacity: number;
-  };
-  selectedHighlightedPolygonOptions: {
-    strokeColor: string;
-    strokeOpacity: number;
-    strokeWeight: number;
-    fillColor: string;
-    fillOpacity: number;
-  };
-  typeaheadHoverPolygonOptions: {
-    strokeColor: string;
-    strokeOpacity: number;
-    strokeWeight: number;
-    fillColor: string;
-    fillOpacity: number;
-  };
+// Definiere hier das Interface, das vom Highlight-Event der Tabelle erwartet wird
+export interface TableHighlightEvent {
+  plzId: string | null; // Erlaube null für plzId
+  highlight: boolean;
 }
 
 @Component({
   selector: 'app-distribution-step',
+  templateUrl: './distribution-step.component.html',
+  styleUrls: ['./distribution-step.component.scss'],
   standalone: true,
   imports: [
     CommonModule,
     FormsModule,
-    NgbTypeaheadModule,
-    NgbAlertModule,
+    SearchInputComponent,
     MapComponent,
-    PlzSelectionTableComponent,
-    SearchInputComponent
-  ],
-  templateUrl: './distribution-step.component.html',
-  styleUrls: ['./distribution-step.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+    PlzSelectionTableComponent
+  ]
 })
 export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestroy {
   @Output() nextStepRequest = new EventEmitter<void>();
-  @Output() validationChange = new EventEmitter<ValidationStatus>();
+  @Output() validationChange = new EventEmitter<OverallValidationStatus>();
 
-  @ViewChild('typeaheadInstance') typeaheadInstance!: NgbTypeahead;
-  @ViewChild('selectAllButtonEl') selectAllButtonEl!: ElementRef<HTMLButtonElement>;
-  @ViewChild('typeaheadInputEl') typeaheadInputEl!: ElementRef<HTMLInputElement>;
-  @ViewChild('searchInputComponent') searchInputComponent!: SearchInputComponent;
+  @ViewChild(SearchInputComponent) searchInputComponent!: SearchInputComponent;
+  @ViewChild(MapComponent) mapComponent!: MapComponent;
 
   private destroy$ = new Subject<void>();
 
-  typeaheadSearchTerm: string = '';
-  currentTypeaheadSelection: EnhancedSearchResultItem | null = null;
-  public typeaheadHoverResultsForMapIds: string[] = [];
-  searching: boolean = false;
+  public searchInputInitialTerm: string = '';
+  public searchInputStatus: SimpleValidationStatus = 'empty';
+
   selectedEntries$: Observable<PlzEntry[]>;
   currentVerteilungTyp: VerteilungTypOption = 'Nach PLZ';
   showPlzUiContainer: boolean = true;
   showPerimeterUiContainer: boolean = false;
   currentZielgruppe: ZielgruppeOption = 'Alle Haushalte';
   highlightFlyerMaxColumn: boolean = false;
-  textInputStatus: ValidationStatus = 'invalid';
 
   verteilungStartdatum: string = '';
   minVerteilungStartdatum: string = '';
   showExpressSurcharge: boolean = false;
   expressSurchargeConfirmed: boolean = false;
   public defaultStandardStartDate!: Date;
-
-  currentSearchResultsContainer: SearchResultsContainer | null = null;
-  isTypeaheadListOpen = false;
-  isCustomHeaderOpen = false;
-  isMouseOverPopupOrHeader = false;
-  private focusEmitter = new Subject<string>();
-  private suppressNextBlur = false;
-
-  private isInputFocused = false;
-  private lastBlurTimestamp = 0;
-  private lastFocusTimestamp = 0;
-  private blurBlockTimeout: any = null;
 
   public mapSelectedPlzIds: string[] = [];
   public mapZoomToPlzId: string | null = null;
@@ -125,8 +71,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   public mapConfig: MapOptions;
   public readonly kmlPathConstant: string = 'assets/ch_plz.kml';
   public readonly apiKeyConstant: string = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc';
-
-  public readonly plzRangeRegex = /^\s*(\d{4,6})\s*-\s*(\d{4,6})\s*$/;
 
   constructor(
     private ngZone: NgZone,
@@ -164,7 +108,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private initializeDates(): void {
-    const today = new Date("2025-06-01T18:53:56Z");
+    const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
     const minStartDate = new Date(today.getTime());
@@ -178,7 +122,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       initialStartDate = new Date(minStartDate.getTime());
     }
     this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialStartDate);
-
     this.checkExpressSurcharge();
   }
 
@@ -197,9 +140,15 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     return `${day}.${month}.${year}`;
   }
 
-  public parseYyyyMmDdToDate(dateString: string): Date {
+  private parseYyyyMmDdToDate(dateString: string): Date {
     const parts = dateString.split('-');
-    return new Date(Date.UTC(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])));
+    if (parts.length === 3) {
+      return new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+    }
+    console.error("Ungültiges Datumsformat für parseYyyyMmDdToDate:", dateString);
+    const invalidDate = new Date(0);
+    invalidDate.setTime(NaN);
+    return invalidDate;
   }
 
   private addWorkingDays(baseDate: Date, daysToAdd: number): Date {
@@ -207,7 +156,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     let workingDaysAdded = 0;
     while (workingDaysAdded < daysToAdd) {
       currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-      if (currentDate.getUTCDay() !== 0) {
+      if (currentDate.getUTCDay() !== 0 && currentDate.getUTCDay() !== 6) {
         workingDaysAdded++;
       }
     }
@@ -246,14 +195,14 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     const selectedStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
     const minAllowedStartDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
 
-    const needsSurcharge = selectedStartDate.getTime() < this.defaultStandardStartDate.getTime() && selectedStartDate.getTime() >= minAllowedStartDate.getTime();
-
-    if (needsSurcharge) {
-      this.showExpressSurcharge = !this.expressSurchargeConfirmed;
-    } else {
+    if (isNaN(this.defaultStandardStartDate.getTime())) {
       this.showExpressSurcharge = false;
-      this.expressSurchargeConfirmed = false;
+      return;
     }
+
+    const needsSurcharge = selectedStartDate.getTime() < this.defaultStandardStartDate.getTime() &&
+      selectedStartDate.getTime() >= minAllowedStartDate.getTime();
+    this.showExpressSurcharge = needsSurcharge && !this.expressSurchargeConfirmed;
   }
 
   public avoidExpressSurcharge(): void {
@@ -284,10 +233,27 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     this.destroy$.complete();
   }
 
+  onSearchInputEntriesSelected(entries: PlzEntry[]): void {
+    if (entries && entries.length > 0) {
+      this.selectionService.addMultipleEntries(entries);
+    }
+    this.cdr.markForCheck();
+  }
+
+  onSearchInputTermChanged(term: string): void {
+    // Logik hier, falls benötigt
+  }
+
+  onSearchInputStatusChanged(status: SimpleValidationStatus): void {
+    this.searchInputStatus = status;
+    this.updateOverallValidationState();
+    this.cdr.markForCheck();
+  }
+
   setVerteilungTyp(typ: VerteilungTypOption): void {
     if (this.currentVerteilungTyp !== typ) {
       this.currentVerteilungTyp = typ;
-      this.onVerteilungTypChangeFromTemplate(typ);
+      this.updateUiFlagsAndMapState();
     }
   }
 
@@ -298,11 +264,15 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  onVerteilungTypChangeFromTemplate(newVerteilungTyp: VerteilungTypOption): void {
-    this.updateUiFlagsAndMapState();
+  private updateUiFlagsAndMapState(): void {
+    this.showPlzUiContainer = this.currentVerteilungTyp === 'Nach PLZ';
+    this.showPerimeterUiContainer = this.currentVerteilungTyp === 'Nach Perimeter';
+    this.cdr.detectChanges();
+    this.updateOverallValidationState();
+    this.cdr.markForCheck();
   }
 
-  onZielgruppeChange(): void {
+  private onZielgruppeChange(): void {
     this.highlightFlyerMaxColumn = true;
     this.cdr.markForCheck();
     setTimeout(() => {
@@ -310,18 +280,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       this.cdr.markForCheck();
     }, COLUMN_HIGHLIGHT_DURATION);
     this.updateOverallValidationState();
-  }
-
-  private updateUiFlags(verteilungTyp: VerteilungTypOption): void {
-    this.showPlzUiContainer = verteilungTyp === 'Nach PLZ';
-    this.showPerimeterUiContainer = verteilungTyp === 'Nach Perimeter';
-  }
-
-  private updateUiFlagsAndMapState(): void {
-    this.updateUiFlags(this.currentVerteilungTyp);
-    this.cdr.detectChanges();
-    this.updateOverallValidationState();
-    this.cdr.markForCheck();
   }
 
   onPlzClickedOnMap(event: { id: string; name?: string }): void {
@@ -333,14 +291,14 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     if (isCurrentlySelected) {
       this.selectionService.removeEntry(entryIdFromMap);
     } else {
-      this.plzDataService.getEntryById(entryIdFromMap).subscribe(entry => {
+      this.plzDataService.getEntryById(entryIdFromMap).subscribe((entry: PlzEntry | undefined) => {
         if (entry && this.selectionService.validateEntry(entry)) {
           this.selectionService.addEntry(entry);
         } else {
           const plz6 = entryIdFromMap;
           const plz4 = plz6.length >= 4 ? plz6.substring(0, 4) : plz6;
           const pseudoOrt = event.name || 'Unbekannt';
-          const pseudoEntry: PlzEntry = { id: entryIdFromMap, plz6, plz4, ort: pseudoOrt, kt: 'N/A', all: 0, mfh: 0, efh: 0 };
+          const pseudoEntry: PlzEntry = { id: entryIdFromMap, plz6, plz4, ort: pseudoOrt, kt: 'N/A', all: 0 };
           if (this.selectionService.validateEntry(pseudoEntry)) {
             this.selectionService.addEntry(pseudoEntry);
           }
@@ -355,242 +313,24 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     this.cdr.markForCheck();
   }
 
-  quickSearch(term: string): void {
+  public quickSearch(term: string): void {
     if (this.searchInputComponent) {
-      this.searchInputComponent.triggerQuickSearch(term);
+      this.searchInputComponent.initiateSearchForTerm(term);
     } else {
-      this.typeaheadSearchTerm = term;
-      this.currentTypeaheadSelection = null;
-      this.focusEmitter.next('');
-      this.focusEmitter.next(term);
-      this.suppressNextBlur = true;
-      setTimeout(() => {
-        if (this.typeaheadInputEl?.nativeElement) {
-          this.typeaheadInputEl.nativeElement.focus();
-        }
-      }, 0);
+      this.searchInputInitialTerm = term;
       this.cdr.markForCheck();
     }
   }
 
-  onTypeaheadPopupMouseEnter() {
-    this.isMouseOverPopupOrHeader = true;
-  }
-  onTypeaheadPopupMouseLeave() {
-    this.isMouseOverPopupOrHeader = false;
-  }
-
-  private closeTypeaheadAndHeader(options: CloseTypeaheadOptions = {}): void {
-    if (this.searchInputComponent) {
-      this.searchInputComponent.closeTypeaheadAndHeader(options);
-      return;
-    }
-
-    const { clearSearchTerm = false, clearSelectionModel = false, clearResults = true } = options;
-    if (this.typeaheadInstance && this.typeaheadInstance.isPopupOpen()) {
-      this.typeaheadInstance.dismissPopup();
-    }
-    this.isTypeaheadListOpen = false;
-    if (clearResults) {
-      this.currentSearchResultsContainer = null;
-      this.isCustomHeaderOpen = false;
-    } else if (!this.currentSearchResultsContainer || !this.currentSearchResultsContainer.headerText) {
-      this.isCustomHeaderOpen = false;
-    }
-    if (clearSearchTerm) this.typeaheadSearchTerm = '';
-    if (clearSelectionModel) this.currentTypeaheadSelection = null;
+  public clearPlzTable(): void {
+    this.selectionService.clearEntries();
+    this.mapZoomToPlzId = null;
+    this.mapZoomToPlzIdList = null;
     this.cdr.markForCheck();
-  }
-
-  searchPlzTypeahead = (text$: Observable<string>): Observable<EnhancedSearchResultItem[]> =>
-    merge(text$, this.focusEmitter).pipe(
-      debounceTime(150),
-      distinctUntilChanged(),
-      switchMap(term => {
-        this.typeaheadHoverResultsForMapIds = [];
-        if (!term || term.trim().length < 2) {
-          this.closeTypeaheadAndHeader({ clearSearchTerm: term === '', clearSelectionModel: true, clearResults: true });
-          this.textInputStatus = 'invalid';
-          this.updateOverallValidationState();
-          return of([]);
-        }
-        this.searching = true;
-        this.textInputStatus = 'pending';
-        this.updateOverallValidationState();
-        this.cdr.markForCheck();
-
-        return this.plzDataService.searchEnhanced(term).pipe(
-          tap(resultsContainer => {
-            this.searching = false;
-            this.currentSearchResultsContainer = resultsContainer;
-            const hasItems = resultsContainer.itemsForDisplay.length > 0;
-            const hasHeaderMessage = !!resultsContainer.headerText && resultsContainer.headerText !== `Keine Einträge für "${term}" gefunden.`;
-            const hasActionableHeader = hasHeaderMessage && resultsContainer.showSelectAllButton && resultsContainer.entriesForSelectAllAction.length > 0;
-            this.isCustomHeaderOpen = hasItems || hasHeaderMessage;
-            this.isTypeaheadListOpen = hasItems;
-            if (hasItems) {
-              this.textInputStatus = 'pending';
-              this.typeaheadHoverResultsForMapIds = resultsContainer.itemsForDisplay
-                .filter(item => !item.isGroupHeader && item.id)
-                .map(item => item.id!);
-            } else if (hasActionableHeader) {
-              this.textInputStatus = 'pending';
-            } else {
-              this.textInputStatus = 'invalid';
-            }
-            if (term.length >= 2 && !hasItems && !hasActionableHeader) {
-              this.textInputStatus = 'invalid';
-            }
-            this.cdr.markForCheck();
-            if (this.isTypeaheadListOpen || this.isCustomHeaderOpen) {
-              setTimeout(() => this.setInitialFocusInTypeahead(), 0);
-            }
-            this.updateOverallValidationState();
-          }),
-          map(resultsContainer => resultsContainer.itemsForDisplay),
-          catchError(() => {
-            this.searching = false;
-            this.currentSearchResultsContainer = {
-              searchTerm: term, searchTypeDisplay: 'none', itemsForDisplay: [],
-              headerText: 'Fehler bei der Suche.', showSelectAllButton: false, entriesForSelectAllAction: []
-            };
-            this.isCustomHeaderOpen = true; this.isTypeaheadListOpen = false;
-            this.textInputStatus = 'invalid';
-            this.typeaheadHoverResultsForMapIds = [];
-            this.updateOverallValidationState();
-            this.cdr.markForCheck();
-            return of([]);
-          })
-        );
-      })
-    );
-
-  onTypeaheadInputChange(term: string): void {
-    if (this.currentTypeaheadSelection && this.typeaheadInputFormatter(this.currentTypeaheadSelection) !== term) {
-      this.currentTypeaheadSelection = null;
-    }
-    if (term === '' || term.trim().length < 2) {
-      this.textInputStatus = 'invalid';
-      this.currentTypeaheadSelection = null;
-      this.typeaheadHoverResultsForMapIds = [];
-    } else if (/^\s*\d{4,6}\s*-\s*\d{4,6}\s*$/.test(term)) {
-      this.textInputStatus = 'valid';
-      this.currentTypeaheadSelection = null;
-    } else {
-      this.textInputStatus = this.currentTypeaheadSelection ? 'valid' : 'pending';
-    }
-    this.updateOverallValidationState();
-    this.cdr.markForCheck();
-  }
-
-  typeaheadItemSelected(event: NgbTypeaheadSelectItemEvent<EnhancedSearchResultItem>): void {
-    event.preventDefault();
-    const selectedItem = event.item;
-    if (!selectedItem) return;
-    this.handleTakeItemFromTypeahead(selectedItem);
-  }
-
-  handleTakeItemFromTypeahead(item: EnhancedSearchResultItem, event?: MouseEvent): void {
-    event?.stopPropagation(); event?.preventDefault();
-    if (!item) return;
-
-    if (item.isGroupHeader) {
-      if (this.currentSearchResultsContainer?.entriesForSelectAllAction && this.currentSearchResultsContainer.entriesForSelectAllAction.length > 0 && this.currentSearchResultsContainer.searchTypeDisplay === 'ort' && this.currentSearchResultsContainer.searchTerm.toLowerCase() === item.ort.toLowerCase()) {
-        this.selectionService.addMultipleEntries(this.currentSearchResultsContainer.entriesForSelectAllAction);
-      } else {
-        this.plzDataService.getEntriesByOrt(item.ort).subscribe(entries => {
-          if (entries.length > 0) {
-            this.selectionService.addMultipleEntries(entries);
-          }
-        });
-      }
-    } else {
-      const entryToAdd: PlzEntry = {
-        id: item.id, plz6: item.plz6, plz4: item.plz4, ort: item.ort, kt: item.kt,
-        all: item.all, mfh: item.mfh, efh: item.efh, isGroupEntry: item.isGroupEntry ?? false
-      };
-      this.selectionService.addEntry(entryToAdd);
-    }
-    this.closeTypeaheadAndHeader({ clearSearchTerm: true, clearSelectionModel: true, clearResults: true });
-    this.typeaheadHoverResultsForMapIds = [];
-  }
-
-  handleSelectAllFromTypeaheadHeader(): void {
-    if (this.currentSearchResultsContainer?.showSelectAllButton && this.currentSearchResultsContainer.entriesForSelectAllAction.length > 0) {
-      this.selectionService.addMultipleEntries(this.currentSearchResultsContainer.entriesForSelectAllAction);
-    }
-    this.closeTypeaheadAndHeader({ clearSearchTerm: true, clearSelectionModel: true, clearResults: true });
-    this.typeaheadHoverResultsForMapIds = [];
-  }
-
-  onSearchFocus(): void {
-    this.isInputFocused = true;
-    this.lastFocusTimestamp = Date.now();
-    setTimeout(() => {
-      this.suppressNextBlur = false;
-    }, 300);
-    const term = this.typeaheadSearchTerm;
-    if ((term.length >= 2 && !this.plzRangeRegex.test(term)) || term === '' || this.currentSearchResultsContainer) {
-      this.focusEmitter.next(term);
-    }
-    this.cdr.markForCheck();
-  }
-
-  onSearchBlur(): void {
-    this.isInputFocused = false;
-    this.lastBlurTimestamp = Date.now();
-    if (this.suppressNextBlur) {
-      return;
-    }
-    if (this.isMouseOverPopupOrHeader) {
-      // Block Blur, refocus input
-      clearTimeout(this.blurBlockTimeout);
-      this.blurBlockTimeout = setTimeout(() => {
-        if (!this.isInputFocused && this.typeaheadInputEl?.nativeElement) {
-          this.typeaheadInputEl.nativeElement.focus();
-        }
-      }, 0);
-      return;
-    }
-    setTimeout(() => {
-      if (!this.isMouseOverPopupOrHeader) {
-        const isRange = this.plzRangeRegex.test(this.typeaheadSearchTerm.trim());
-        if ((isRange && this.textInputStatus === 'valid') || this.currentTypeaheadSelection) {
-          this.closeTypeaheadAndHeader({ clearSearchTerm: false, clearSelectionModel: false, clearResults: false });
-        } else {
-          this.closeTypeaheadAndHeader({ clearSearchTerm: false, clearSelectionModel: true, clearResults: true });
-        }
-        this.typeaheadHoverResultsForMapIds = [];
-      }
-    }, 200);
-  }
-
-  addCurrentSelectionToTable(): void {
-    const searchTerm = this.typeaheadSearchTerm.trim();
-    const rangeMatch = searchTerm.match(this.plzRangeRegex);
-
-    if (rangeMatch && searchTerm !== '') {
-      this.plzDataService.getEntriesByPlzRange(searchTerm).subscribe(entries => {
-        if (entries.length > 0) {
-          this.selectionService.addMultipleEntries(entries);
-        } else {
-          if (isPlatformBrowser(this.platformId)) alert(`Für den Bereich "${searchTerm}" wurden keine gültigen PLZ-Gebiete gefunden.`);
-        }
-        this.closeTypeaheadAndHeader({ clearSearchTerm: true, clearSelectionModel: true, clearResults: true });
-        this.typeaheadHoverResultsForMapIds = [];
-      });
-    } else if (this.currentTypeaheadSelection) {
-      this.handleTakeItemFromTypeahead(this.currentTypeaheadSelection);
-    }
   }
 
   removePlzFromTable(entry: PlzEntry): void {
     this.selectionService.removeEntry(entry.id);
-  }
-
-  clearPlzTable(): void {
-    this.selectionService.clearEntries();
-    this.typeaheadHoverResultsForMapIds = [];
   }
 
   zoomToTableEntryOnMap(entry: PlzEntry): void {
@@ -600,8 +340,13 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     setTimeout(() => { this.mapZoomToPlzId = null; this.cdr.markForCheck(); }, 100);
   }
 
-  highlightPlacemarkOnMapFromTable(plzId: string | null, highlight: boolean): void {
-    this.mapTableHoverPlzId = highlight ? plzId : null;
+  // KORRIGIERT: Akzeptiert das Interface TableHighlightEvent
+  highlightPlacemarkOnMapFromTable(event: TableHighlightEvent): void {
+    if (event.highlight && event.plzId) {
+      this.mapTableHoverPlzId = event.plzId;
+    } else {
+      this.mapTableHoverPlzId = null; // Highlight entfernen, wenn highlight false oder plzId null ist
+    }
     this.cdr.markForCheck();
   }
 
@@ -622,34 +367,25 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  setExampleStatus(status: ValidationStatus): void {
-    this.textInputStatus = status;
-    if (status === 'invalid') {
-      this.currentTypeaheadSelection = null;
-      this.typeaheadSearchTerm = '';
-    }
-    this.updateOverallValidationState();
-    this.cdr.markForCheck();
-  }
-
   private updateOverallValidationState(): void {
-    const newOverallStatus = this.calculateValidationStatus();
+    const newOverallStatus = this.calculateOverallValidationStatus();
     if (this.validationChange.observers.length > 0) {
       this.validationChange.emit(newOverallStatus);
     }
     this.cdr.markForCheck();
   }
 
-  private calculateValidationStatus(): ValidationStatus {
-    const mapHasSelection = this.selectionService.getSelectedEntries().length > 0;
-    const startDateSelected = !!this.verteilungStartdatum;
-
-    const isExpressRelevant = this.isExpressSurchargeRelevant();
-    const expressConditionMet = !isExpressRelevant || (isExpressRelevant && this.expressSurchargeConfirmed);
-    const verteilungsDetailsComplete = startDateSelected && expressConditionMet;
+  private calculateOverallValidationStatus(): OverallValidationStatus {
+    const hasSelectedPlzEntries = this.selectionService.getSelectedEntries().length > 0;
+    const startDateSelected = !!this.verteilungStartdatum && !isNaN(this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime());
+    const isExpressSurchargeRelevantAndNotConfirmed = this.isExpressSurchargeRelevant() && !this.expressSurchargeConfirmed;
+    const verteilungsDetailsComplete = startDateSelected && !isExpressSurchargeRelevantAndNotConfirmed;
 
     if (this.showPlzUiContainer) {
-      return this.validatePlzContainer(mapHasSelection, verteilungsDetailsComplete);
+      if (hasSelectedPlzEntries && verteilungsDetailsComplete) {
+        return 'valid';
+      }
+      return 'invalid';
     } else if (this.showPerimeterUiContainer) {
       return verteilungsDetailsComplete ? 'valid' : 'invalid';
     }
@@ -660,189 +396,45 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     if (!this.verteilungStartdatum || !this.defaultStandardStartDate) {
       return false;
     }
-    const selectedStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime();
+    const selectedStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
+    if (isNaN(selectedStartDate.getTime()) || isNaN(this.defaultStandardStartDate.getTime())) {
+      return false;
+    }
     const standardStartDate = this.defaultStandardStartDate.getTime();
     const minStartDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum).getTime();
+    if (isNaN(minStartDate)) return false;
 
-    return selectedStartDate < standardStartDate && selectedStartDate >= minStartDate;
-  }
-
-  private validatePlzContainer(mapHasSelection: boolean, verteilungsDetailsComplete: boolean): ValidationStatus {
-    const searchTerm = this.typeaheadSearchTerm.trim();
-    const isRangeInputValid = this.plzRangeRegex.test(searchTerm);
-    const hasValidSelection = this.currentTypeaheadSelection || mapHasSelection;
-    const hasValidRangeInput = isRangeInputValid && searchTerm !== '';
-
-    if ((hasValidSelection || hasValidRangeInput) && verteilungsDetailsComplete) {
-      return 'valid';
-    }
-    const isPendingInput = this.textInputStatus === 'pending';
-    const missingSelectionButPending = isPendingInput && !mapHasSelection && !this.currentTypeaheadSelection;
-    const invalidSearchButPending = isPendingInput && !this.plzRangeRegex.test(searchTerm.trim());
-
-    if (verteilungsDetailsComplete && (
-      (isPendingInput && !mapHasSelection) ||
-      (missingSelectionButPending && invalidSearchButPending)
-    )) {
-      return 'pending';
-    }
-    return 'invalid';
+    return selectedStartDate.getTime() < standardStartDate && selectedStartDate.getTime() >= minStartDate;
   }
 
   proceedToNextStep(): void {
-    this.updateOverallValidationState();
+    const currentOverallStatus = this.calculateOverallValidationStatus();
+    this.validationChange.emit(currentOverallStatus);
 
-    let currentOverallStatusForProceed: ValidationStatus = 'invalid';
-
-    const mapHasSelection = this.selectionService.getSelectedEntries().length > 0;
-    const searchTerm = this.typeaheadSearchTerm.trim();
-    const isRangeInputValid = this.plzRangeRegex.test(searchTerm);
-    const startDateSelected = !!this.verteilungStartdatum;
-
-    const verteilungsDetailsCompleteBasic = startDateSelected;
-    const isExpressRelevant = this.verteilungStartdatum && this.defaultStandardStartDate &&
-      this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime() < this.defaultStandardStartDate.getTime() &&
-      this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime() >= this.parseYyyyMmDdToDate(this.minVerteilungStartdatum).getTime();
-    const expressConditionMet = !isExpressRelevant || (isExpressRelevant && this.expressSurchargeConfirmed);
-    const verteilungsDetailsComplete = verteilungsDetailsCompleteBasic && expressConditionMet;
-
-    if (this.showPlzUiContainer) {
-      if ((this.currentTypeaheadSelection || mapHasSelection || (isRangeInputValid && searchTerm !== '')) && verteilungsDetailsComplete) {
-        currentOverallStatusForProceed = 'valid';
-      } else if (this.textInputStatus === 'pending' && !mapHasSelection && verteilungsDetailsComplete) {
-        currentOverallStatusForProceed = 'pending';
-      } else {
-        currentOverallStatusForProceed = 'invalid';
-      }
-    } else if (this.showPerimeterUiContainer) {
-      if (verteilungsDetailsComplete) {
-        currentOverallStatusForProceed = 'valid';
-      } else {
-        currentOverallStatusForProceed = 'invalid';
-      }
-    }
-
-    if (currentOverallStatusForProceed === 'pending' && !verteilungsDetailsComplete) {
-      currentOverallStatusForProceed = 'invalid';
-    }
-    if (currentOverallStatusForProceed === 'valid' && this.textInputStatus === 'pending' && this.showPlzUiContainer && !mapHasSelection && !this.currentTypeaheadSelection && !this.plzRangeRegex.test(searchTerm.trim())) {
-      currentOverallStatusForProceed = 'pending';
-    }
-
-    this.validationChange.emit(currentOverallStatusForProceed);
-
-    if (currentOverallStatusForProceed === 'valid') {
-      if (this.showPlzUiContainer && isRangeInputValid && searchTerm !== '' && !this.currentTypeaheadSelection && !mapHasSelection) {
-        this.plzDataService.getEntriesByPlzRange(searchTerm).subscribe(entries => {
-          if (entries.length > 0) {
-            this.selectionService.addMultipleEntries(entries);
-            this.closeTypeaheadAndHeader({ clearSearchTerm: true, clearSelectionModel: true, clearResults: true });
-            this.typeaheadHoverResultsForMapIds = [];
-            this.nextStepRequest.emit();
-          } else {
-            if (isPlatformBrowser(this.platformId)) alert(`Für den Bereich "${searchTerm}" wurden keine gültigen PLZ-Gebiete gefunden. Ihre Auswahl wurde nicht geändert.`);
-            this.textInputStatus = 'invalid';
-            this.updateOverallValidationState();
-          }
-        });
-      } else {
-        this.nextStepRequest.emit();
-      }
+    if (currentOverallStatus === 'valid') {
+      this.nextStepRequest.emit();
     } else {
-      let message = "Bitte vervollständigen Sie Ihre Auswahl. Stellen Sie sicher, dass ein Zielgebiet definiert und alle Verteilungsdetails (Zeitraum) ausgewählt sind.";
-      if (currentOverallStatusForProceed === 'pending') {
-        message = "Bitte vervollständigen Sie Ihre Eingabe im Suchfeld oder wählen Sie einen Eintrag aus der Liste.";
-      } else if (!verteilungsDetailsCompleteBasic) {
-        const missingDetails: string[] = [];
-        if (!startDateSelected) missingDetails.push("Startdatum");
-        message = `Bitte wählen Sie folgende Details aus: ${missingDetails.join(', ')}.`;
-      } else if (isExpressRelevant && !this.expressSurchargeConfirmed) {
+      let message = "Bitte vervollständigen Sie Ihre Auswahl und Angaben.";
+      const hasSelectedPlzEntries = this.selectionService.getSelectedEntries().length > 0;
+      const startDateSelected = !!this.verteilungStartdatum && !isNaN(this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime());
+      const isExpressSurchargeRelevantAndNotConfirmed = this.isExpressSurchargeRelevant() && !this.expressSurchargeConfirmed;
+
+      if (!startDateSelected) {
+        message = "Bitte wählen Sie ein gültiges Startdatum für die Verteilung aus.";
+      } else if (isExpressSurchargeRelevantAndNotConfirmed) {
         message = "Bitte bestätigen Sie den Express-Zuschlag oder wählen Sie ein späteres Startdatum.";
-      } else if (this.showPlzUiContainer && !mapHasSelection && !(isRangeInputValid && searchTerm !== '') && !this.currentTypeaheadSelection) {
-        message = "Die Eingabe im Suchfeld ist ungültig oder unvollständig und es sind keine PLZ-Gebiete auf der Karte ausgewählt. Bitte korrigieren Sie Ihre Auswahl oder geben Sie einen gültigen PLZ-Bereich ein (z.B. 8000-8045).";
+      } else if (this.showPlzUiContainer && !hasSelectedPlzEntries) {
+        if (this.searchInputStatus === 'pending') {
+          message = "Bitte wählen Sie einen Eintrag aus der Suchliste oder vervollständigen Sie Ihre Eingabe.";
+        } else if (this.searchInputStatus === 'valid' && this.searchInputComponent?.typeaheadSearchTerm?.trim().length > 0) {
+          message = "Bitte übernehmen Sie Ihre Eingabe im Suchfeld (z.B. einen PLZ-Bereich mit Enter).";
+        } else {
+          message = "Bitte wählen Sie mindestens ein PLZ-Gebiet aus oder geben Sie einen gültigen PLZ-Bereich ein.";
+        }
       }
-      if (isPlatformBrowser(this.platformId)) alert(message);
-    }
-  }
-
-  highlight(text: string, term: string): string {
-    if (!term || term.length === 0 || !text) return text;
-    const R_SPECIAL = /[-\/\\^$*+?.()|[\]{}]/g;
-    const safeTerm = term.replace(R_SPECIAL, '\\$&');
-    const regex = new RegExp(`(${safeTerm})`, 'gi');
-    try { return text.replace(regex, '<mark>$1</mark>'); } catch (e) { return text; }
-  }
-
-  isAddButtonDisabled(): boolean {
-    const searchTerm = this.typeaheadSearchTerm.trim();
-    const isRange = this.plzRangeRegex.test(searchTerm);
-    if (isRange && searchTerm !== '') return false;
-    if (this.currentTypeaheadSelection) return false;
-    return !(this.textInputStatus === 'valid' && searchTerm !== '');
-  }
-
-  isOrtSearchForTemplate(): boolean { return this.currentSearchResultsContainer?.searchTypeDisplay === 'ort'; }
-  isPlzSearchForTemplate(): boolean { return this.currentSearchResultsContainer?.searchTypeDisplay === 'plz'; }
-  isMixedSearchForTemplate(): boolean { return this.currentSearchResultsContainer?.searchTypeDisplay === 'mixed'; }
-
-  private setInitialFocusInTypeahead(): void {
-    if (this.isCustomHeaderOpen && this.currentSearchResultsContainer?.showSelectAllButton && this.selectAllButtonEl?.nativeElement) {
-      this.selectAllButtonEl.nativeElement.focus({ preventScroll: true });
-    }
-  }
-
-  resultFormatter = (result: EnhancedSearchResultItem): string => {
-    if (!result) return '';
-    if (result.isGroupHeader) {
-      return `${result.ort || result.plz4}${result.childPlzCount ? ` (${result.childPlzCount} PLZ)` : ''}`;
-    }
-    return `${result.plz4 ? result.plz4 + ' ' : ''}${result.ort}${result.kt && result.kt !== 'N/A' ? ' - ' + result.kt : ''}`;
-  };
-
-  typeaheadInputFormatter = (item: EnhancedSearchResultItem | string | null): string => {
-    if (typeof item === 'string') return item;
-    if (item) {
-      if (item.isGroupHeader) return `${item.ort || item.plz4}`;
-      return `${item.plz4 ? item.plz4 + ' ' : ''}${item.ort}${item.kt && item.kt !== 'N/A' ? ' - ' + item.kt : ''}`;
-    }
-    if (this.currentTypeaheadSelection === null && this.plzRangeRegex.test(this.typeaheadSearchTerm)) {
-      return this.typeaheadSearchTerm;
-    }
-    return '';
-  };
-
-  // Methods to handle events from the SearchInputComponent
-  onSearchItemSelected(item: EnhancedSearchResultItem): void {
-    this.handleTakeItemFromTypeahead(item);
-  }
-
-  onSearchGroupItemsSelected(items: PlzEntry[]): void {
-    if (items && items.length > 0) {
-      this.selectionService.addMultipleEntries(items);
-    }
-  }
-
-  onSearchRangeEntered(range: string): void {
-    this.plzDataService.getEntriesByPlzRange(range).subscribe(entries => {
-      if (entries.length > 0) {
-        this.selectionService.addMultipleEntries(entries);
-      } else {
-        if (isPlatformBrowser(this.platformId)) alert(`Für den Bereich "${range}" wurden keine gültigen PLZ-Gebiete gefunden.`);
+      if (isPlatformBrowser(this.platformId)) {
+        alert(message);
       }
-    });
-  }
-
-  onSearchHoveredPlzIdsChanged(plzIds: string[]): void {
-    this.typeaheadHoverResultsForMapIds = plzIds;
-  }
-
-  onSearchValidityChanged(status: ValidationStatus): void {
-    this.textInputStatus = status;
-    this.updateOverallValidationState();
-  }
-
-  onSearchInProgressChanged(searching: boolean): void {
-    this.searching = searching;
-    this.cdr.markForCheck();
+    }
   }
 }

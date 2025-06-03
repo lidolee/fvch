@@ -1,13 +1,14 @@
-import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, of, throwError } from 'rxjs';
-import { map, catchError, shareReplay } from 'rxjs/operators';
-import { isPlatformBrowser } from '@angular/common';
+import {Inject, Injectable, PLATFORM_ID} from '@angular/core';
+import {HttpClient} from '@angular/common/http';
+import {Observable, of, throwError} from 'rxjs';
+import {catchError, map, shareReplay} from 'rxjs/operators';
+import {isPlatformBrowser} from '@angular/common';
 
 const FVDB_JSON_PATH = 'assets/fvdb.json';
+const MAX_SUGGESTION_RESULTS = 7;
 
 export interface PlzEntry {
-  id: string;
+  id: string; // WIRD JETZT WIEDER DIE REINE PLZ6 SEIN
   plz6: string;
   plz4: string;
   ort: string;
@@ -15,24 +16,13 @@ export interface PlzEntry {
   all: number;
   mfh?: number;
   efh?: number;
-  isGroupEntry?: boolean;
 }
 
 export interface EnhancedSearchResultItem extends PlzEntry {
+  // Die ID hier wird auch die PLZ6 sein, da sie PlzEntry erweitert.
+  // Für Gruppen-Header verwenden wir eine spezielle ID.
   isGroupHeader?: boolean;
   childPlzCount?: number;
-  isPrimaryOrtMatch?: boolean;
-  isPrimaryPlzMatch?: boolean;
-  uxScore?: number;
-}
-
-export interface SearchResultsContainer {
-  searchTerm: string;
-  searchTypeDisplay: 'ort' | 'plz' | 'mixed' | 'none' | 'popular';
-  itemsForDisplay: EnhancedSearchResultItem[];
-  headerText: string;
-  showSelectAllButton: boolean;
-  entriesForSelectAllAction: PlzEntry[];
 }
 
 @Injectable({
@@ -46,11 +36,23 @@ export class PlzDataService {
   constructor(
     private http: HttpClient,
     @Inject(PLATFORM_ID) private platformId: Object
-  ) {}
+  ) {
+    console.log(`[PlzDataService] Service instantiated at ${new Date().toISOString()}`);
+  }
+
+  private normalizeStringForSearch(str: string): string {
+    if (!str) return '';
+    return str
+      .toLowerCase()
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  }
 
   private loadPlzData(): Observable<PlzEntry[]> {
     if (!isPlatformBrowser(this.platformId)) {
       this.dataLoadedSuccessfully = false;
+      console.warn(`${new Date().toISOString()} [PlzDataService] Not running in browser, skipping JSON load.`);
       return of([]);
     }
     if (this.plzData$ && this.dataLoadedSuccessfully) {
@@ -59,220 +61,188 @@ export class PlzDataService {
     if (this.plzData$ && !this.dataLoadedSuccessfully && this.rawEntriesCache.length > 0) {
       return of(this.rawEntriesCache);
     }
+
+    console.log(`${new Date().toISOString()} [PlzDataService] Initiating PLZ data load from ${FVDB_JSON_PATH}`);
     this.plzData$ = this.http.get<any[]>(FVDB_JSON_PATH).pipe(
       map(rawDataArray => {
         if (!Array.isArray(rawDataArray)) {
           this.dataLoadedSuccessfully = false;
           this.rawEntriesCache = [];
-          throw new Error('Invalid data format from fvdb.json');
+          console.error(`${new Date().toISOString()} [PlzDataService] Invalid data format from fvdb.json: Expected an array. Received:`, typeof rawDataArray);
+          return [];
         }
-        let processedEntries: PlzEntry[] = [];
-        for (let i = 0; i < rawDataArray.length; i++) {
-          const rawEntry = rawDataArray[i];
-          if (!rawEntry) continue;
-          const plz6FromInput = String(rawEntry.plz || '').trim();
-          const ortFromInput = String(rawEntry.name || '').trim();
-          const ktFromInput = String(rawEntry.ct || 'N/A').trim();
-          const plz4 = plz6FromInput ? plz6FromInput.substring(0, 4) : '';
-          const id = plz6FromInput || `${ortFromInput}-${ktFromInput}`;
-          if (!id || !plz6FromInput || !plz4 || !ortFromInput) continue;
-          const all = Number(rawEntry.all) || 0;
-          let mfh = rawEntry.mfh !== undefined && rawEntry.mfh !== null ? Number(rawEntry.mfh) : undefined;
-          let efh = rawEntry.efh !== undefined && rawEntry.efh !== null ? Number(rawEntry.efh) : undefined;
-          mfh = (mfh === undefined) ? undefined : (isNaN(mfh) ? 0 : mfh);
-          efh = (efh === undefined) ? undefined : (isNaN(efh) ? 0 : efh);
-          processedEntries.push({
-            id: id, plz6: plz6FromInput, plz4: plz4, ort: ortFromInput, kt: ktFromInput,
-            all: all, mfh: mfh, efh: efh, isGroupEntry: false
-          });
-        }
+
+        const processedEntries: PlzEntry[] = rawDataArray
+          .map((rawEntry, index) => {
+            if (!rawEntry || typeof rawEntry.plz === 'undefined' || typeof rawEntry.name === 'undefined') {
+              return null;
+            }
+            const plz6FromInput = String(rawEntry.plz).trim();
+            const ortFromInput = String(rawEntry.name).trim();
+            const ktFromInput = String(rawEntry.ct || 'N/A').trim();
+
+            if (!plz6FromInput || !ortFromInput) {
+              return null;
+            }
+            const plz4 = plz6FromInput.substring(0, 4);
+
+            return {
+              id: plz6FromInput, // ID ist jetzt die PLZ6
+              plz6: plz6FromInput,
+              plz4: plz4,
+              ort: ortFromInput,
+              kt: ktFromInput,
+              all: Number(rawEntry.all) || 0,
+              mfh: rawEntry.mfh !== undefined && rawEntry.mfh !== null ? Number(rawEntry.mfh) : undefined,
+              efh: rawEntry.efh !== undefined && rawEntry.efh !== null ? Number(rawEntry.efh) : undefined,
+            };
+          })
+          .filter(entry => entry !== null) as PlzEntry[];
+
         this.rawEntriesCache = processedEntries;
         this.dataLoadedSuccessfully = processedEntries.length > 0;
+        console.log(`${new Date().toISOString()} [PlzDataService] PLZ data loaded and processed. ${processedEntries.length} entries. First entry ID example: ${processedEntries.length > 0 ? processedEntries[0].id : 'N/A'}`);
+        if (!this.dataLoadedSuccessfully && rawDataArray.length > 0) {
+          console.warn(`${new Date().toISOString()} [PlzDataService] PLZ data loaded but resulted in an empty processed list. Original raw count: ${rawDataArray.length}`);
+        }
         return this.rawEntriesCache;
       }),
       shareReplay(1),
-      catchError(() => {
+      catchError(err => {
         this.rawEntriesCache = [];
         this.dataLoadedSuccessfully = false;
-        return throwError(() => new Error('Failed to load PLZ data.'));
+        console.error(`${new Date().toISOString()} [PlzDataService] Failed to load PLZ data from ${FVDB_JSON_PATH}.`, err);
+        return throwError(() => new Error(`Failed to load PLZ data. Error: ${err.message || err}`));
       })
     );
     return this.plzData$;
   }
 
   public getPlzData(): Observable<PlzEntry[]> {
-    if (!this.plzData$) this.plzData$ = this.loadPlzData();
+    if (!this.plzData$) {
+      return this.loadPlzData();
+    }
     return this.plzData$;
   }
 
-  public searchEnhanced(term: string): Observable<SearchResultsContainer> {
-    const originalTerm = term;
-    const searchTermNormalized = term.toLowerCase().trim();
-    const emptyResult: SearchResultsContainer = {
-      searchTerm: originalTerm, searchTypeDisplay: 'none', itemsForDisplay: [],
-      headerText: `Keine Einträge für "${originalTerm}" gefunden.`, showSelectAllButton: false, entriesForSelectAllAction: []
-    };
-
-    if (!searchTermNormalized) {
-      return of({ ...emptyResult, headerText: '', searchTypeDisplay: 'popular' });
-    }
-
+  public getEntriesByOrtAndKanton(ort: string, kanton: string): Observable<PlzEntry[]> {
+    const normalizedSearchOrt = this.normalizeStringForSearch(ort);
+    const normalizedSearchKanton = this.normalizeStringForSearch(kanton);
     return this.getPlzData().pipe(
-      map((allEntries): SearchResultsContainer => {
-        if (!allEntries || allEntries.length === 0) {
-          return { ...emptyResult, searchTerm: originalTerm, headerText: 'Keine Daten geladen oder verfügbar.' };
-        }
-
-        // Range detection
-        const plzRange = /^\s*(\d{4,6})\s*-\s*(\d{4,6})\s*$/.exec(searchTermNormalized);
-        if (plzRange) {
-          const startPlz = parseInt(plzRange[1], 10);
-          const endPlz = parseInt(plzRange[2], 10);
-          const foundPlz = allEntries.filter(entry => {
-            const plzNum = parseInt(entry.plz4, 10);
-            return plzNum >= startPlz && plzNum <= endPlz;
-          });
-          let headerMsg = foundPlz.length > 0
-            ? `PLZ-Bereich ${startPlz}-${endPlz}: ${foundPlz.length} PLZ gefunden.`
-            : `Keine PLZ im Bereich ${startPlz}-${endPlz} gefunden.`;
-          return {
-            searchTerm: originalTerm,
-            searchTypeDisplay: 'plz',
-            itemsForDisplay: [],
-            headerText: headerMsg,
-            showSelectAllButton: foundPlz.length > 0,
-            entriesForSelectAllAction: foundPlz
-          };
-        }
-
-        // PLZ search (numbers only, at least 2 digits)
-        if (/^\d{2,}$/.test(searchTermNormalized)) {
-          const plzResults = allEntries
-            .filter(entry => entry.plz4.startsWith(searchTermNormalized))
-            .sort((a, b) => a.plz4.localeCompare(b.plz4))
-            .slice(0, 5)
-            .map(entry => ({
-              ...entry,
-              isPrimaryPlzMatch: true,
-              isPrimaryOrtMatch: false,
-              uxScore: 100
-            }));
-          let headerMsg = plzResults.length > 0
-            ? `PLZ-Treffer für "${originalTerm}":`
-            : `Keine PLZ gefunden für "${originalTerm}".`;
-          return {
-            searchTerm: originalTerm,
-            searchTypeDisplay: 'plz',
-            itemsForDisplay: plzResults,
-            headerText: headerMsg,
-            showSelectAllButton: false,
-            entriesForSelectAllAction: []
-          };
-        }
-
-        // ORT search (letters only, at least 2, must start with input)
-        if (/^[a-zA-ZäöüÄÖÜß]{2,}/.test(term)) {
-          const normInput = searchTermNormalized;
-          const ortGroups: { [ort: string]: PlzEntry[] } = {};
-          for (const entry of allEntries) {
-            if (entry.ort.toLowerCase().startsWith(normInput)) {
-              if (!ortGroups[entry.ort]) ortGroups[entry.ort] = [];
-              ortGroups[entry.ort].push(entry);
-            }
-          }
-          // Sort: most PLZs first, then alphabetically
-          let groupArray = Object.entries(ortGroups)
-            .map(([ort, list]) => ({ ort, entries: list }))
-            .sort((a, b) => {
-              if (b.entries.length !== a.entries.length)
-                return b.entries.length - a.entries.length;
-              return a.ort.localeCompare(b.ort);
-            });
-
-          let ortResults: EnhancedSearchResultItem[] = [];
-          // First: groups >1 PLZ as group header
-          for (const group of groupArray) {
-            if (group.entries.length > 1) {
-              ortResults.push({
-                ...group.entries[0],
-                isGroupHeader: true,
-                childPlzCount: group.entries.length,
-                uxScore: 100 + group.entries.length
-              });
-            }
-          }
-          // Then: groups with 1 PLZ only, as single
-          for (const group of groupArray) {
-            if (group.entries.length === 1) {
-              ortResults.push({
-                ...group.entries[0],
-                isGroupHeader: false,
-                childPlzCount: 1,
-                uxScore: 80
-              });
-            }
-          }
-          ortResults = ortResults.slice(0, 5);
-
-          let headerMsg = ortResults.length > 0
-            ? `Orts-Treffer für "${originalTerm}":`
-            : `Kein Ort gefunden für "${originalTerm}".`;
-
-          let entriesForSelectAll: PlzEntry[] = [];
-          if (ortResults[0]?.isGroupHeader && ortGroups[ortResults[0].ort]) {
-            entriesForSelectAll = ortGroups[ortResults[0].ort];
-          }
-
-          return <SearchResultsContainer>{
-            searchTerm: originalTerm,
-            searchTypeDisplay: 'ort',
-            itemsForDisplay: ortResults,
-            headerText: headerMsg,
-            showSelectAllButton: ortResults[0]?.isGroupHeader && entriesForSelectAll.length > 1,
-            entriesForSelectAllAction: entriesForSelectAll
-          };
-        }
-
-        return {
-          ...emptyResult,
-          searchTerm: originalTerm
-        };
-      }),
-      catchError(() => {
-        return of({ ...emptyResult, searchTerm: originalTerm, headerText: 'Fehler bei der Suche.' });
-      })
+      map(entries => entries.filter(entry =>
+        this.normalizeStringForSearch(entry.ort) === normalizedSearchOrt &&
+        this.normalizeStringForSearch(entry.kt) === normalizedSearchKanton
+      )), // Die zurückgegebenen 'entries' haben jetzt die PLZ6 als ID
+      catchError(() => of([]))
     );
   }
 
-  public getEntryById(id: string): Observable<PlzEntry | undefined> {
-    return this.getPlzData().pipe(
-      map(entries => entries.find(entry => entry.id === id)),
-      catchError(() => of(undefined))
-    );
-  }
-
-  public getEntriesByPlzRange(plzRange: string): Observable<PlzEntry[]> {
-    const parts = plzRange.split('-');
-    if (parts.length !== 2) return of([]);
-    const startPlz = parseInt(parts[0].trim(), 10);
-    const endPlz = parseInt(parts[1].trim(), 10);
-    if (isNaN(startPlz) || isNaN(endPlz) || startPlz > endPlz || String(startPlz).length < 4 || String(endPlz).length < 4) {
+  public getEntriesByPlzRange(rangeStart: number, rangeEnd: number): Observable<PlzEntry[]> {
+    if (isNaN(rangeStart) || isNaN(rangeEnd) || rangeStart > rangeEnd) {
       return of([]);
     }
     return this.getPlzData().pipe(
       map(entries => entries.filter(entry => {
         const plzNum = parseInt(entry.plz4, 10);
-        return plzNum >= startPlz && plzNum <= endPlz;
-      })),
+        return !isNaN(plzNum) && plzNum >= rangeStart && plzNum <= rangeEnd;
+      })), // Die zurückgegebenen 'entries' haben jetzt die PLZ6 als ID
       catchError(() => of([]))
     );
   }
 
-  public getEntriesByOrt(ortName: string): Observable<PlzEntry[]> {
-    const searchTerm = ortName.toLowerCase().trim();
+  public getEntryById(id: string): Observable<PlzEntry | undefined> {
+    // Sucht jetzt nach der PLZ6 als ID
+    console.log(`[PlzDataService] getEntryById called with ID (expected PLZ6): "${id}"`);
     return this.getPlzData().pipe(
-      map(entries => entries.filter(entry => !entry.isGroupEntry && entry.ort.toLowerCase() === searchTerm)),
-      catchError(() => of([]))
+      map(entries => {
+        const foundEntry = entries.find(entry => entry.id === id); // entry.id ist jetzt PLZ6
+        if (!foundEntry) {
+          console.warn(`[PlzDataService] getEntryById: No entry found for ID (PLZ6) "${id}". Available ID examples: ${entries.slice(0,5).map(e => e.id).join(', ')}`);
+        }
+        return foundEntry;
+      }),
+      catchError((err) => {
+        console.error(`[PlzDataService] Error in getEntryById for ID (PLZ6) "${id}":`, err);
+        return of(undefined);
+      })
+    );
+  }
+
+  public fetchTypeaheadSuggestions(term: string): Observable<EnhancedSearchResultItem[]> {
+    const searchTermNormalized = this.normalizeStringForSearch(term);
+    if (searchTermNormalized.length < 2) {
+      return of([]);
+    }
+
+    return this.getPlzData().pipe(
+      map((allEntries): EnhancedSearchResultItem[] => {
+        if (!allEntries || allEntries.length === 0) return [];
+
+        const plzRangeRegex = /^\s*(\d{4,6})\s*-\s*(\d{4,6})\s*$/;
+        if (plzRangeRegex.test(term.trim())) {
+          return [];
+        }
+
+        let results: EnhancedSearchResultItem[] = [];
+
+        if (/^\d+$/.test(term.trim())) {
+          const originalTrimmedTerm = term.trim();
+          results = allEntries
+            .filter(entry => entry.plz6.startsWith(originalTrimmedTerm) || entry.plz4.startsWith(originalTrimmedTerm))
+            .map(entry => ({ ...entry } as EnhancedSearchResultItem)) // entry.id ist hier PLZ6
+            .sort((a, b) => a.plz6.localeCompare(b.plz6));
+        }
+        else if (/^[a-z0-9\s./]+$/.test(searchTermNormalized)) {
+          const ortMap = new Map<string, PlzEntry[]>();
+          allEntries.forEach(entry => {
+            const entryOrtNormalized = this.normalizeStringForSearch(entry.ort);
+            const startsWithSearchTerm = entryOrtNormalized.startsWith(searchTermNormalized);
+            if (startsWithSearchTerm) {
+              const groupKey = `${entry.ort}-${entry.kt}`;
+              if (!ortMap.has(groupKey)) {
+                ortMap.set(groupKey, []);
+              }
+              ortMap.get(groupKey)!.push(entry); // entry.id ist hier PLZ6
+            }
+          });
+
+          const groupedOrtSuggestions: EnhancedSearchResultItem[] = [];
+          ortMap.forEach((entriesInGroup, _groupKey) => {
+            const firstEntry = entriesInGroup[0]; // firstEntry.id ist PLZ6
+            if (entriesInGroup.length > 1) {
+              groupedOrtSuggestions.push({
+                ...firstEntry, // firstEntry.id ist PLZ6
+                // ID für Gruppen-Header, um klar von Daten-IDs (PLZ6) zu unterscheiden
+                id: `group-header-${this.normalizeStringForSearch(firstEntry.ort).replace(/\s+/g, '_')}-${this.normalizeStringForSearch(firstEntry.kt)}`,
+                isGroupHeader: true,
+                childPlzCount: entriesInGroup.length,
+              });
+            } else {
+              // Einzelner Eintrag, firstEntry.id ist bereits die korrekte PLZ6
+              groupedOrtSuggestions.push({ ...firstEntry });
+            }
+          });
+
+          groupedOrtSuggestions.sort((a, b) => {
+            const aIsGroup = a.isGroupHeader ?? false;
+            const bIsGroup = b.isGroupHeader ?? false;
+            if (aIsGroup && !bIsGroup) return -1;
+            if (!aIsGroup && bIsGroup) return 1;
+            if (aIsGroup && bIsGroup) {
+              if (b.childPlzCount! !== a.childPlzCount!) {
+                return b.childPlzCount! - a.childPlzCount!;
+              }
+            }
+            return a.ort.localeCompare(b.ort, undefined, { sensitivity: 'base' });
+          });
+          results = groupedOrtSuggestions;
+        }
+        return results.slice(0, MAX_SUGGESTION_RESULTS);
+      }),
+      catchError((err) => {
+        console.error(`${new Date().toISOString()} [PlzDataService] Error in typeahead suggestion processing for "${term}":`, err);
+        return of([]);
+      })
     );
   }
 }

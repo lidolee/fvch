@@ -6,16 +6,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, NG_VALUE_ACCESSOR, ControlValueAccessor } from '@angular/forms';
 import { NgbTypeaheadModule, NgbTypeaheadSelectItemEvent, NgbTypeahead } from '@ng-bootstrap/ng-bootstrap';
 import { Observable, of, Subject, merge } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap, catchError, takeUntil, tap, map } from 'rxjs/operators';
-import { PlzDataService, SearchResultsContainer, EnhancedSearchResultItem, PlzEntry } from '../../services/plz-data.service';
+import { debounceTime, distinctUntilChanged, switchMap, catchError, tap } from 'rxjs/operators';
+import { PlzDataService, EnhancedSearchResultItem, PlzEntry } from '../../services/plz-data.service'; // Pfad anpassen falls nötig
 
-export interface CloseTypeaheadOptions {
-  clearSearchTerm?: boolean;
-  clearSelectionModel?: boolean;
-  clearResults?: boolean;
-}
-
-export type ValidationStatus = 'valid' | 'invalid' | 'pending';
+export type SimpleValidationStatus = 'valid' | 'invalid' | 'pending' | 'empty';
 
 @Component({
   selector: 'app-search-input',
@@ -39,370 +33,245 @@ export type ValidationStatus = 'valid' | 'invalid' | 'pending';
 export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAccessor {
   @ViewChild('typeaheadInstance') typeaheadInstance!: NgbTypeahead;
   @ViewChild('typeaheadInputEl') typeaheadInputEl!: ElementRef<HTMLInputElement>;
-  @ViewChild('selectAllButtonEl') selectAllButtonEl!: ElementRef<HTMLButtonElement>;
 
-  @Input() placeholder: string = 'Suchen...';
-  @Input() placeholderText: string = 'Suchen...';
-  @Input() plzRangeRegex: RegExp = /^\s*(\d{4,6})\s*-\s*(\d{4,6})\s*$/;
+  @Input() placeholder: string = 'PLZ, Ort oder PLZ-Bereich (z.B. 8000-8045)';
+  @Input() initialSearchTerm: string | null = null;
 
-  @Output() searchTermChange = new EventEmitter<string>();
-  @Output() selectionChange = new EventEmitter<EnhancedSearchResultItem | null>();
-  @Output() statusChange = new EventEmitter<ValidationStatus>();
-  @Output() hoveredPlzIdsChanged = new EventEmitter<string[]>();
-  @Output() quickSearchRequest = new EventEmitter<string>();
-  @Output() takeItem = new EventEmitter<EnhancedSearchResultItem>();
-  @Output() itemSelected = new EventEmitter<EnhancedSearchResultItem>();
-  @Output() selectAllRequest = new EventEmitter<PlzEntry[]>();
-  @Output() searchFocus = new EventEmitter<void>();
-  @Output() searchBlur = new EventEmitter<void>();
-  @Output() searchInProgress = new EventEmitter<boolean>();
-  @Output() isCurrentlyValidToSubmitSearch = new EventEmitter<boolean>();
+  @Output() entriesSelected = new EventEmitter<PlzEntry[]>();
+  @Output() searchTermChanged = new EventEmitter<string>();
+  @Output() inputStatusChanged = new EventEmitter<SimpleValidationStatus>();
 
   private destroy$ = new Subject<void>();
-  private focusEmitter = new Subject<string>();
-  private onChange: any = () => {};
-  private onTouched: any = () => {};
-  private suppressNextBlur = false;
-  // Flag to prevent infinite recursion
-  private isHandlingExternalQuickSearch = false;
+  public focusEmitter = new Subject<string>();
 
-  typeaheadSearchTerm: string = '';
-  currentTypeaheadSelection: EnhancedSearchResultItem | null = null;
-  searching: boolean = false;
-  typeaheadHoverResultsForMapIds: string[] = [];
-  textInputStatus: ValidationStatus = 'invalid';
+  public typeaheadSearchTerm: string = '';
+  public searching: boolean = false;
+  public currentStatus: SimpleValidationStatus = 'empty';
 
-  currentSearchResultsContainer: SearchResultsContainer | null = null;
-  isTypeaheadListOpen = false;
-  isCustomHeaderOpen = false;
-  isMouseOverPopupOrHeader = false;
+  private onChangeFn: (value: string) => void = () => {};
+  private onTouchedFn: () => void = () => {};
 
-  private isInputFocused = false;
-  private blurBlockTimeout: any = null;
+  private readonly plzRangeRegex = /^\s*(\d{4,6})\s*-\s*(\d{4,6})\s*$/;
 
   constructor(
-    private plzDataService: PlzDataService,
-    private cdr: ChangeDetectorRef
+      private plzDataService: PlzDataService,
+      private cdr: ChangeDetectorRef
   ) {}
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.updateAndEmitStatus(this.typeaheadSearchTerm ? 'pending' : 'empty');
+    if (this.initialSearchTerm) {
+      setTimeout(() => this.initiateSearchForTerm(this.initialSearchTerm!), 0);
+    }
+  }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    if (this.blurBlockTimeout) {
-      clearTimeout(this.blurBlockTimeout);
-    }
   }
 
-  // ControlValueAccessor implementation
-  writeValue(value: string): void {
+  writeValue(value: string | null): void {
     this.typeaheadSearchTerm = value || '';
+    this.updateAndEmitStatus(this.typeaheadSearchTerm ? 'pending' : 'empty');
     this.cdr.markForCheck();
   }
 
-  registerOnChange(fn: any): void {
-    this.onChange = fn;
+  registerOnChange(fn: any): void { this.onChangeFn = fn; }
+  registerOnTouched(fn: any): void { this.onTouchedFn = fn; }
+
+  setDisabledState?(isDisabled: boolean): void {
+    if (this.typeaheadInputEl?.nativeElement) {
+      this.typeaheadInputEl.nativeElement.disabled = isDisabled;
+    }
+    this.cdr.markForCheck();
   }
 
-  registerOnTouched(fn: any): void {
-    this.onTouched = fn;
+  private updateAndEmitStatus(newStatus: SimpleValidationStatus): void {
+    if (this.currentStatus !== newStatus) {
+      this.currentStatus = newStatus;
+      this.inputStatusChanged.emit(this.currentStatus);
+    }
+    this.cdr.markForCheck();
   }
 
-  setDisabledState(isDisabled: boolean): void {
-    // Not needed for now
-  }
+  public initiateSearchForTerm(term: string): void {
+    console.log('[SearchInputComponent] initiateSearchForTerm called with term:', term);
+    this.typeaheadSearchTerm = term;
+    this.onChangeFn(term);
+    this.searchTermChanged.emit(term);
 
-  // Public methods
-  focus(): void {
     if (this.typeaheadInputEl?.nativeElement) {
       this.typeaheadInputEl.nativeElement.focus();
     }
-  }
-
-  onTypeaheadPopupMouseEnter(): void {
-    this.isMouseOverPopupOrHeader = true;
-  }
-
-  onTypeaheadPopupMouseLeave(): void {
-    this.isMouseOverPopupOrHeader = false;
-  }
-
-  closeTypeaheadAndHeader(options: CloseTypeaheadOptions = {}): void {
-    const { clearSearchTerm = false, clearSelectionModel = false, clearResults = true } = options;
-    if (this.typeaheadInstance && this.typeaheadInstance.isPopupOpen()) {
-      this.typeaheadInstance.dismissPopup();
-    }
-    this.isTypeaheadListOpen = false;
-    if (clearResults) {
-      this.currentSearchResultsContainer = null;
-      this.isCustomHeaderOpen = false;
-    } else if (!this.currentSearchResultsContainer || !this.currentSearchResultsContainer.headerText) {
-      this.isCustomHeaderOpen = false;
-    }
-    if (clearSearchTerm) {
-      this.typeaheadSearchTerm = '';
-      this.onChange('');
-    }
-    if (clearSelectionModel) {
-      this.currentTypeaheadSelection = null;
-      this.selectionChange.emit(null);
-    }
+    this.focusEmitter.next(term);
     this.cdr.markForCheck();
   }
 
-  searchPlzTypeahead = (text$: Observable<string>): Observable<EnhancedSearchResultItem[]> =>
-    merge(text$, this.focusEmitter).pipe(
-      debounceTime(150),
-      distinctUntilChanged(),
-      switchMap(term => {
-        this.typeaheadHoverResultsForMapIds = [];
-        this.hoveredPlzIdsChanged.emit([]);
-        if (!term || term.trim().length < 2) {
-          this.closeTypeaheadAndHeader({ clearSearchTerm: term === '', clearSelectionModel: true, clearResults: true });
-          this.textInputStatus = 'invalid';
-          this.statusChange.emit(this.textInputStatus);
-          this.isCurrentlyValidToSubmitSearch.emit(false);
-          return of([]);
-        }
-        this.searching = true;
-        this.searchInProgress.emit(true);
-        this.textInputStatus = 'pending';
-        this.statusChange.emit(this.textInputStatus);
-        this.isCurrentlyValidToSubmitSearch.emit(false);
-        this.cdr.markForCheck();
-
-        return this.plzDataService.searchEnhanced(term).pipe(
-          tap(resultsContainer => {
-            this.searching = false;
-            this.searchInProgress.emit(false);
-            this.currentSearchResultsContainer = resultsContainer;
-            const hasItems = resultsContainer.itemsForDisplay.length > 0;
-            const hasHeaderMessage = !!resultsContainer.headerText && resultsContainer.headerText !== `Keine Einträge für "${term}" gefunden.`;
-            const hasActionableHeader = hasHeaderMessage && resultsContainer.showSelectAllButton && resultsContainer.entriesForSelectAllAction.length > 0;
-            this.isCustomHeaderOpen = hasItems || hasHeaderMessage;
-            this.isTypeaheadListOpen = hasItems;
-            if (hasItems) {
-              this.textInputStatus = 'pending';
-              this.typeaheadHoverResultsForMapIds = resultsContainer.itemsForDisplay
-                .filter(item => !item.isGroupHeader && item.id)
-                .map(item => item.id!);
-              this.hoveredPlzIdsChanged.emit(this.typeaheadHoverResultsForMapIds);
-            } else if (hasActionableHeader) {
-              this.textInputStatus = 'pending';
-            } else {
-              this.textInputStatus = 'invalid';
-            }
-            if (term.length >= 2 && !hasItems && !hasActionableHeader) {
-              this.textInputStatus = 'invalid';
-            }
-            this.statusChange.emit(this.textInputStatus);
-            this.isCurrentlyValidToSubmitSearch.emit(false); // Changed line
-            this.cdr.markForCheck();
-            if (this.isTypeaheadListOpen || this.isCustomHeaderOpen) {
-              setTimeout(() => this.setInitialFocusInTypeahead(), 0);
-            }
+  searchSuggestions = (text$: Observable<string>): Observable<EnhancedSearchResultItem[]> =>
+      merge(text$, this.focusEmitter).pipe(
+          debounceTime(250),
+          distinctUntilChanged(),
+          tap(termFromStream => {
+            const currentTermInBox = this.typeaheadSearchTerm.trim();
+            if (currentTermInBox.length === 0) this.updateAndEmitStatus('empty');
+            else if (this.plzRangeRegex.test(currentTermInBox)) this.updateAndEmitStatus('valid');
+            else if (currentTermInBox.length < 2) this.updateAndEmitStatus('invalid');
+            else this.updateAndEmitStatus('pending');
           }),
-          map(resultsContainer => resultsContainer.itemsForDisplay),
-          catchError(() => {
-            this.searching = false;
-            this.searchInProgress.emit(false);
-            this.currentSearchResultsContainer = {
-              searchTerm: term, searchTypeDisplay: 'none', itemsForDisplay: [],
-              headerText: 'Fehler bei der Suche.', showSelectAllButton: false, entriesForSelectAllAction: []
-            };
-            this.isCustomHeaderOpen = true; this.isTypeaheadListOpen = false;
-            this.textInputStatus = 'invalid';
-            this.statusChange.emit(this.textInputStatus);
-            this.isCurrentlyValidToSubmitSearch.emit(false);
-            this.typeaheadHoverResultsForMapIds = [];
-            this.hoveredPlzIdsChanged.emit([]);
-            this.cdr.markForCheck();
-            return of([]);
+          switchMap(termFromStream => {
+            const normalizedTermForAPI = termFromStream.trim();
+            if (normalizedTermForAPI.length < 2 && !this.plzRangeRegex.test(normalizedTermForAPI)) {
+              this.searching = false; this.cdr.markForCheck(); return of([]);
+            }
+            if (this.plzRangeRegex.test(normalizedTermForAPI)) {
+              this.searching = false; this.cdr.markForCheck(); return of([]);
+            }
+
+            this.searching = true; this.cdr.markForCheck();
+            return this.plzDataService.fetchTypeaheadSuggestions(normalizedTermForAPI).pipe(
+                tap(suggestions => {
+                  this.searching = false;
+                  const currentSearchBoxTerm = this.typeaheadSearchTerm.trim();
+                  if (!this.plzRangeRegex.test(currentSearchBoxTerm) && suggestions.length === 0 && currentSearchBoxTerm.length >=2) {
+                    this.updateAndEmitStatus('invalid');
+                  } else if (suggestions.length > 0) {
+                    this.updateAndEmitStatus('pending');
+                  }
+                  this.cdr.markForCheck();
+                }),
+                catchError((error) => {
+                  console.error('[SearchInputComponent] Error fetching typeahead suggestions:', error);
+                  this.searching = false; this.updateAndEmitStatus('invalid'); this.cdr.markForCheck();
+                  return of([]);
+                })
+            );
           })
-        );
-      })
-    );
+      );
 
-  onTypeaheadInputChange(term: string): void {
-    this.onChange(term);
-    this.searchTermChange.emit(term);
-
-    if (this.currentTypeaheadSelection && this.typeaheadInputFormatter(this.currentTypeaheadSelection) !== term) {
-      this.currentTypeaheadSelection = null;
-      this.selectionChange.emit(null);
-    }
-    if (term === '' || term.trim().length < 2) {
-      this.textInputStatus = 'invalid';
-      this.currentTypeaheadSelection = null;
-      this.typeaheadHoverResultsForMapIds = [];
-      this.hoveredPlzIdsChanged.emit([]);
-    } else if (this.plzRangeRegex.test(term)) {
-      this.textInputStatus = 'valid';
-      this.currentTypeaheadSelection = null;
-    } else {
-      this.textInputStatus = this.currentTypeaheadSelection ? 'valid' : 'pending';
-    }
-    this.statusChange.emit(this.textInputStatus);
-    this.isCurrentlyValidToSubmitSearch.emit(this.textInputStatus === 'valid');
-    this.cdr.markForCheck();
+  onSearchTermChange(term: string): void {
+    this.typeaheadSearchTerm = term;
+    this.onChangeFn(term);
+    this.searchTermChanged.emit(term.trim());
   }
 
   typeaheadItemSelected(event: NgbTypeaheadSelectItemEvent<EnhancedSearchResultItem>): void {
     event.preventDefault();
     const selectedItem = event.item;
     if (!selectedItem) return;
-    this.handleTakeItemFromTypeahead(selectedItem);
-  }
 
-  handleTakeItemFromTypeahead(item: EnhancedSearchResultItem, event?: MouseEvent): void {
-    event?.stopPropagation();
-    event?.preventDefault();
-    if (!item) return;
+    // selectedItem.id ist jetzt die PLZ6 (außer für Gruppen-Header)
+    console.log('[SearchInputComponent] Typeahead item selected. ID:', selectedItem.id, 'Item:', JSON.stringify(selectedItem));
 
-    this.itemSelected.emit(item);
-    this.takeItem.emit(item);
-    this.closeTypeaheadAndHeader({ clearSearchTerm: true, clearSelectionModel: true, clearResults: true });
-    this.typeaheadHoverResultsForMapIds = [];
-    this.hoveredPlzIdsChanged.emit([]);
-  }
-
-  handleSelectAllFromTypeaheadHeader(): void {
-    if (this.currentSearchResultsContainer?.entriesForSelectAllAction) {
-      this.selectAllRequest.emit(this.currentSearchResultsContainer.entriesForSelectAllAction);
+    if (selectedItem.isGroupHeader && selectedItem.ort && selectedItem.kt) {
+      this.plzDataService.getEntriesByOrtAndKanton(selectedItem.ort, selectedItem.kt)
+          .subscribe(entries => { // entries ist PlzEntry[], jede entry.id ist jetzt PLZ6
+            if (entries.length > 0) {
+              console.log('[SearchInputComponent] Emitting entries for map (group selection). First entry ID (PLZ6):', entries[0].id, 'Entries:', JSON.stringify(entries.slice(0,2)));
+              this.entriesSelected.emit(entries);
+              this.updateAndEmitStatus('valid');
+            } else {
+              this.updateAndEmitStatus('invalid');
+            }
+            this.clearInputAndClosePopup();
+          });
+    } else if (!selectedItem.isGroupHeader) {
+      // selectedItem.id ist hier die PLZ6
+      const entryToEmit: PlzEntry = { ...selectedItem };
+      console.log('[SearchInputComponent] Emitting single entry for map. ID (PLZ6):', entryToEmit.id, 'Entry:', JSON.stringify(entryToEmit));
+      this.entriesSelected.emit([entryToEmit]);
+      this.updateAndEmitStatus('valid');
+      this.clearInputAndClosePopup();
     }
-    this.closeTypeaheadAndHeader({ clearSearchTerm: true, clearSelectionModel: true, clearResults: true });
-    this.typeaheadHoverResultsForMapIds = [];
-    this.hoveredPlzIdsChanged.emit([]);
   }
 
-  onSearchFocus(): void {
-    this.isInputFocused = true;
-    this.onTouched();
-    this.searchFocus.emit();
-    setTimeout(() => {
-      this.suppressNextBlur = false;
-    }, 300);
-    const term = this.typeaheadSearchTerm;
-    if ((term.length >= 2 && !this.plzRangeRegex.test(term)) || term === '' || this.currentSearchResultsContainer) {
-      this.focusEmitter.next(term);
+  handleInputKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      const term = this.typeaheadSearchTerm.trim();
+      const rangeMatch = term.match(this.plzRangeRegex);
+
+      if (rangeMatch) {
+        event.preventDefault();
+        const startPlz = parseInt(rangeMatch[1], 10);
+        const endPlz = parseInt(rangeMatch[2], 10);
+
+        if (!isNaN(startPlz) && !isNaN(endPlz) && String(startPlz).length >=4 && String(endPlz).length >=4 && startPlz <= endPlz) {
+          this.plzDataService.getEntriesByPlzRange(startPlz, endPlz).subscribe(entries => {
+            if (entries.length > 0) { // entries haben jetzt PLZ6 als ID
+              console.log('[SearchInputComponent] Emitting entries for map (range selection). First entry ID (PLZ6):', entries[0].id, 'Entries:', JSON.stringify(entries.slice(0,2)));
+              this.entriesSelected.emit(entries);
+              this.updateAndEmitStatus('valid');
+            } else {
+              this.entriesSelected.emit([]);
+              this.updateAndEmitStatus('invalid');
+            }
+            this.clearInputAndClosePopup();
+          });
+        } else {
+          this.updateAndEmitStatus('invalid');
+        }
+      }
     }
+  }
+
+  private clearInputAndClosePopup(): void {
+    this.typeaheadSearchTerm = '';
+    this.onChangeFn('');
+    this.searchTermChanged.emit('');
+    if (this.typeaheadInstance?.isPopupOpen()) {
+      this.typeaheadInstance.dismissPopup();
+    }
+    this.updateAndEmitStatus('empty');
     this.cdr.markForCheck();
   }
 
-  onSearchBlur(): void {
-    this.isInputFocused = false;
-    this.searchBlur.emit();
-    if (this.suppressNextBlur) {
-      return;
+  onFocus(): void {
+    this.onTouchedFn();
+    const term = this.typeaheadSearchTerm.trim();
+    if (term.length >= 2 && !this.plzRangeRegex.test(term)) {
+      this.focusEmitter.next(term);
+    } else if (this.plzRangeRegex.test(term)) {
+      this.updateAndEmitStatus('valid');
+    } else if (term.length === 0) {
+      this.updateAndEmitStatus('empty');
+    } else {
+      this.updateAndEmitStatus('invalid');
     }
-    if (this.isMouseOverPopupOrHeader) {
-      // Block Blur, refocus input
-      clearTimeout(this.blurBlockTimeout);
-      this.blurBlockTimeout = setTimeout(() => {
-        if (!this.isInputFocused && this.typeaheadInputEl?.nativeElement) {
-          this.typeaheadInputEl.nativeElement.focus();
-        }
-      }, 0);
-      return;
-    }
+  }
+
+  onBlur(): void {
+    this.onTouchedFn();
     setTimeout(() => {
-      if (!this.isMouseOverPopupOrHeader) {
-        const isRange = this.plzRangeRegex.test(this.typeaheadSearchTerm.trim());
-        if ((isRange && this.textInputStatus === 'valid') || this.currentTypeaheadSelection) {
-          this.closeTypeaheadAndHeader({ clearSearchTerm: false, clearSelectionModel: false, clearResults: false });
-        } else {
-          this.closeTypeaheadAndHeader({ clearSearchTerm: false, clearSelectionModel: true, clearResults: true });
-        }
-        this.typeaheadHoverResultsForMapIds = [];
-        this.hoveredPlzIdsChanged.emit([]);
+      if (this.typeaheadInstance && !this.typeaheadInstance.isPopupOpen()) {
+        const term = this.typeaheadSearchTerm.trim();
+        if (term.length === 0) this.updateAndEmitStatus('empty');
+        else if (this.plzRangeRegex.test(term)) this.updateAndEmitStatus('valid');
+        else if (this.currentStatus === 'pending') this.updateAndEmitStatus('invalid');
       }
     }, 200);
   }
 
-  triggerQuickSearch(term: string): void {
-    // Prevent infinite recursion
-    if (this.isHandlingExternalQuickSearch) {
-      return;
+  public highlight(text: string | null | undefined, termToHighlight: string): string {
+    if (!termToHighlight || termToHighlight.length === 0 || !text) {
+      return text || '';
     }
-
-    this.isHandlingExternalQuickSearch = true;
-    this.typeaheadSearchTerm = term;
-    this.onChange(term);
-    this.currentTypeaheadSelection = null;
-    this.selectionChange.emit(null);
-    this.focusEmitter.next(term);
-    this.suppressNextBlur = true;
-
-    // Only emit the event if this is an internal call, not from parent
-    // This prevents the infinite loop
-    // this.quickSearchRequest.emit(term);
-
-    setTimeout(() => {
-      if (this.typeaheadInputEl?.nativeElement) {
-        this.typeaheadInputEl.nativeElement.focus();
-      }
-      this.isHandlingExternalQuickSearch = false;
-    }, 0);
-
-    this.cdr.markForCheck();
-  }
-
-  highlight(text: string, term: string): string {
-    if (!term || term.length === 0 || !text) return text;
     const R_SPECIAL = /[-\/\\^$*+?.()|[\]{}]/g;
-    const safeTerm = term.replace(R_SPECIAL, '\\$&');
-    const regex = new RegExp(`(${safeTerm})`, 'gi');
-    try { return text.replace(regex, '<mark>$1</mark>'); } catch (e) { return text; }
-  }
-
-  private setInitialFocusInTypeahead(): void {
-    if (this.isCustomHeaderOpen && this.currentSearchResultsContainer?.showSelectAllButton && this.selectAllButtonEl?.nativeElement) {
-      this.selectAllButtonEl.nativeElement.focus({ preventScroll: true });
+    const safeTerm = termToHighlight.replace(R_SPECIAL, '\\$&');
+    try {
+      const regex = new RegExp(`(${safeTerm})`, 'gi');
+      return text.replace(regex, '<mark>$1</mark>');
+    } catch (e) {
+      return text;
     }
   }
-
-  typeaheadInputFormatter = (item: EnhancedSearchResultItem | string | null): string => {
-    if (typeof item === 'string') return item;
-    if (item) {
-      if (item.isGroupHeader) return `${item.ort || item.plz4}`;
-      return `${item.plz4 ? item.plz4 + ' ' : ''}${item.ort}${item.kt && item.kt !== 'N/A' ? ' - ' + item.kt : ''}`;
-    }
-    if (this.currentTypeaheadSelection === null && this.plzRangeRegex.test(this.typeaheadSearchTerm)) {
-      return this.typeaheadSearchTerm;
-    }
-    return '';
-  };
 
   resultFormatter = (result: EnhancedSearchResultItem): string => {
-    if (!result) return '';
     if (result.isGroupHeader) {
-      return `${result.ort || result.plz4}${result.childPlzCount ? ` (${result.childPlzCount} PLZ)` : ''}`;
+      return `${result.ort} (${result.kt || ''}) - ${result.childPlzCount || 0} PLZ Gebiete`;
     }
-    return `${result.plz4 ? result.plz4 + ' ' : ''}${result.ort}${result.kt && result.kt !== 'N/A' ? ' - ' + result.kt : ''}`;
+    return `${result.plz6 || result.plz4 || ''} ${result.ort || ''} (${result.kt || ''})`;
   };
 
-  getSearchResultsContainer(): SearchResultsContainer | null {
-    return this.currentSearchResultsContainer;
-  }
-
-  getCurrentSelection(): EnhancedSearchResultItem | null {
-    return this.currentTypeaheadSelection;
-  }
-
-  getSearchTerm(): string {
-    return this.typeaheadSearchTerm;
-  }
-
-  getValidationStatus(): ValidationStatus {
-    return this.textInputStatus;
-  }
-
-  getIsTypeaheadListOpen(): boolean {
-    return this.isTypeaheadListOpen;
-  }
-
-  getIsCustomHeaderOpen(): boolean {
-    return this.isCustomHeaderOpen;
-  }
+  typeaheadInputFormatter = (item: EnhancedSearchResultItem | string | null): string => {
+    return '';
+  };
 }

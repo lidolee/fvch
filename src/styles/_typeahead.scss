@@ -16,22 +16,6 @@
   }
 }
 
-/*.typeahead-custom-header {
-  border: 1px solid var(--bs-border-color-translucent);
-  margin-top: -1px; // Overlap with the bottom border of the input
-  position: absolute; // Position it directly below the input
-  z-index: 1050; // Ensure it's above other content but below the typeahead window
-  width: 100%; // Match the width of the input container
-
-  // Adjustments if the typeahead window is directly after the custom header
-  & + ngb-typeahead-window.dropdown-menu {
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
-    border-top: none;
-    margin-top: 0 !important; // Remove default margin of typeahead window
-  }
-}*/
-
 .typeahead-no-results-message {
   background-color: var(--bs-body-bg);
   color: var(--bs-secondary-color);
@@ -50,10 +34,10 @@ ngb-typeahead-window.dropdown-menu {
   border: 1px solid $input-focus-border-color;
   inset: -3px auto auto 0px !important;
   box-shadow:
-  0.25rem 0 0 0 #BFD9F4, /* rechter Schatten */
-  -0.25rem 0 0 0 #BFD9F4, /* linker Schatten */
-  0 0.25rem 0 0 #BFD9F4, /* unterer Schatten */
-  0 0 0 0.25rem #BFD9F4 inset; /* Optional: blauer Rand (outline-ähnlich) nur für rechts, unten, links */
+  0.25rem 0 0 0 #BFD9F4,
+  -0.25rem 0 0 0 #BFD9F4,
+  0 0.25rem 0 0 #BFD9F4,
+  0 0 0 0.25rem #BFD9F4 inset;
   border-radius: 3px;
 
   .dropdown-item {
@@ -92,7 +76,6 @@ ngb-typeahead-window.dropdown-menu {
       mark {
         padding: 0;
         color: $primary;
-        //background-color: mix(fuchsia, $white, 15%);
         background-color: transparent;
       }
 
@@ -101,7 +84,7 @@ ngb-typeahead-window.dropdown-menu {
         outline: none;
 
         .btn-link, .text-muted, .mdi {
-          color: var(--bs-primary-text-emphasis) !important; // Wichtig, um Bootstrap-Defaults zu überschreiben
+          color: var(--bs-primary-text-emphasis) !important;
         }
       }
 
