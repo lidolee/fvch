@@ -99,12 +99,19 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
     this.typeaheadSearchTerm = term;
     this.onChangeFn(term);
     this.searchTermChanged.emit(term);
+    this.cdr.detectChanges();
 
-    if (this.typeaheadInputEl?.nativeElement) {
-      this.typeaheadInputEl.nativeElement.focus();
-    }
-    this.focusEmitter.next(term);
-    this.cdr.markForCheck();
+    setTimeout(() => {
+      if (this.typeaheadInputEl?.nativeElement) {
+        this.typeaheadInputEl.nativeElement.focus();
+        this.typeaheadInputEl.nativeElement.value = this.typeaheadSearchTerm;
+        if (this.typeaheadSearchTerm !== term) {
+          this.typeaheadSearchTerm = term;
+          this.onChangeFn(term);
+          this.cdr.markForCheck();
+        }
+      }
+    }, 0);
   }
 
   searchSuggestions = (text$: Observable<string>): Observable<EnhancedSearchResultItem[]> =>
@@ -133,7 +140,7 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
                   this.searching = false;
                   const currentSearchBoxTerm = this.typeaheadSearchTerm.trim();
                   if (!this.plzRangeRegex.test(currentSearchBoxTerm) && suggestions.length === 0 && currentSearchBoxTerm.length >=2) {
-                    this.updateAndEmitStatus('invalid');
+                    this.updateAndEmitStatus('invalid'); // This is the "no entry found" error state
                   } else if (suggestions.length > 0) {
                     this.updateAndEmitStatus('pending');
                   }
@@ -159,14 +166,12 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
     const selectedItem = event.item;
     if (!selectedItem) return;
 
-    // selectedItem.id ist jetzt die PLZ6 (außer für Gruppen-Header)
     console.log('[SearchInputComponent] Typeahead item selected. ID:', selectedItem.id, 'Item:', JSON.stringify(selectedItem));
 
     if (selectedItem.isGroupHeader && selectedItem.ort && selectedItem.kt) {
       this.plzDataService.getEntriesByOrtAndKanton(selectedItem.ort, selectedItem.kt)
-          .subscribe(entries => { // entries ist PlzEntry[], jede entry.id ist jetzt PLZ6
+          .subscribe(entries => {
             if (entries.length > 0) {
-              console.log('[SearchInputComponent] Emitting entries for map (group selection). First entry ID (PLZ6):', entries[0].id, 'Entries:', JSON.stringify(entries.slice(0,2)));
               this.entriesSelected.emit(entries);
               this.updateAndEmitStatus('valid');
             } else {
@@ -175,9 +180,7 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
             this.clearInputAndClosePopup();
           });
     } else if (!selectedItem.isGroupHeader) {
-      // selectedItem.id ist hier die PLZ6
       const entryToEmit: PlzEntry = { ...selectedItem };
-      console.log('[SearchInputComponent] Emitting single entry for map. ID (PLZ6):', entryToEmit.id, 'Entry:', JSON.stringify(entryToEmit));
       this.entriesSelected.emit([entryToEmit]);
       this.updateAndEmitStatus('valid');
       this.clearInputAndClosePopup();
@@ -196,8 +199,7 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
 
         if (!isNaN(startPlz) && !isNaN(endPlz) && String(startPlz).length >=4 && String(endPlz).length >=4 && startPlz <= endPlz) {
           this.plzDataService.getEntriesByPlzRange(startPlz, endPlz).subscribe(entries => {
-            if (entries.length > 0) { // entries haben jetzt PLZ6 als ID
-              console.log('[SearchInputComponent] Emitting entries for map (range selection). First entry ID (PLZ6):', entries[0].id, 'Entries:', JSON.stringify(entries.slice(0,2)));
+            if (entries.length > 0) {
               this.entriesSelected.emit(entries);
               this.updateAndEmitStatus('valid');
             } else {
@@ -211,6 +213,7 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
         }
       }
     }
+    // Note: NgbTypeahead handles Escape key for closing the popup by default.
   }
 
   private clearInputAndClosePopup(): void {
@@ -220,6 +223,9 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
     if (this.typeaheadInstance?.isPopupOpen()) {
       this.typeaheadInstance.dismissPopup();
     }
+    if (this.typeaheadInputEl?.nativeElement) {
+      this.typeaheadInputEl.nativeElement.blur();
+    }
     this.updateAndEmitStatus('empty');
     this.cdr.markForCheck();
   }
@@ -227,6 +233,7 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
   onFocus(): void {
     this.onTouchedFn();
     const term = this.typeaheadSearchTerm.trim();
+
     if (term.length >= 2 && !this.plzRangeRegex.test(term)) {
       this.focusEmitter.next(term);
     } else if (this.plzRangeRegex.test(term)) {
@@ -241,13 +248,28 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
   onBlur(): void {
     this.onTouchedFn();
     setTimeout(() => {
+      // Only process blur if the typeahead popup is closed.
+      // This prevents changing status while the user might still be interacting with the popup (e.g., about to click an item).
       if (this.typeaheadInstance && !this.typeaheadInstance.isPopupOpen()) {
         const term = this.typeaheadSearchTerm.trim();
-        if (term.length === 0) this.updateAndEmitStatus('empty');
-        else if (this.plzRangeRegex.test(term)) this.updateAndEmitStatus('valid');
-        else if (this.currentStatus === 'pending') this.updateAndEmitStatus('invalid');
+
+        if (term.length === 0) {
+          this.updateAndEmitStatus('empty');
+        } else if (this.plzRangeRegex.test(term)) {
+          this.updateAndEmitStatus('valid');
+        } else if (term.length < 2) {
+          // Term is present, not a range, but too short to be a valid search term.
+          this.updateAndEmitStatus('invalid');
+        }
+        // If term.length >= 2 and it's not a PLZ range:
+        // - If `searchSuggestions` found no results, `currentStatus` would already be 'invalid'.
+        // - If `searchSuggestions` found results, `currentStatus` would be 'pending'.
+        // In these cases (term >= 2 chars, not a range, popup closed), we do not change the status here in onBlur.
+        // The status ('pending' or 'invalid' due to no results) correctly reflects the outcome
+        // of the last search attempt or the term's current state.
+        // Pressing Escape and blurring should not turn a 'pending' (results were available) into 'invalid'.
       }
-    }, 200);
+    }, 200); // Timeout to allow click on typeahead list before blur processing.
   }
 
   public highlight(text: string | null | undefined, termToHighlight: string): string {
@@ -272,6 +294,9 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
   };
 
   typeaheadInputFormatter = (item: EnhancedSearchResultItem | string | null): string => {
+    // This formatter is called when an item is selected from the typeahead popup.
+    // Returning an empty string here ensures the input field is cleared after selection,
+    // which is the behavior in clearInputAndClosePopup.
     return '';
   };
 }
