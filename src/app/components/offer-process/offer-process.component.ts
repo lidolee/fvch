@@ -41,10 +41,13 @@ export class OfferProcessComponent implements OnInit, OnChanges {
   private userLogin = "lidolee";
 
   private get logPrefix() {
+    // Zeitstempel und User-Login für bessere Nachverfolgbarkeit in Logs
     return `[${new Date().toISOString()}][${this.userLogin}] [OfferProcessComponent]`;
   }
 
   constructor(private cdr: ChangeDetectorRef, private router: Router) {
+    // Konsolen-Logs sollten im Produktiv-Build idealerweise minimiert oder entfernt werden.
+    // Für Debugging sind sie hilfreich.
     console.log(`${this.logPrefix} Constructor. Aktueller Router-Pfad: ${this.router.url}, @Input stadtname (initial): ${this.stadtname}`);
   }
 
@@ -64,28 +67,30 @@ export class OfferProcessComponent implements OnInit, OnChanges {
   private updateInitialStadtForDistributionStep(): void {
     this.initialStadtnameForDistribution = this.stadtname;
     console.log(`${this.logPrefix} updateInitialStadtForDistributionStep. Setze initialStadtnameForDistribution zu: '${this.initialStadtnameForDistribution}'`);
-    this.cdr.markForCheck();
+    this.cdr.markForCheck(); // Wichtig für OnPush, da Input sich geändert hat und Template davon abhängen könnte (indirekt über Child)
   }
 
   navigateToStep(stepId: number): void {
     console.log(`${this.logPrefix} navigateToStep - Ziel stepId: ${stepId}`);
     if (this.navInstance && this.activeStepId !== stepId && stepId >= 1 && stepId <= 3) {
-      this.navInstance.select(stepId);
+      this.navInstance.select(stepId); // NgbNav kümmert sich intern um UI Updates
     } else if (stepId === 4 && this.activeStepId === 3 && this.stepValidationStatus[3] === 'valid') {
       console.log(`${this.logPrefix} Logik für Schritt 4 (Abschluss) hier einfügen.`);
       // z.B. this.router.navigate(['/danke']);
     }
+    // activeStepId wird in onNavChange gesetzt, was markForCheck auslöst.
   }
 
   updateValidationStatus(stepId: number, status: ValidationStatus): void {
     console.log(`${this.logPrefix} updateValidationStatus - stepId: ${stepId}, Status: ${status}`);
     if (this.stepValidationStatus[stepId] !== status) {
       this.stepValidationStatus[stepId] = status;
-      this.cdr.markForCheck();
+      this.cdr.markForCheck(); // Wichtig für OnPush, da stepValidationStatus im Template verwendet wird (getValidationIconClass)
     }
   }
 
   getValidationIconClass(stepId: number): string {
+    // Diese Funktion wird bei jeder CD aufgerufen. Sie ist einfach und sollte keine Performance-Probleme verursachen.
     const status = this.stepValidationStatus[stepId];
     switch (status) {
       case 'valid': return 'mdi-check-circle text-success';
@@ -98,6 +103,6 @@ export class OfferProcessComponent implements OnInit, OnChanges {
   onNavChange(event: NgbNavChangeEvent<number>): void {
     console.log(`${this.logPrefix} onNavChange - activeId: ${event.activeId}, nextId: ${event.nextId}.`);
     this.activeStepId = event.nextId;
-    this.cdr.markForCheck();
+    this.cdr.markForCheck(); // Wichtig für OnPush, da activeStepId im Template verwendet wird
   }
 }

@@ -1,53 +1,51 @@
-@import "bootstrap/scss/functions";
-@import "bootstrap/scss/variables";
-@import "../../../styles/variables";
-@import "bootstrap/scss/mixins";
-
 :host {
   display: block;
-  width: 100%;
-  /* height und min-height entfernt, damit sich :host an #map-angular-container-inner anpasst */
   position: relative;
-}
-
-#map-angular-container-inner {
   width: 100%;
-  /* height und min-height entfernt; Höhe wird ausschließlich durch JS via style.height gesetzt */
-  background-color: #e9e9e9;
-  border-radius: inherit;
-  overflow: hidden;
+  height: 100%;
+  box-sizing: border-box;
 }
 
-#loading-indicator-angular-inner {
+#mapDiv {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: rgba(255, 255, 255, 0.95);
-  padding: 16px 20px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  z-index: 10;
-  font-size: 14px;
-  font-weight: bold;
-  text-transform: uppercase;
-  text-align: center;
-
-  p {
-    margin-bottom: 0;
-  }
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  background-color: #f0f0f0;
 }
 
-#hover-plz-display-angular-inner {
+#hoverPlzDisplay {
   position: fixed;
-  background-color: $primary;
-  color: $white;
-  padding: 6px 7px 5px 7px;
-  border-radius: 2px;
-  box-shadow: 0 2px 6px rgba(0,0,0,.2);
-  z-index: 10010;
-  font-size: 14px;
-  line-height: 15px;
-  font-weight: 600;
+  background-color: rgba(20, 20, 20, 0.85);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  z-index: 10000;
+  display: none;
   pointer-events: none;
   white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+}
+
+.map-loading-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9000;
+  pointer-events: none;
+
+  .spinner-border {
+    width: 3rem;
+    height: 3rem;
+    border-width: .25em;
+  }
 }

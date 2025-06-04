@@ -6,8 +6,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, NG_VALUE_ACCESSOR, ControlValueAccessor } from '@angular/forms';
 import { NgbTypeaheadModule, NgbTypeaheadSelectItemEvent, NgbTypeahead } from '@ng-bootstrap/ng-bootstrap';
 import { Observable, of, Subject, merge } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap, catchError, tap } from 'rxjs/operators';
-import { PlzDataService, EnhancedSearchResultItem, PlzEntry } from '../../services/plz-data.service'; // Pfad anpassen falls nötig
+import { debounceTime, distinctUntilChanged, switchMap, catchError, tap, takeUntil, take } from 'rxjs/operators'; // << takeUntil, take importiert
+import { PlzDataService, EnhancedSearchResultItem, PlzEntry } from '../../services/plz-data.service';
 
 export type SimpleValidationStatus = 'valid' | 'invalid' | 'pending' | 'empty';
 
@@ -99,7 +99,7 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
     this.typeaheadSearchTerm = term;
     this.onChangeFn(term);
     this.searchTermChanged.emit(term);
-    this.cdr.detectChanges();
+    this.cdr.markForCheck();
 
     setTimeout(() => {
       if (this.typeaheadInputEl?.nativeElement) {
@@ -113,16 +113,17 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
 
   searchSuggestions = (text$: Observable<string>): Observable<EnhancedSearchResultItem[]> =>
     merge(text$, this.focusEmitter).pipe(
+      takeUntil(this.destroy$),
       debounceTime(250),
       distinctUntilChanged(),
-      tap(termFromStream => {
+      tap((termFromStream: string) => { // << Typ für termFromStream hinzugefügt
         const currentTermInBox = this.typeaheadSearchTerm.trim();
         if (currentTermInBox.length === 0) this.updateAndEmitStatus('empty');
         else if (this.plzRangeRegex.test(currentTermInBox)) this.updateAndEmitStatus('valid');
         else if (currentTermInBox.length < 2) this.updateAndEmitStatus('invalid');
         else this.updateAndEmitStatus('pending');
       }),
-      switchMap(termFromStream => {
+      switchMap((termFromStream: string) => { // << Typ für termFromStream hinzugefügt
         const normalizedTermForAPI = termFromStream.trim();
         if (normalizedTermForAPI.length < 2 && !this.plzRangeRegex.test(normalizedTermForAPI)) {
           this.searching = false; this.cdr.markForCheck(); return of([]);
@@ -145,7 +146,9 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
           }),
           catchError((error) => {
             console.error('[SearchInputComponent] Error fetching typeahead suggestions:', error);
-            this.searching = false; this.updateAndEmitStatus('invalid'); this.cdr.markForCheck();
+            this.searching = false;
+            this.updateAndEmitStatus('invalid');
+            this.cdr.markForCheck();
             return of([]);
           })
         );
@@ -167,7 +170,8 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
 
     if (selectedItem.isGroupHeader && selectedItem.ort && selectedItem.kt) {
       this.plzDataService.getEntriesByOrtAndKanton(selectedItem.ort, selectedItem.kt)
-        .subscribe(entries => {
+        .pipe(take(1))
+        .subscribe((entries: PlzEntry[]) => { // << Typ für entries hinzugefügt
           if (entries.length > 0) {
             this.entriesSelected.emit(entries);
             this.updateAndEmitStatus('valid');
@@ -195,16 +199,18 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
         const endPlz = parseInt(rangeMatch[2], 10);
 
         if (!isNaN(startPlz) && !isNaN(endPlz) && String(startPlz).length >=4 && String(endPlz).length >=4 && startPlz <= endPlz) {
-          this.plzDataService.getEntriesByPlzRange(startPlz, endPlz).subscribe(entries => {
-            if (entries.length > 0) {
-              this.entriesSelected.emit(entries);
-              this.updateAndEmitStatus('valid');
-            } else {
-              this.entriesSelected.emit([]);
-              this.updateAndEmitStatus('invalid');
-            }
-            this.clearInputAndClosePopup();
-          });
+          this.plzDataService.getEntriesByPlzRange(startPlz, endPlz)
+            .pipe(take(1))
+            .subscribe((entries: PlzEntry[]) => { // << Typ für entries hinzugefügt
+              if (entries.length > 0) {
+                this.entriesSelected.emit(entries);
+                this.updateAndEmitStatus('valid');
+              } else {
+                this.entriesSelected.emit([]);
+                this.updateAndEmitStatus('invalid');
+              }
+              this.clearInputAndClosePopup();
+            });
         } else {
           this.updateAndEmitStatus('invalid');
         }
@@ -223,7 +229,6 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
       this.typeaheadInputEl.nativeElement.blur();
     }
     this.updateAndEmitStatus('empty');
-    this.cdr.markForCheck();
   }
 
   public clearInput(): void {
@@ -238,7 +243,6 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
       this.typeaheadInputEl.nativeElement.blur();
     }
     this.updateAndEmitStatus('empty');
-    this.cdr.markForCheck();
   }
 
 
@@ -287,6 +291,7 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
       const regex = new RegExp(`(${safeTerm})`, 'gi');
       return text.replace(regex, '<mark>$1</mark>');
     } catch (e) {
+      console.warn('[SearchInputComponent] Highlight regex error:', e);
       return text;
     }
   }
@@ -299,9 +304,6 @@ export class SearchInputComponent implements OnInit, OnDestroy, ControlValueAcce
   };
 
   typeaheadInputFormatter = (item: EnhancedSearchResultItem | string | null): string => {
-    if (typeof item === 'object' && item !== null) {
-      return '';
-    }
-    return (typeof item === 'string') ? item : '';
+    return '';
   };
 }

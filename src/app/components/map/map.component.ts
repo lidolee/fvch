@@ -3,15 +3,16 @@ import {
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { Subject } from 'rxjs';
+import { takeUntil, take } from 'rxjs/operators';
 
 declare var google: any;
 declare var geoXML3: any;
 
-const LOG_PREFIX_MAP = '[MapComponent]';
-const MAP_INIT_TIMEOUT = 200;
-const MAP_RETRY_INIT_TIMEOUT = 100;
-const WINDOW_RESIZE_DEBOUNCE = 250;
-const MOBILE_BREAKPOINT_WIDTH = 768; // Pixels
+const MAP_INIT_RETRY_DELAY_MS = 250;
+const MAX_MAP_INIT_ATTEMPTS = 25;
+const WINDOW_RESIZE_DEBOUNCE_MS = 250;
+
+let googleMapsScriptLoadingPromise: Promise<void> | null = null;
 
 export interface MapOptions {
   initialCenter: { lat: number; lng: number };
@@ -46,54 +47,74 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
   @Output() mapReady = new EventEmitter<void>();
   @Output() loading = new EventEmitter<boolean>();
 
-  @ViewChild('mapDivRef') mapDiv!: ElementRef<HTMLElement>;
-  @ViewChild('hoverPlzDisplayRef') hoverPlzDisplayDiv!: ElementRef<HTMLElement>;
-  @ViewChild('loadingIndicatorRef') loadingIndicatorDiv!: ElementRef<HTMLElement>;
+  @ViewChild('mapDivRef') mapDivRef!: ElementRef<HTMLElement>;
+  @ViewChild('hoverPlzDisplayRef') hoverPlzDisplayRef!: ElementRef<HTMLElement>;
 
   public map: any = null;
   private geoXmlParser: any;
   private allPlacemarks: any[] = [];
   private destroy$ = new Subject<void>();
   private singlePolygonZoomAdjustListener: any = null;
-  private resizeTimeout: any;
+  private resizeTimeoutId: any;
   private currentHoveredPlacemarkIdForHighlight: string | null = null;
-  private previousWindowWidth: number = 0; // Für die Logik der Breitenänderung
+
+  private mapInitializationScheduled = false;
+  public mapInitAttempts = 0;
+  private mapInitRetryTimer: any = null;
+  public mapIsLoadingInternal = false;
 
   constructor(
     private ngZone: NgZone,
     @Inject(PLATFORM_ID) private platformId: Object,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private elementRef: ElementRef<HTMLElement>
   ) {}
 
-  ngOnInit(): void {
-  }
+  ngOnInit(): void {}
 
   ngAfterViewInit(): void {
     if (isPlatformBrowser(this.platformId)) {
-      this.previousWindowWidth = window.innerWidth;
-      // adjustMapAspectRatio() wird innerhalb von initMapInternal oder scheduleMapInitialization (wenn map schon existiert) aufgerufen
-      this.scheduleMapInitialization();
-      window.addEventListener('resize', this.onWindowResize);
+      this.ngZone.runOutsideAngular(() => {
+        requestAnimationFrame(() => {
+          this.scheduleMapInitialization();
+        });
+        window.addEventListener('resize', this.onWindowResize);
+      });
     }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
+    if (!this.map && !this.mapInitializationScheduled) {
+      this.ngZone.runOutsideAngular(() => {
+        requestAnimationFrame(() => this.scheduleMapInitialization());
+      });
+    }
+
     if (this.map) {
       let needsHighlightUpdate = false;
-
+      let zoomHandled = false;
       if (changes['selectedPlzIds'] || changes['highlightOnHoverPlzIds'] || changes['highlightFromTablePlzId']) {
         needsHighlightUpdate = true;
       }
       if (changes['zoomToPlzId'] && this.zoomToPlzId) {
         this.handleZoomToSinglePlz(this.zoomToPlzId);
+        zoomHandled = true;
       }
-      if (changes['zoomToPlzIdList'] && this.zoomToPlzIdList) {
-        this.handleZoomToPlzList(this.zoomToPlzIdList);
-      } else if (changes['zoomToPlzIdList'] && !this.zoomToPlzIdList && (!this.selectedPlzIds || this.selectedPlzIds.length === 0)) {
-        this.resetMapZoom();
+      if (changes['zoomToPlzIdList']) {
+        if (this.zoomToPlzIdList && this.zoomToPlzIdList.length > 0) {
+          this.handleZoomToPlzList(this.zoomToPlzIdList);
+        } else {
+          if (!this.zoomToPlzId && (!this.selectedPlzIds || this.selectedPlzIds.length === 0)) {
+            this.resetMapZoom();
+          } else if (this.selectedPlzIds && this.selectedPlzIds.length > 0) {
+            this.handleZoomToPlzList(this.selectedPlzIds);
+          }
+        }
+        zoomHandled = true;
       }
-
-      if (needsHighlightUpdate) {
+      if (needsHighlightUpdate && !zoomHandled) {
         this.applyAllMapHighlights();
       }
     }
@@ -102,119 +123,125 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    clearTimeout(this.mapInitRetryTimer);
     this.destroyMap();
     if (isPlatformBrowser(this.platformId)) {
       window.removeEventListener('resize', this.onWindowResize);
-      clearTimeout(this.resizeTimeout);
-      if (typeof (window as any).angularGoogleMapsCallback === 'function') {
-        // Cleanup
-      }
+      clearTimeout(this.resizeTimeoutId);
     }
   }
 
-  private adjustMapAspectRatio(): void {
-    if (!isPlatformBrowser(this.platformId) || !this.mapDiv?.nativeElement) {
-      return;
-    }
-    const mapDivElement = this.mapDiv.nativeElement;
-    const currentDivWidth = mapDivElement.offsetWidth;
-
-    if (currentDivWidth === 0 && window.innerWidth > 0) {
-      // console.warn(`${LOG_PREFIX_MAP} adjustMapAspectRatio: mapDiv width is 0.`);
-    }
-
-    let newHeight: number;
-    if (window.innerWidth < MOBILE_BREAKPOINT_WIDTH) { // Mobile
-      newHeight = currentDivWidth * (9 / 16); // 16:9
-    } else { // Desktop/Tablet
-      newHeight = currentDivWidth * (3 / 4);   // 4:3
-    }
-    mapDivElement.style.height = `${Math.round(newHeight)}px`;
-
-    // Trigger Google Map's internal resize AFTER setting the new height
-    if (this.map && typeof google !== 'undefined' && google.maps && google.maps.event) {
-      this.ngZone.runOutsideAngular(() => {
-        google.maps.event.trigger(this.map, 'resize');
-      });
+  private setInternalLoadingState(isLoading: boolean): void {
+    if (this.mapIsLoadingInternal !== isLoading) {
+      this.mapIsLoadingInternal = isLoading;
+      this.loading.emit(isLoading);
+      this.cdr.detectChanges();
     }
   }
 
   private scheduleMapInitialization(): void {
-    if (this.map) { // Map already initialized
-      this.adjustMapAspectRatio(); // Adjust div height and trigger map.resize
-      this.ngZone.runOutsideAngular(() => {
-        // Re-evaluate zoom based on current selections
-        if (this.zoomToPlzIdList && this.zoomToPlzIdList.length > 0) {
-          this.handleZoomToPlzList(this.zoomToPlzIdList);
-        } else if (this.selectedPlzIds && this.selectedPlzIds.length > 0) {
-          this.handleZoomToPlzList(this.selectedPlzIds);
-        } else {
-          this.resetMapZoom();
-        }
-      });
-      // After zoom/pan, re-apply highlights. Needs to be in Angular zone due to cdr.detectChanges().
-      this.ngZone.run(() => {
-        this.applyAllMapHighlights();
-      });
+    if (this.mapInitializationScheduled || this.map || !isPlatformBrowser(this.platformId)) {
+      if (this.map) this.mapInitializationScheduled = false;
       return;
     }
-    // If map doesn't exist yet, schedule its full initialization
-    setTimeout(() => {
-      if (this.mapDiv?.nativeElement && !this.map) {
-        this.ngZone.run(() => this.initializeMapAndGeoXml());
+
+    this.mapInitializationScheduled = true;
+    this.mapInitAttempts = 0;
+    this.setInternalLoadingState(true);
+
+    this.ngZone.onStable.pipe(take(1), takeUntil(this.destroy$)).subscribe(() => {
+      const currentHostEl = this.elementRef.nativeElement;
+      const currentMapDiv = this.mapDivRef?.nativeElement;
+
+      if (this.map || !currentHostEl || !currentMapDiv) {
+        this.mapInitializationScheduled = false;
+        this.setInternalLoadingState(false);
+        return;
       }
-    }, MAP_INIT_TIMEOUT);
+
+      this.ngZone.runOutsideAngular(() => {
+        requestAnimationFrame(() => {
+          this.ngZone.run(() => this.initializeMapAndGeoXml());
+        });
+      });
+    });
   }
 
   private destroyMap(): void {
-    this.loading.emit(false);
+    this.setInternalLoadingState(false);
     if (this.map && typeof google !== 'undefined' && google.maps) {
       google.maps.event.clearInstanceListeners(this.map);
-      if (this.allPlacemarks && this.allPlacemarks.length > 0) {
+      if (this.allPlacemarks) {
         this.allPlacemarks.forEach(p => {
           const actualPolygon = p.polygon || p.gObject;
-          if (actualPolygon) {
-            google.maps.event.clearInstanceListeners(actualPolygon);
-          }
+          if (actualPolygon) google.maps.event.clearInstanceListeners(actualPolygon);
         });
       }
     }
     this.allPlacemarks = [];
     this.map = null;
     this.geoXmlParser = null;
-    this.cdr.markForCheck();
+    this.mapInitializationScheduled = false;
   }
 
   private initializeMapAndGeoXml(): void {
-    if (this.map) return;
-    this.loading.emit(true);
-    this.loadGoogleMapsScript().then(() => {
+    if (this.map || !isPlatformBrowser(this.platformId)) {
+      this.mapInitializationScheduled = false;
+      if (!this.map) this.setInternalLoadingState(false);
+      return;
+    }
+
+    this.loadGoogleMapsScriptOnce().then(() => {
       if (typeof google !== 'undefined' && google.maps && typeof geoXML3 !== 'undefined' && geoXML3.parser) {
         this.initMapInternal();
       } else {
-        this.loading.emit(false);
+        this.ngZone.run(() => {
+          this.setInternalLoadingState(false);
+          this.mapInitializationScheduled = false;
+        });
       }
-    }).catch(err => {
-      this.loading.emit(false);
+    }).catch(error => {
+      this.ngZone.run(() => {
+        this.setInternalLoadingState(false);
+        this.mapInitializationScheduled = false;
+      });
     });
   }
 
   private initMapInternal(): void {
-    if (!isPlatformBrowser(this.platformId) || !this.mapDiv?.nativeElement || this.map) {
-      if (!this.mapDiv?.nativeElement) this.loading.emit(false);
+    if (this.map) {
+      this.mapInitializationScheduled = false;
+      this.setInternalLoadingState(false);
       return;
     }
 
-    this.adjustMapAspectRatio(); // Erste Anpassung der Höhe vor Karteninitialisierung
+    const hostElement = this.elementRef.nativeElement;
+    const mapDivElement = this.mapDivRef?.nativeElement;
 
-    const mapDivElement = this.mapDiv.nativeElement;
-    const rect = mapDivElement.getBoundingClientRect();
-    if (!(rect.width > 0 && rect.height > 0)) {
-      setTimeout(() => {
-        if (!this.map && this.mapDiv?.nativeElement) { // Nur erneut versuchen, wenn Karte noch nicht erstellt wurde
-          this.initMapInternal();
-        }
-      }, MAP_RETRY_INIT_TIMEOUT);
+    if (!hostElement || !mapDivElement) {
+      this.ngZone.run(() => this.setInternalLoadingState(false));
+      this.mapInitializationScheduled = false;
+      return;
+    }
+
+    clearTimeout(this.mapInitRetryTimer);
+
+    const hostRect = hostElement.getBoundingClientRect();
+    const mapDivRect = mapDivElement.getBoundingClientRect();
+
+    const hostIsRendered = hostElement.offsetParent !== null && hostRect.width > 10 && hostRect.height > 10;
+    const mapDivIsRendered = mapDivElement.offsetParent !== null && mapDivRect.width > 10 && mapDivRect.height > 10;
+
+    if (!hostIsRendered || !mapDivIsRendered) {
+      this.mapInitAttempts++;
+      if (this.mapInitAttempts >= MAX_MAP_INIT_ATTEMPTS) {
+        console.error(`[MapComponent] Max map init attempts (${MAX_MAP_INIT_ATTEMPTS}) reached. Dimensions missing or element not rendered. Host: ${hostRect.width}x${hostRect.height} (offsetParent: ${!!hostElement.offsetParent}), MapDiv: ${mapDivRect.width}x${mapDivRect.height} (offsetParent: ${!!mapDivElement.offsetParent})`);
+        this.ngZone.run(() => this.setInternalLoadingState(false));
+        this.mapInitializationScheduled = false;
+        return;
+      }
+      // Das console.warn wurde hier entfernt.
+      this.mapInitRetryTimer = setTimeout(() => this.ngZone.run(() => this.initMapInternal()), MAP_INIT_RETRY_DELAY_MS);
       return;
     }
 
@@ -223,105 +250,97 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
         this.map = new google.maps.Map(mapDivElement, {
           center: this.mapOptions.initialCenter,
           zoom: this.mapOptions.initialZoom,
-          mapTypeControl: false,
-          fullscreenControl: false,
-          streetViewControl: false,
-          styles: this.mapOptions.styles?.length ? this.mapOptions.styles : undefined
+          mapTypeControl: false, fullscreenControl: false, streetViewControl: false,
+          styles: this.mapOptions.styles,
+          gestureHandling: 'cooperative'
         });
       } catch (e) {
+        console.error("[MapComponent] Error creating Google Map instance:", e);
         this.map = null;
-        this.ngZone.run(() => this.loading.emit(false));
+        this.ngZone.run(() => {
+          this.setInternalLoadingState(false);
+          this.mapInitializationScheduled = false;
+        });
         return;
       }
-    });
 
-    if (!this.map) return;
-
-    if (this.loadingIndicatorDiv?.nativeElement) {
-      this.loadingIndicatorDiv.nativeElement.style.display = 'flex';
-    }
-
-    this.geoXmlParser = new geoXML3.parser({
-      map: this.map,
-      suppressInfoWindows: true,
-      singleInfoWindow: true,
-      processStyles: true,
-      afterParse: (docs: any) => this.ngZone.run(() => {
-        if (this.loadingIndicatorDiv?.nativeElement) {
-          this.loadingIndicatorDiv.nativeElement.style.display = 'none';
-        }
-        this.loading.emit(false);
-        if (docs?.[0]?.placemarks?.length > 0) {
-          this.allPlacemarks = docs[0].placemarks;
-          this.setupPlacemarkInteractions(this.allPlacemarks);
-          this.applyAllMapHighlights();
-          if (this.zoomToPlzIdList && this.zoomToPlzIdList.length > 0) {
-            this.handleZoomToPlzList(this.zoomToPlzIdList);
-          } else if (this.selectedPlzIds && this.selectedPlzIds.length > 0) {
-            this.handleZoomToPlzList(this.selectedPlzIds);
+      this.geoXmlParser = new geoXML3.parser({
+        map: this.map,
+        suppressInfoWindows: true, singleInfoWindow: true, processStyles: true,
+        afterParse: (docs: any) => this.ngZone.run(() => {
+          this.setInternalLoadingState(false);
+          if (docs?.[0]?.placemarks?.length > 0) {
+            this.allPlacemarks = docs[0].placemarks;
+            this.setupPlacemarkInteractions(this.allPlacemarks);
+            this.applyAllMapHighlights();
+            if (this.zoomToPlzIdList?.length) this.handleZoomToPlzList(this.zoomToPlzIdList);
+            else if (this.selectedPlzIds?.length) this.handleZoomToPlzList(this.selectedPlzIds);
+            else if (this.zoomToPlzId) this.handleZoomToSinglePlz(this.zoomToPlzId);
+            else this.resetMapZoom();
           } else {
-            this.resetMapZoom();
+            this.allPlacemarks = [];
           }
-        } else {
+          this.mapReady.emit();
+          this.mapInitializationScheduled = false;
+        }),
+        failedParse: (error: any) => this.ngZone.run(() => {
+          console.error("[MapComponent] Failed to parse KML:", error);
+          this.setInternalLoadingState(false);
           this.allPlacemarks = [];
-        }
-        this.mapReady.emit();
-        this.cdr.markForCheck();
-      }),
-      failedParse: (error: any) => this.ngZone.run(() => {
-        if (this.loadingIndicatorDiv?.nativeElement) {
-          this.loadingIndicatorDiv.nativeElement.style.display = 'none';
-        }
-        this.loading.emit(false);
-        this.allPlacemarks = [];
-        this.cdr.markForCheck();
-      }),
-      polygonOptions: this.mapOptions.defaultPolygonOptions
-    });
+          this.mapInitializationScheduled = false;
+        }),
+        polygonOptions: this.mapOptions.defaultPolygonOptions
+      });
 
-    try {
-      this.geoXmlParser.parse(this.kmlPath);
-    } catch (e) {
-      this.ngZone.run(() => this.loading.emit(false));
-    }
+      try {
+        this.geoXmlParser.parse(this.kmlPath);
+      } catch (e) {
+        console.error("[MapComponent] Error calling geoXmlParser.parse:", e);
+        this.ngZone.run(() => {
+          this.setInternalLoadingState(false);
+          this.mapInitializationScheduled = false;
+        });
+      }
+    });
   }
 
   private setupPlacemarkInteractions(placemarks: any[]): void {
     if (!isPlatformBrowser(this.platformId) || typeof google === 'undefined' || !google.maps) return;
-
-    placemarks.forEach((placemark) => {
-      const actualPolygon = placemark.polygon || placemark.gObject;
-      if (actualPolygon && typeof actualPolygon.setOptions === 'function') {
-        const plzInfo = this.extractPlzInfoFromPlacemark(placemark);
-        google.maps.event.clearInstanceListeners(actualPolygon);
-        google.maps.event.addListener(actualPolygon, 'mouseover', () => this.ngZone.runOutsideAngular(() => {
-          if (!this.map) return;
-          this.currentHoveredPlacemarkIdForHighlight = plzInfo.id;
-          this.applyAllMapHighlights();
-          if (this.hoverPlzDisplayDiv?.nativeElement && plzInfo.displayText) {
-            this.hoverPlzDisplayDiv.nativeElement.textContent = plzInfo.displayText;
-            this.hoverPlzDisplayDiv.nativeElement.style.display = 'block';
-          }
-        }));
-        google.maps.event.addListener(actualPolygon, 'mouseout', () => this.ngZone.runOutsideAngular(() => {
-          if (!this.map) return;
-          this.currentHoveredPlacemarkIdForHighlight = null;
-          this.applyAllMapHighlights();
-          if (this.hoverPlzDisplayDiv?.nativeElement) {
-            this.hoverPlzDisplayDiv.nativeElement.style.display = 'none';
-          }
-        }));
-        google.maps.event.addListener(actualPolygon, 'mousemove', (event: any) => {
-          if (!this.map || !this.hoverPlzDisplayDiv?.nativeElement || this.hoverPlzDisplayDiv.nativeElement.style.display !== 'block' || !event.domEvent) return;
-          this.hoverPlzDisplayDiv.nativeElement.style.left = (event.domEvent.clientX + 15) + 'px';
-          this.hoverPlzDisplayDiv.nativeElement.style.top = (event.domEvent.clientY + 15) + 'px';
-        });
-        google.maps.event.addListener(actualPolygon, 'click', () => this.ngZone.run(() => {
-          if (this.map && plzInfo.id) {
-            this.plzClicked.emit({ id: plzInfo.id, name: placemark.name });
-          }
-        }));
-      }
+    this.ngZone.runOutsideAngular(() => {
+      placemarks.forEach((placemark) => {
+        const actualPolygon = placemark.polygon || placemark.gObject;
+        if (actualPolygon && typeof actualPolygon.setOptions === 'function') {
+          const plzInfo = this.extractPlzInfoFromPlacemark(placemark);
+          google.maps.event.clearInstanceListeners(actualPolygon);
+          google.maps.event.addListener(actualPolygon, 'mouseover', () => {
+            if (!this.map) return;
+            this.currentHoveredPlacemarkIdForHighlight = plzInfo.id;
+            this.applyAllMapHighlights();
+            if (this.hoverPlzDisplayRef?.nativeElement && plzInfo.displayText) {
+              this.hoverPlzDisplayRef.nativeElement.textContent = plzInfo.displayText;
+              this.hoverPlzDisplayRef.nativeElement.style.display = 'block';
+            }
+          });
+          google.maps.event.addListener(actualPolygon, 'mouseout', () => {
+            if (!this.map) return;
+            this.currentHoveredPlacemarkIdForHighlight = null;
+            this.applyAllMapHighlights();
+            if (this.hoverPlzDisplayRef?.nativeElement) {
+              this.hoverPlzDisplayRef.nativeElement.style.display = 'none';
+            }
+          });
+          google.maps.event.addListener(actualPolygon, 'mousemove', (event: any) => {
+            if (!this.map || !this.hoverPlzDisplayRef?.nativeElement || this.hoverPlzDisplayRef.nativeElement.style.display !== 'block' || !event.domEvent) return;
+            this.hoverPlzDisplayRef.nativeElement.style.left = (event.domEvent.clientX + 15) + 'px';
+            this.hoverPlzDisplayRef.nativeElement.style.top = (event.domEvent.clientY + 15) + 'px';
+          });
+          google.maps.event.addListener(actualPolygon, 'click', () => this.ngZone.run(() => {
+            if (this.map && plzInfo.id) {
+              this.plzClicked.emit({ id: plzInfo.id, name: placemark.name });
+            }
+          }));
+        }
+      });
     });
   }
 
@@ -336,74 +355,93 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
       if (descriptionMatch && descriptionMatch[1]) plz6 = descriptionMatch[1];
     }
     if (!plz6) return { id: null, displayText: null };
-    return { id: plz6, displayText: `PLZ ${plz6.substring(0, 4)}` };
+    const plz4 = plz6.length >= 4 ? plz6.substring(0, 4) : plz6;
+    return { id: plz6, displayText: `PLZ ${plz4}` };
   }
 
   public applyAllMapHighlights(): void {
     if (!this.map || !this.allPlacemarks || this.allPlacemarks.length === 0 || !isPlatformBrowser(this.platformId)) return;
-
-    const selectedSet = new Set(this.selectedPlzIds);
-    const hoverSet = new Set(this.highlightOnHoverPlzIds);
-
-    this.allPlacemarks.forEach(placemark => {
-      const plzInfo = this.extractPlzInfoFromPlacemark(placemark);
-      const actualPolygon = placemark.polygon || placemark.gObject;
-
-      if (actualPolygon?.setOptions && plzInfo.id) {
-        let optionsToApply = { ...this.mapOptions.defaultPolygonOptions };
-        const id = plzInfo.id;
-
-        if (selectedSet.has(id)) {
-          optionsToApply = (this.currentHoveredPlacemarkIdForHighlight === id || hoverSet.has(id) || this.highlightFromTablePlzId === id)
-            ? { ...this.mapOptions.selectedHighlightedPolygonOptions }
-            : { ...this.mapOptions.selectedPolygonOptions };
-        } else if (hoverSet.has(id)) {
-          optionsToApply = { ...this.mapOptions.typeaheadHoverPolygonOptions };
-        } else if (this.currentHoveredPlacemarkIdForHighlight === id || this.highlightFromTablePlzId === id) {
-          optionsToApply = { ...this.mapOptions.highlightedPolygonOptions };
+    this.ngZone.runOutsideAngular(() => {
+      const selectedSet = new Set(this.selectedPlzIds);
+      const hoverSet = new Set(this.highlightOnHoverPlzIds);
+      this.allPlacemarks.forEach(placemark => {
+        const plzInfo = this.extractPlzInfoFromPlacemark(placemark);
+        const actualPolygon = placemark.polygon || placemark.gObject;
+        if (actualPolygon?.setOptions && plzInfo.id) {
+          let optionsToApply = { ...this.mapOptions.defaultPolygonOptions };
+          const id = plzInfo.id;
+          const isSelected = selectedSet.has(id);
+          const isHovered = this.currentHoveredPlacemarkIdForHighlight === id ||
+            hoverSet.has(id) ||
+            this.highlightFromTablePlzId === id;
+          if (isSelected) {
+            optionsToApply = isHovered
+              ? { ...this.mapOptions.selectedHighlightedPolygonOptions }
+              : { ...this.mapOptions.selectedPolygonOptions };
+          } else if (isHovered) {
+            if (hoverSet.has(id) && this.mapOptions.typeaheadHoverPolygonOptions) {
+              optionsToApply = { ...this.mapOptions.typeaheadHoverPolygonOptions };
+            } else {
+              optionsToApply = { ...this.mapOptions.highlightedPolygonOptions };
+            }
+          }
+          actualPolygon.setOptions(optionsToApply);
         }
-        actualPolygon.setOptions(optionsToApply);
-      }
+      });
     });
-    this.cdr.detectChanges();
   }
 
   private getPolygonBounds(polygon: any): google.maps.LatLngBounds | null {
     if (!isPlatformBrowser(this.platformId) || typeof google === 'undefined' || !google.maps) return null;
     const bounds = new google.maps.LatLngBounds();
+    let pathArray: any[] | null = null;
     if (polygon?.getPaths) {
-      polygon.getPaths().forEach((path: any) => path?.getArray().forEach((latLng: any) => bounds.extend(latLng)));
+      polygon.getPaths().forEach((path: any) => {
+        path?.getArray().forEach((latLng: any) => bounds.extend(latLng));
+      });
     } else if (polygon?.getPath) {
-      polygon.getPath()?.getArray().forEach((latLng: any) => bounds.extend(latLng));
-    } else { return null; }
+      pathArray = polygon.getPath()?.getArray();
+      if (pathArray) {
+        pathArray.forEach((latLng: any) => bounds.extend(latLng));
+      }
+    } else {
+      return null;
+    }
     return bounds.isEmpty() ? null : bounds;
   }
 
   private handleZoomToSinglePlz(plzId: string): void {
-    if (!this.map || !this.allPlacemarks || this.allPlacemarks.length === 0) return;
+    if (!this.map || !this.allPlacemarks || this.allPlacemarks.length === 0 || typeof google === 'undefined' || !google.maps) return;
     const placemarkToZoom = this.allPlacemarks.find(p => this.extractPlzInfoFromPlacemark(p).id === plzId);
     if (placemarkToZoom) {
       const actualPolygon = placemarkToZoom.polygon || placemarkToZoom.gObject;
-      if (actualPolygon && typeof google !== 'undefined' && google.maps) {
+      if (actualPolygon) {
         const bounds = this.getPolygonBounds(actualPolygon);
         if (bounds && !bounds.isEmpty()) {
           this.ngZone.runOutsideAngular(() => {
-            this.map.fitBounds(bounds);
+            this.map.fitBounds(bounds, 10);
             if (this.singlePolygonZoomAdjustListener) google.maps.event.removeListener(this.singlePolygonZoomAdjustListener);
             this.singlePolygonZoomAdjustListener = google.maps.event.addListenerOnce(this.map, 'idle', () => {
               let currentZoom = this.map.getZoom();
-              if (currentZoom !== undefined) this.map.setZoom(Math.max(0, currentZoom - 2));
+              if (currentZoom !== undefined && currentZoom > (this.mapOptions.initialZoom + 5)) {
+                this.map.setZoom(Math.max(0, currentZoom - 2));
+              }
               this.singlePolygonZoomAdjustListener = null;
             });
           });
         }
       }
     }
+    this.applyAllMapHighlights();
   }
 
   private handleZoomToPlzList(plzIdList: string[]): void {
-    if (!this.map || !this.allPlacemarks || !this.allPlacemarks.length || plzIdList.length === 0 || typeof google === 'undefined' || !google.maps) {
-      if (plzIdList.length === 0) this.resetMapZoom();
+    if (!this.map || !this.allPlacemarks || !this.allPlacemarks.length || typeof google === 'undefined' || !google.maps) {
+      if (!plzIdList || plzIdList.length === 0) this.resetMapZoom();
+      return;
+    }
+    if (plzIdList.length === 0) {
+      this.resetMapZoom();
       return;
     }
     this.ngZone.runOutsideAngular(() => {
@@ -414,7 +452,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
       const totalBounds = new google.maps.LatLngBounds();
       let hasValidBounds = false;
       const idSet = new Set(plzIdList);
-
       this.allPlacemarks.forEach(placemark => {
         const plzInfo = this.extractPlzInfoFromPlacemark(placemark);
         if (plzInfo.id && idSet.has(plzInfo.id)) {
@@ -425,13 +462,14 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
           }
         }
       });
-
       if (hasValidBounds && !totalBounds.isEmpty()) {
-        this.map.fitBounds(totalBounds);
+        this.map.fitBounds(totalBounds, 15);
         if (plzIdList.length === 1) {
           this.singlePolygonZoomAdjustListener = google.maps.event.addListenerOnce(this.map, 'idle', () => {
             let currentZoom = this.map.getZoom();
-            if (currentZoom !== undefined) this.map.setZoom(Math.max(0, currentZoom - 2));
+            if (currentZoom !== undefined && currentZoom > (this.mapOptions.initialZoom + 5)) {
+              this.map.setZoom(Math.max(0, currentZoom - 2));
+            }
             this.singlePolygonZoomAdjustListener = null;
           });
         }
@@ -439,6 +477,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
         this.resetMapZoom();
       }
     });
+    this.applyAllMapHighlights();
   }
 
   private resetMapZoom(): void {
@@ -450,77 +489,101 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
     }
   }
 
-  private loadGoogleMapsScript(): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      if (!isPlatformBrowser(this.platformId)) {
-        resolve();
-        return;
-      }
-      if (typeof google !== 'undefined' && google.maps) {
-        resolve();
-        return;
-      }
-      if ((window as any).googleMapsScriptLoadingPromise) {
-        (window as any).googleMapsScriptLoadingPromise.then(resolve).catch(reject);
-        return;
-      }
-      const promise = new Promise<void>((innerResolve, innerReject) => {
-        (window as any).angularGoogleMapsCallback = () => {
-          try {
-            if (typeof google !== 'undefined' && google.maps) {
-              innerResolve();
-            } else {
-              innerReject(new Error("Google Maps API geladen, aber google.maps nicht gefunden."));
-            }
-          } catch (e) {
-            innerReject(e);
-          } finally {
-            delete (window as any).angularGoogleMapsCallback;
+  private loadGoogleMapsScriptOnce(): Promise<void> {
+    if (!isPlatformBrowser(this.platformId)) {
+      return Promise.resolve();
+    }
+    if (typeof google !== 'undefined' && google.maps && typeof geoXML3 !== 'undefined' && geoXML3.parser) {
+      return Promise.resolve();
+    }
+    if (googleMapsScriptLoadingPromise) {
+      return googleMapsScriptLoadingPromise;
+    }
+
+    googleMapsScriptLoadingPromise = new Promise<void>((resolve, reject) => {
+      const callbackName = `angularGoogleMapsCallback_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      (window as any)[callbackName] = () => {
+        try {
+          if (typeof google !== 'undefined' && google.maps && typeof geoXML3 !== 'undefined' && geoXML3.parser) {
+            resolve();
+          } else {
+            reject(new Error("[MapComponent] Google Maps API or geoXML3 not in global scope after callback."));
+          }
+        } catch (e) {
+          reject(e);
+        } finally {
+          try { delete (window as any)[callbackName]; } catch (e) {/* ignore */}
+        }
+      };
+
+      const geoXmlScriptPath = 'assets/js/geoxml3.js';
+      const mapsScriptSrc = `https://maps.googleapis.com/maps/api/js?key=${this.apiKey}&libraries=visualization,geometry&language=de&region=CH`;
+
+      const loadGeoXmlAndResolve = () => {
+        const geoScript = document.createElement('script');
+        geoScript.src = geoXmlScriptPath;
+        geoScript.async = true;
+        geoScript.defer = true;
+        geoScript.onload = () => {
+          if (typeof (window as any)[callbackName] === 'function') {
+            (window as any)[callbackName]();
+          } else {
+            reject(new Error("[MapComponent] Original Google Maps callback not found after geoXML3 load."));
           }
         };
-      });
-      (window as any).googleMapsScriptLoadingPromise = promise;
+        geoScript.onerror = (e) => {
+          googleMapsScriptLoadingPromise = null;
+          try { delete (window as any)[callbackName]; } catch (e) {/* ignore */}
+          reject(new Error(`[MapComponent] Failed to load ${geoXmlScriptPath}: ${e}`));
+        };
+        document.head.appendChild(geoScript);
+      };
+
+      const tempMapsCallbackName = `temp_${callbackName}`;
+      (window as any)[tempMapsCallbackName] = () => {
+        loadGeoXmlAndResolve();
+        try { delete (window as any)[tempMapsCallbackName]; } catch (e) {/* ignore */}
+      };
+
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${this.apiKey}&callback=angularGoogleMapsCallback&libraries=visualization,geometry&language=de&region=CH`;
+      script.src = `${mapsScriptSrc}&callback=${tempMapsCallbackName}`;
       script.async = true;
+      script.defer = true;
       script.onerror = (e) => {
-        (window as any).googleMapsScriptLoadingPromise = null;
-        delete (window as any).angularGoogleMapsCallback;
-        reject(e);
+        googleMapsScriptLoadingPromise = null;
+        try { delete (window as any)[callbackName]; delete (window as any)[tempMapsCallbackName]; } catch (e) {/* ignore */}
+        reject(new Error(`[MapComponent] Failed to load Google Maps API script: ${e}`));
       };
       document.head.appendChild(script);
-      promise.then(resolve).catch(reject);
     });
+    return googleMapsScriptLoadingPromise;
   }
 
-  private readonly onWindowResize = () => {
-    clearTimeout(this.resizeTimeout);
-    this.resizeTimeout = setTimeout(() => {
-      if (!this.map || !isPlatformBrowser(this.platformId)) return;
-
-      const currentWindowWidth = window.innerWidth;
-      this.adjustMapAspectRatio(); // Passt die Höhe des mapDiv an und löst map.resize aus
-
-      if (currentWindowWidth !== this.previousWindowWidth) {
-        this.previousWindowWidth = currentWindowWidth;
-
-        // Nur wenn sich die Breite ändert, den Karteninhalt (Zoom/Center) neu anpassen
-        this.ngZone.runOutsideAngular(() => {
-          if (this.zoomToPlzIdList && this.zoomToPlzIdList.length > 0) {
-            this.handleZoomToPlzList(this.zoomToPlzIdList);
-          } else if (this.selectedPlzIds && this.selectedPlzIds.length > 0) {
-            this.handleZoomToPlzList(this.selectedPlzIds);
-          } else {
-            this.resetMapZoom();
-          }
-        });
-        // Highlights neu anwenden (innerhalb der Angular-Zone, da cdr.detectChanges() aufgerufen wird)
-        this.ngZone.run(() => {
-          this.applyAllMapHighlights();
-        });
-      }
-      // Wenn sich nur die Höhe des Fensters geändert hat, wurde die Kartenhöhe bereits durch
-      // adjustMapAspectRatio angepasst. Der Inhalt (Zoom/Center) wird nicht neu berechnet.
-    }, WINDOW_RESIZE_DEBOUNCE);
+  private readonly onWindowResize = (): void => {
+    clearTimeout(this.resizeTimeoutId);
+    this.resizeTimeoutId = setTimeout(() => {
+      if (!this.map || !isPlatformBrowser(this.platformId) || typeof google === 'undefined' || !google.maps) return;
+      this.ngZone.runOutsideAngular(() => {
+        const center = this.map.getCenter();
+        google.maps.event.trigger(this.map, 'resize');
+        if (center) {
+          this.map.setCenter(center);
+        }
+        const currentBounds = this.map.getBounds();
+        if (currentBounds) {
+          this.map.fitBounds(currentBounds);
+        }
+        if (this.zoomToPlzIdList?.length) {
+          this.handleZoomToPlzList(this.zoomToPlzIdList);
+        } else if (this.selectedPlzIds?.length) {
+          this.handleZoomToPlzList(this.selectedPlzIds);
+        } else if (this.zoomToPlzId) {
+          this.handleZoomToSinglePlz(this.zoomToPlzId);
+        }
+      });
+      this.ngZone.run(() => {
+        this.applyAllMapHighlights();
+      });
+    }, WINDOW_RESIZE_DEBOUNCE_MS);
   };
 }

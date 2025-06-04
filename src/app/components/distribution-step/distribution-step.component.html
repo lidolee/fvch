@@ -35,7 +35,7 @@
 
 <div *ngIf="showPlzUiContainer">
 
-  <div #mapView class="map-main-container">
+  <div #mapView class="map-main-container" style="min-height: 100px;">
     <app-map *ngIf="showPlzUiContainer"
              [selectedPlzIds]="mapSelectedPlzIds"
              [highlightOnHoverPlzIds]="[]"
