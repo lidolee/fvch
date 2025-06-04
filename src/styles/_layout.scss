@@ -13,10 +13,11 @@ header {
 }
 
 .page-title {
+  @include font-headline();
   text-transform: uppercase;
-  font-weight: 800;
+  font-weight: 900;
   font-size: 24px;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
   color: $gray-600;
 }
 

@@ -8,9 +8,9 @@
 
   <div class="row sheet-container">
     <main class="col-xl-7">
-      <ul ngbNav #nav="ngbNav" [(activeId)]="activeStepId" (navChange)="onNavChange($event)" class="nav-tabs nav-fill" role="tablist">
+      <ul ngbNav #nav="ngbNav" [(activeId)]="activeStepId" (navChange)="onNavChange($event)" class="nav-tabs nav-fill nav-justified" role="tablist">
         <li [ngbNavItem]="1" #step1NavItem>
-          <button ngbNavLink class="d-flex align-items-center justify-content-center">1. Verteilung<i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(1)"></i></button>
+          <button ngbNavLink class="d-flex align-items-center justify-content-center"><span class="d-none d-md-block">1. Verteilung</span><span class="d-block d-md-none text-center">1. Verteilung</span><i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(1)"></i></button>
           <ng-template ngbNavContent>
             <div>
               <app-distribution-step
@@ -21,7 +21,7 @@
           </ng-template>
         </li>
         <li [ngbNavItem]="2" #step2NavItem>
-          <button ngbNavLink class="d-flex align-items-center justify-content-center">2. Design & Druck<i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(2)"></i></button>
+          <button ngbNavLink class="d-flex align-items-center justify-content-center"><span class="d-none d-md-block">2. Design & Druck</span><span class="d-block d-md-none text-center">2. Produktion</span><i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(2)"></i></button>
           <ng-template ngbNavContent>
             <div>
               <app-design-print-step
@@ -31,7 +31,7 @@
           </ng-template>
         </li>
         <li [ngbNavItem]="3" #step3NavItem>
-          <button ngbNavLink class="d-flex align-items-center justify-content-center">3. Check & Absenden<i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(3)"></i></button>
+          <button ngbNavLink class="d-flex align-items-center justify-content-center"><span class="d-none d-md-block">3. Check & Absenden</span><span class="d-block d-md-none text-center">3. Absenden</span><i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(3)"></i></button>
           <ng-template ngbNavContent>
             <div>
               <app-summary-step

@@ -10,37 +10,34 @@
 }
 
 .nav.nav-tabs {
-  border-bottom: 0;
+  border-top: 1px solid $border-color;
+  border-bottom: 1px solid $border-color;
+
+  .nav-item {
+    margin-bottom: 0;
+  }
 
   .nav-link {
     @include font-headline();
     text-transform: uppercase;
-    font-size: 16px;
-    letter-spacing: 1px;
-    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: .3px;
+    font-weight: 900;
     background-color: transparent;
-    padding: 20px 16px !important;
+    padding: 20px 0 !important;
     line-height: 100%;
     border-radius: 0;
     color: $gray-700;
-    border-top: 3px solid transparent;
-    border-right: 1px solid transparent;
-    border-bottom: 1px solid $border-color;
-    border-left: 1px solid transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
 
     &:hover {
       color: $gray-900;
     }
 
     &.active {
-      background-color: $white;
       color: $primary;
       font-weight: 900;
-      border-top: 3px solid $primary;
-      border-right: 1px solid $border-color;
-      border-bottom: 1px solid transparent;
-      border-left: 1px solid $border-color;
-      background: linear-gradient(to bottom, $white, mix($primary, $white, 2%));
     }
   }
 }
@@ -54,4 +51,45 @@
     }
   }
 
+}
+
+@include media-breakpoint-up(md) {
+  .nav.nav-tabs {
+    border-bottom: 0;
+
+    .nav-item {
+      margin-bottom: 0;
+    }
+
+    .nav-link {
+      @include font-headline();
+      text-transform: uppercase;
+      font-size: 16px;
+      letter-spacing: 1px;
+      font-weight: 800;
+      background-color: transparent;
+      padding: 20px 16px !important;
+      line-height: 100%;
+      border-radius: 0;
+      border-top: 3px solid transparent;
+      border-right: 1px solid transparent;
+      border-bottom: 1px solid $border-color;
+      border-left: 1px solid transparent;
+
+      &:hover {
+        color: $gray-900;
+      }
+
+      &.active {
+        background-color: $white;
+        color: $primary;
+        font-weight: 900;
+        border-top: 3px solid $primary;
+        border-right: 1px solid $border-color;
+        border-bottom: 1px solid transparent;
+        border-left: 1px solid $border-color;
+        background: linear-gradient(to bottom, $white, mix($primary, $white, 2%));
+      }
+    }
+  }
 }

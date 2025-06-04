@@ -35,10 +35,13 @@ body {
   h2 {
     font-size: 34px;
     margin-bottom: 12px;
+    font-weight: bold;
   }
 
   p {
+    font-weight: 500;
     margin-bottom: 0;
+    color: $gray-800;
   }
 
   .step-title {

@@ -108,7 +108,7 @@ export class OfferProcessComponent implements OnInit, OnChanges, AfterViewInit {
     switch (status) {
       case 'valid': return 'mdi-check-circle text-success';
       case 'invalid': return 'mdi-alert-circle text-danger';
-      case 'pending': return 'mdi-timer-sand text-warning';
+      //case 'pending': return 'mdi-timer-sand text-warning';
       default: return 'mdi-circle-outline text-secondary';
     }
   }
