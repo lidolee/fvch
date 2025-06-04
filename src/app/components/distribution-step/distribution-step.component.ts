@@ -223,7 +223,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       if (isPlatformBrowser(this.platformId)) {
         this.ngZone.onStable.pipe(take(1)).subscribe(() => {
           if (this.searchInputComponent) { this.searchInputComponent.blurInput(); }
-          setTimeout(() => this.scrollToMapView(), 50);
+          setTimeout(() => this.scrollToMapView(), 250); // Increased timeout
         });
       }
     }
@@ -299,7 +299,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       if (isPlatformBrowser(this.platformId)) {
         this.ngZone.onStable.pipe(take(1)).subscribe(() => {
           if (this.searchInputComponent) { this.searchInputComponent.blurInput(); }
-          setTimeout(() => this.scrollToMapView(), 150);
+          setTimeout(() => this.scrollToMapView(), 250); // Increased timeout
         });
       }
     }
@@ -611,7 +611,10 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     this.ngZone.onStable.pipe(take(1)).subscribe(() => {
       if (!this.mapViewRef?.nativeElement) return;
       const element = this.mapViewRef.nativeElement;
-      if (element.offsetParent === null || element.offsetWidth === 0 || element.offsetHeight === 0) return;
+      if (element.offsetParent === null || element.offsetWidth === 0 || element.offsetHeight === 0) {
+        console.warn('[DistributionStepComponent] scrollToMapView: mapViewRef not ready or visible when scroll attempted.');
+        return;
+      }
       const offset = 18;
       const elementScrollY = window.pageYOffset + element.getBoundingClientRect().top;
       const targetScrollPosition = elementScrollY - offset;
