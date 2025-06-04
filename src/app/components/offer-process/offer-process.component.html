@@ -1,0 +1,59 @@
+<div class="container-xxl">
+  <!-- Titel und Lead bleiben global für die Offertenseite -->
+  <div class="row">
+    <div class="col-12 mb-4">
+      <h1 class="page-title">Flyer Verteilen Offerte</h1>
+      <p class="lead">Ihre individuelle Offerte für die Flyer-Verteilung in 3 Schritten.</p>
+    </div>
+  </div>
+
+  <!-- Das ursprüngliche sheet-container Layout -->
+  <div class="row sheet-container">
+    <main class="col-xl-7">
+      <!-- Hier rendert der Router die OfferProcessComponent, die die Tabs enthält -->
+      <ul ngbNav #nav="ngbNav" [(activeId)]="activeStepId" (navChange)="onNavChange($event)" class="nav-tabs nav-fill" role="tablist">
+        <li [ngbNavItem]="1">
+          <button ngbNavLink class="d-flex align-items-center justify-content-center">1. Flyer Verteilung<i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(1)"></i></button>
+          <ng-template ngbNavContent>
+            <div>
+              <app-distribution-step
+                [initialStadt]="initialStadtnameForDistribution"
+                (nextStepRequest)="navigateToStep(2)"
+                (validationChange)="updateValidationStatus(1, $event)">
+              </app-distribution-step>
+            </div>
+          </ng-template>
+        </li>
+        <li [ngbNavItem]="2">
+          <button ngbNavLink class="d-flex align-items-center justify-content-center">2. Flyer Design & Druck<i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(2)"></i></button>
+          <ng-template ngbNavContent>
+            <div>
+              <app-design-print-step
+                (prevStepRequest)="navigateToStep(1)"
+                (nextStepRequest)="navigateToStep(3)"
+                (validationChange)="updateValidationStatus(2, $event)">
+              </app-design-print-step>
+            </div>
+          </ng-template>
+        </li>
+        <li [ngbNavItem]="3">
+          <button ngbNavLink class="d-flex align-items-center justify-content-center">3. Prüfung & Abschluss<i class="validation-icon ms-2 mdi" [ngClass]="getValidationIconClass(3)"></i></button>
+          <ng-template ngbNavContent>
+            <div>
+              <app-summary-step
+                (prevStepRequest)="navigateToStep(2)"
+                (nextStepRequest)="navigateToStep(4)"
+                (validationChange)="updateValidationStatus(3, $event)">
+              </app-summary-step>
+            </div>
+          </ng-template>
+        </li>
+      </ul>
+      <div [ngbNavOutlet]="nav" class="flex-grow-1"></div>
+    </main>
+    <aside class="col-xl-5 calculator-container">
+      <app-calculator class="flex-grow-1 overflow-x-auto"></app-calculator>
+    </aside>
+  </div>
+</div>
+

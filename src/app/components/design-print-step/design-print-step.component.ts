@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { ValidationStatus } from '../../app.component';
+// KORRIGIERTER IMPORT:
+import { ValidationStatus } from '../offer-process/offer-process.component';
 import { OrderDataService } from '../../services/order-data.service';
 
 export type DesignPackage = 'basis' | 'plus' | 'premium' | 'eigenes' | '';

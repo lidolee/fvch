@@ -1,12 +1,13 @@
 import { Component, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ValidationStatus } from '../../app.component';
-import {ContactDataComponent} from '../contact-data/contact-data.component';
+// KORRIGIERTER IMPORT:
+import { ValidationStatus } from '../offer-process/offer-process.component';
+import {ContactDataComponent} from '../contact-data/contact-data.component'; // Dieser Import ist okay, wenn ContactDataComponent hier verwendet wird.
 
 @Component({
   selector: 'app-summary-step',
   standalone: true,
-  imports: [CommonModule, ContactDataComponent],
+  imports: [CommonModule, ContactDataComponent], // ContactDataComponent wird hier importiert
   templateUrl: './summary-step.component.html',
   styleUrls: ['./summary-step.component.scss']
 })

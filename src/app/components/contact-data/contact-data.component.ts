@@ -1,7 +1,8 @@
 import { Component, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { ValidationStatus } from '../../app.component';
+// KORRIGIERTER IMPORT:
+import { ValidationStatus } from '../offer-process/offer-process.component';
 
 @Component({
   selector: 'app-contact-data',

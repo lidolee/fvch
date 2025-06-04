@@ -1,19 +1,33 @@
-import { ApplicationConfig, LOCALE_ID, provideZoneChangeDetection } from '@angular/core';
-import { provideRouter } from '@angular/router';
-import { provideHttpClient, withFetch } from '@angular/common/http'; // HIER IMPORTIEREN
-import { routes } from './app.routes';
-import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
-import { registerLocaleData } from '@angular/common';
-import localeDeCh from '@angular/common/locales/de-CH';
+import { ApplicationConfig, isDevMode, PLATFORM_ID } from '@angular/core';
+import { provideRouter, withComponentInputBinding, withInMemoryScrolling, withViewTransitions } from '@angular/router';
+import { provideClientHydration } from '@angular/platform-browser';
+import { provideHttpClient, withFetch } from '@angular/common/http';
+import { APP_BASE_HREF, isPlatformBrowser } from '@angular/common';
 
-registerLocaleData(localeDeCh);
+import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(routes),
-    provideClientHydration(withEventReplay()),
-    provideHttpClient(withFetch()), // HIER HINZUFÜGEN
-    { provide: LOCALE_ID, useValue: 'de-CH' }
+    provideRouter(routes,
+      withComponentInputBinding(),
+      withViewTransitions(),
+      withInMemoryScrolling({ scrollPositionRestoration: 'enabled' })
+    ),
+    provideClientHydration(),
+    provideHttpClient(withFetch()),
+    {
+      provide: APP_BASE_HREF,
+      useFactory: (platformId: Object) => {
+        if (isPlatformBrowser(platformId)) {
+          // Browser: Dev '/', Prod '/offerte/'
+          return isDevMode() ? '/' : '/offerte/';
+        }
+        // SSR (Server): Dev '/', Prod '/offerte/'
+        // Die angular.json steuert den baseHref für den Build.
+        // Dieser Provider stellt sicher, dass der Angular Router intern den korrekten Basiswert kennt.
+        return isDevMode() ? '/' : '/offerte/';
+      },
+      deps: [PLATFORM_ID]
+    }
   ]
 };
