@@ -1,7 +1,7 @@
 import { Component, ViewChild, ChangeDetectorRef, Input, OnInit, OnChanges, SimpleChanges, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NgbNavModule, NgbNav, NgbNavChangeEvent } from '@ng-bootstrap/ng-bootstrap';
-import { Router } from '@angular/router';
+import { Router } from '@angular/router'; // Router is imported but not used in the original logic, kept for structural integrity
 
 import { DistributionStepComponent } from '../distribution-step/distribution-step.component';
 import { DesignPrintStepComponent } from '../design-print-step/design-print-step.component';
@@ -28,7 +28,7 @@ export type ValidationStatus = 'valid' | 'invalid' | 'pending' | 'neutral';
 export class OfferProcessComponent implements OnInit, OnChanges {
   @ViewChild('nav') navInstance: NgbNav | undefined;
 
-  @Input() stadtname: string | undefined;
+  @Input() stadtname: string | undefined; // This is the input from the parent
   initialStadtnameForDistribution: string | undefined;
 
   activeStepId = 1;
@@ -38,59 +38,55 @@ export class OfferProcessComponent implements OnInit, OnChanges {
     3: 'neutral',
   };
 
-  private userLogin = "lidolee";
-
-  private get logPrefix() {
-    // Zeitstempel und User-Login für bessere Nachverfolgbarkeit in Logs
-    return `[${new Date().toISOString()}][${this.userLogin}] [OfferProcessComponent]`;
-  }
-
   constructor(private cdr: ChangeDetectorRef, private router: Router) {
-    // Konsolen-Logs sollten im Produktiv-Build idealerweise minimiert oder entfernt werden.
-    // Für Debugging sind sie hilfreich.
-    console.log(`${this.logPrefix} Constructor. Aktueller Router-Pfad: ${this.router.url}, @Input stadtname (initial): ${this.stadtname}`);
+    // Constructor logic, logs removed
   }
 
   ngOnInit(): void {
-    console.log(`${this.logPrefix} ngOnInit. Aktueller Router-Pfad: ${this.router.url}, @Input stadtname (nach init): ${this.stadtname}`);
     this.updateInitialStadtForDistributionStep();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    console.log(`${this.logPrefix} ngOnChanges. Aktueller Router-Pfad: ${this.router.url}, @Input stadtname (bei OnChanges): ${this.stadtname}, Änderungen:`, changes);
     if (changes['stadtname']) {
-      console.log(`${this.logPrefix} ngOnChanges: 'stadtname' Input spezifisch geändert. Neuer Wert: ${changes['stadtname'].currentValue}, Vorheriger Wert: ${changes['stadtname'].previousValue}, Ist erste Änderung: ${changes['stadtname'].firstChange}`);
       this.updateInitialStadtForDistributionStep();
     }
   }
 
   private updateInitialStadtForDistributionStep(): void {
-    this.initialStadtnameForDistribution = this.stadtname;
-    console.log(`${this.logPrefix} updateInitialStadtForDistributionStep. Setze initialStadtnameForDistribution zu: '${this.initialStadtnameForDistribution}'`);
-    this.cdr.markForCheck(); // Wichtig für OnPush, da Input sich geändert hat und Template davon abhängen könnte (indirekt über Child)
+    let newInitialStadtValue: string | undefined;
+
+    if (this.stadtname && this.stadtname.trim() !== '' && this.stadtname.toLowerCase() !== 'undefined') {
+      // If stadtname is a non-empty string and not literally "undefined" (case-insensitive)
+      newInitialStadtValue = this.stadtname;
+    } else {
+      // Otherwise, treat as no city specified
+      newInitialStadtValue = undefined;
+    }
+
+    // Only update and trigger change detection if the actual value for the child component changes
+    if (this.initialStadtnameForDistribution !== newInitialStadtValue) {
+      this.initialStadtnameForDistribution = newInitialStadtValue;
+      this.cdr.markForCheck();
+    }
   }
 
   navigateToStep(stepId: number): void {
-    console.log(`${this.logPrefix} navigateToStep - Ziel stepId: ${stepId}`);
     if (this.navInstance && this.activeStepId !== stepId && stepId >= 1 && stepId <= 3) {
-      this.navInstance.select(stepId); // NgbNav kümmert sich intern um UI Updates
+      this.navInstance.select(stepId);
     } else if (stepId === 4 && this.activeStepId === 3 && this.stepValidationStatus[3] === 'valid') {
-      console.log(`${this.logPrefix} Logik für Schritt 4 (Abschluss) hier einfügen.`);
-      // z.B. this.router.navigate(['/danke']);
+      // Logic for step 4 (completion)
+      // e.g. this.router.navigate(['/danke']);
     }
-    // activeStepId wird in onNavChange gesetzt, was markForCheck auslöst.
   }
 
   updateValidationStatus(stepId: number, status: ValidationStatus): void {
-    console.log(`${this.logPrefix} updateValidationStatus - stepId: ${stepId}, Status: ${status}`);
     if (this.stepValidationStatus[stepId] !== status) {
       this.stepValidationStatus[stepId] = status;
-      this.cdr.markForCheck(); // Wichtig für OnPush, da stepValidationStatus im Template verwendet wird (getValidationIconClass)
+      this.cdr.markForCheck();
     }
   }
 
   getValidationIconClass(stepId: number): string {
-    // Diese Funktion wird bei jeder CD aufgerufen. Sie ist einfach und sollte keine Performance-Probleme verursachen.
     const status = this.stepValidationStatus[stepId];
     switch (status) {
       case 'valid': return 'mdi-check-circle text-success';
@@ -101,8 +97,7 @@ export class OfferProcessComponent implements OnInit, OnChanges {
   }
 
   onNavChange(event: NgbNavChangeEvent<number>): void {
-    console.log(`${this.logPrefix} onNavChange - activeId: ${event.activeId}, nextId: ${event.nextId}.`);
     this.activeStepId = event.nextId;
-    this.cdr.markForCheck(); // Wichtig für OnPush, da activeStepId im Template verwendet wird
+    this.cdr.markForCheck();
   }
 }

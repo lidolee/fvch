@@ -51,25 +51,25 @@
     </app-map>
   </div>
 
-  <ng-container *ngIf="(selectedEntries$ | async) as selectedEntries; else showBeliebteRegionenInitially">
+  <app-search-input
+    #searchInputComponent
+    class="mt-3"
+    [placeholder]="'8001 oder Zürich oder 8001-8005'"
+    (entriesSelected)="onSearchInputEntriesSelected($event)"
+    (inputStatusChanged)="onSearchInputStatusChanged($event)"
+    (searchTermChanged)="onSearchInputTermChanged($event)"
+    [(ngModel)]="searchInputInitialTerm"
+    name="searchInputPlzOrtDistributionStep">
+  </app-search-input>
+  <div *ngIf="searchInputStatus === 'invalid' && searchInputInitialTerm && searchInputInitialTerm.length > 0" class="text-danger small mt-1 ps-1">
+    Eingabe ungültig oder keine Treffer.
+  </div>
+  <div *ngIf="searchInputStatus === 'pending'" class="text-muted small mt-1 ps-1">
+    Suche aktiv...
+  </div>
 
-    <app-search-input
-      #searchInputComponent
-      class="mt-3"
-      [placeholder]="'PLZ (z.B. 8001), Ort (z.B. Zürich), PLZ-Bereich (z.B. 8001-8005)'"
-      (entriesSelected)="onSearchInputEntriesSelected($event)"
-      (inputStatusChanged)="onSearchInputStatusChanged($event)"
-      (searchTermChanged)="onSearchInputTermChanged($event)"
-      [(ngModel)]="searchInputInitialTerm"
-      name="searchInputPlzOrtDistributionStep">
-    </app-search-input>
-    <div *ngIf="searchInputStatus === 'invalid' && searchInputInitialTerm && searchInputInitialTerm.length > 0" class="text-danger small mt-1 ps-1">
-      Eingabe ungültig oder keine Treffer.
-    </div>
-    <div *ngIf="searchInputStatus === 'pending'" class="text-muted small mt-1 ps-1">
-      Suche aktiv...
-    </div>
-
+  <ng-container *ngIf="(selectedEntries$ | async) as selectedEntries">
+    <!-- Zielgruppen-Auswahl (nur wenn Einträge vorhanden) -->
     <div class="my-4 row" *ngIf="selectedEntries && selectedEntries.length > 0">
       <div class="col-sm-12">
         <div class="choice-card-group choice-card-group-zielgruppe">
@@ -107,6 +107,7 @@
       </div>
     </div>
 
+    <!-- Titel für Auswahlliste und "Liste löschen" Button (nur wenn Einträge vorhanden) -->
     <div *ngIf="selectedEntries && selectedEntries.length > 0">
       <h3 class="section-title mt-4 mb-0"><span>Ihre Auswahl: {{ selectedEntries.length }} PLZ</span></h3>
       <div class="delete-plz-list text-end mt-2 mb-4">
@@ -114,7 +115,8 @@
       </div>
     </div>
 
-    <div *ngIf="selectedEntries && selectedEntries.length > 0; else showBeliebteRegionenWhenEmpty">
+    <!-- PLZ Tabelle ODER Beliebte Städte -->
+    <div *ngIf="selectedEntries && selectedEntries.length > 0; else showBeliebteRegionenBlock">
       <app-plz-selection-table
         [entries]="selectedEntries"
         [currentZielgruppe]="currentZielgruppe"
@@ -125,56 +127,32 @@
       </app-plz-selection-table>
     </div>
 
-    <ng-template #showBeliebteRegionenWhenEmpty>
+    <ng-template #showBeliebteRegionenBlock>
+      <!-- Dieser Block wird angezeigt, wenn selectedEntries leer ist oder die Observable noch nichts geliefert hat -->
       <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer">
         <div class="popular-locations text-center">
           <div class="my-2"><h6 class="text-uppercase">Beliebte Städte</h6></div>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Zürich')">Zürich</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bern')">Bern</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Basel')">Basel</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Luzern')">Luzern</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('St. Gallen')">St. Gallen</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Winterthur')">Winterthur</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Schaffhausen')">Schaffhausen</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Baden')">Baden</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Zürich')">Zürich</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Bern')">Bern</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Basel')">Basel</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Luzern')">Luzern</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('St. Gallen')">St. Gallen</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Winterthur')">Winterthur</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Schaffhausen')">Schaffhausen</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Baden')">Baden</button>
           <br/>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Genève')">Genève</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lausanne')">Lausanne</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Biel/Bienne')">Biel/Bienne</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Fribourg')">Fribourg</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Genève')">Genève</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Lausanne')">Lausanne</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Biel/Bienne')">Biel/Bienne</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Fribourg')">Fribourg</button>
           <br/>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lugano')">Lugano</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bellinzona')">Bellinzona</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Locarno')">Locarno</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Lugano')">Lugano</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Bellinzona')">Bellinzona</button>
+          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Locarno')">Locarno</button>
         </div>
       </div>
     </ng-template>
   </ng-container>
-
-  <ng-template #showBeliebteRegionenInitially>
-    <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer">
-      <div class="my-2"><strong>Beliebte Regionen</strong></div>
-      <div class="popular-locations text-center">
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Zürich')">Zürich</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bern')">Bern</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Basel')">Basel</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Luzern')">Luzern</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('St. Gallen')">St. Gallen</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Winterthur')">Winterthur</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Schaffhausen')">Schaffhausen</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Baden')">Baden</button>
-        <br/>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Genève')">Genève</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lausanne')">Lausanne</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Biel/Bienne')">Biel/Bienne</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Fribourg')">Fribourg</button>
-        <br/>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Lugano')">Lugano</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Bellinzona')">Bellinzona</button>
-        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="quickSearch('Locarno')">Locarno</button>
-      </div>
-    </div>
-  </ng-template>
 </div>
 
 <div class="perimeter-container reminder" *ngIf="showPerimeterUiContainer">
@@ -182,12 +160,20 @@
   <p>Für die Verteilung nach GPS-Perimeter benötigen wir Ihr gewünschtes Zielgebiet, um die Flyeranzahl und Kosten zu berechnen.</p>
   <ol>
     <li>Öffnen Sie <a href="https://earth.google.com" target="_blank" rel="noopener noreferrer"><strong>Google Earth</strong></a></li>
-    <li>Neue <strong>lokale KML-Datei</strong> erstellen <span class="badge text-bg-secondary">CTRL + K</span><br /><i class="mdi mdi-arrow-right-thin"></i>Projektname: GPS-Perimeter – Ihre Firma</li>
-    <li>Zielgebiet als <strong>Pfad oder Polygon</strong> einzeichnen <span class="badge text-bg-secondary">CTRL + SHIFT + L</span><br /><i class="mdi mdi-arrow-right-thin"></i>In Projekt speichern</li>
-    <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><i class="mdi mdi-arrow-right-thin"></i>KML-Datei exportieren</li>
+    <li>Neue <strong>lokale KML-Datei</strong> erstellen <span class="badge text-bg-secondary">CTRL + K</span><br /><i class="mdi mdi-arrow-right-thin"></i> Projektname: GPS-Perimeter – Ihre Firma</li>
+    <li>Zielgebiet als <strong>Pfad oder Polygon</strong> einzeichnen <span class="badge text-bg-secondary">CTRL + SHIFT + L</span><br /><i class="mdi mdi-arrow-right-thin"></i> In Projekt speichern</li>
+    <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><i class="mdi mdi-arrow-right-thin"></i> KML-Datei exportieren</li>
     <li>KML-Datei hochladen - nutzen Sie unsere Upload-Funktion weiter unten</li>
   </ol>
-  <span><strong>Preise ab CHF 250.– pro 1'000 Flyer</strong><br/>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte.</span>
+  <div class="mt-3">
+    <button type="button" class="btn btn-primary" (click)="triggerKmlUpload()" disabled> <!-- Logik für KML Upload muss implementiert werden -->
+      <i class="mdi mdi-upload"></i> KML-Datei hochladen
+    </button>
+    <div *ngIf="kmlFileName" class="mt-2 small">Hochgeladen: {{ kmlFileName }}</div>
+  </div>
+  <div class="mt-3">
+    <span><strong>Preise ab CHF 250.– pro 1'000 Flyer</strong><br/>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte.</span>
+  </div>
 </div>
 
 <h3 class="section-title"><span>2. Startdatum</span></h3>

@@ -31,7 +31,7 @@ export class PlzDataService {
   private rawEntriesCache: PlzEntry[] = [];
   private dataLoadedSuccessfully = false;
   private dataLoadingPromise: Promise<PlzEntry[]> | null = null;
-  private copilotLogPrefix = () => `${new Date().toISOString()} [COPILOT] [PlzDataService]`;
+  private copilotLogPrefix = () => `${new Date().toISOString()} [PlzDataService]`;
 
 
   constructor(

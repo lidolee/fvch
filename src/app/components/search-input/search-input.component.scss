@@ -8,6 +8,19 @@
   width: 100%;
 }
 
+.search-input-container {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  width: 100%;
+
+  .form-control {
+    text-transform: uppercase;
+  }
+}
+
+
 #typeahead-plz-search {
   font-size: 18px;
   padding-left: 36px;

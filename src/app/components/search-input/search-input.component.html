@@ -1,32 +1,23 @@
 <div class="search-input-container">
-    <div class="input-group">
-        <input
-            #typeaheadInputEl
-            type="text"
-            class="form-control"
-            [class.is-invalid]="currentStatus === 'invalid' && typeaheadSearchTerm.length > 0"
-            [class.is-valid]="currentStatus === 'valid' && typeaheadSearchTerm.length > 0"
-            [(ngModel)]="typeaheadSearchTerm"
-            (ngModelChange)="onSearchTermChange($event)"
-            [ngbTypeahead]="searchSuggestions"
-            [resultTemplate]="resultTemplate"
-            [inputFormatter]="typeaheadInputFormatter"
-            (selectItem)="typeaheadItemSelected($event)"
-            (focus)="onFocus()"
-            (blur)="onBlur()"
-            (keydown)="handleInputKeydown($event)"
-            [placeholder]="placeholder"
-            #typeaheadInstance="ngbTypeahead"
-            autocomplete="off"
-        />
-        <div class="input-group-append" *ngIf="searching">
-      <span class="input-group-text">
-        <div class="spinner-border spinner-border-sm" role="status">
-          <span class="visually-hidden">Suchen...</span>
-        </div>
-      </span>
-        </div>
-    </div>
+  <input
+      #typeaheadInputEl
+      type="text"
+      class="form-control"
+      [class.is-invalid]="currentStatus === 'invalid' && typeaheadSearchTerm.length > 0"
+      [class.is-valid]="currentStatus === 'valid' && typeaheadSearchTerm.length > 0"
+      [(ngModel)]="typeaheadSearchTerm"
+      (ngModelChange)="onSearchTermChange($event)"
+      [ngbTypeahead]="searchSuggestions"
+      [resultTemplate]="resultTemplate"
+      [inputFormatter]="typeaheadInputFormatter"
+      (selectItem)="typeaheadItemSelected($event)"
+      (focus)="onFocus()"
+      (blur)="onBlur()"
+      (keydown)="handleInputKeydown($event)"
+      [placeholder]="placeholder"
+      #typeaheadInstance="ngbTypeahead"
+      autocomplete="off"
+  />
 </div>
 
 <ng-template #resultTemplate let-r="result" let-t="term" let-i="index">

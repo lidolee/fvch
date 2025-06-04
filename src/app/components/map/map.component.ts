@@ -86,36 +86,59 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
   ngOnChanges(changes: SimpleChanges): void {
     if (!isPlatformBrowser(this.platformId)) return;
 
+    let needsUiRefresh = false; // Flag für explizite UI-Aktualisierung
+
     if (!this.map && !this.mapInitializationScheduled) {
       this.ngZone.runOutsideAngular(() => {
         requestAnimationFrame(() => this.scheduleMapInitialization());
       });
+      // Wenn Karte noch nicht da ist, brauchen wir keinen UI Refresh für Polygon-Änderungen
     }
 
     if (this.map) {
       let needsHighlightUpdate = false;
       let zoomHandled = false;
-      if (changes['selectedPlzIds'] || changes['highlightOnHoverPlzIds'] || changes['highlightFromTablePlzId']) {
+
+      if (changes['selectedPlzIds']) { // Speziell auf Änderungen von selectedPlzIds reagieren
+        needsHighlightUpdate = true;
+        // Wenn die Liste leer wird, ist ein UI-Refresh besonders wichtig
+        if (!this.selectedPlzIds || this.selectedPlzIds.length === 0) {
+          needsUiRefresh = true;
+        }
+      }
+      if (changes['highlightOnHoverPlzIds'] || changes['highlightFromTablePlzId']) {
         needsHighlightUpdate = true;
       }
+
       if (changes['zoomToPlzId'] && this.zoomToPlzId) {
         this.handleZoomToSinglePlz(this.zoomToPlzId);
         zoomHandled = true;
       }
+
       if (changes['zoomToPlzIdList']) {
         if (this.zoomToPlzIdList && this.zoomToPlzIdList.length > 0) {
           this.handleZoomToPlzList(this.zoomToPlzIdList);
         } else {
           if (!this.zoomToPlzId && (!this.selectedPlzIds || this.selectedPlzIds.length === 0)) {
             this.resetMapZoom();
+            needsUiRefresh = true; // Auch nach Reset Zoom explizit Highlights anwenden
           } else if (this.selectedPlzIds && this.selectedPlzIds.length > 0) {
             this.handleZoomToPlzList(this.selectedPlzIds);
+          } else {
+            // Falls zoomToPlzIdList leer wird, aber selectedPlzIds auch leer sind,
+            // und kein spezifischer zoomToPlzId da ist, könnte ein Reset + Highlight nötig sein.
+            // Dieser Fall wird oben schon behandelt.
           }
         }
         zoomHandled = true;
       }
-      if (needsHighlightUpdate && !zoomHandled) {
-        this.applyAllMapHighlights();
+
+      if (needsHighlightUpdate && !zoomHandled) { // Wenn Zoom nicht schon Highlights anwendet
+        this.applyAllMapHighlights(needsUiRefresh); // Übergebe das Flag
+      } else if (needsUiRefresh && zoomHandled) {
+        // Wenn Zoom gehandhabt wurde, aber ein expliziter Refresh (z.B. nach resetMapZoom)
+        // für die Highlights nötig ist.
+        this.applyAllMapHighlights(true);
       }
     }
   }
@@ -240,7 +263,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
         this.mapInitializationScheduled = false;
         return;
       }
-      // Das console.warn wurde hier entfernt.
       this.mapInitRetryTimer = setTimeout(() => this.ngZone.run(() => this.initMapInternal()), MAP_INIT_RETRY_DELAY_MS);
       return;
     }
@@ -272,7 +294,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
           if (docs?.[0]?.placemarks?.length > 0) {
             this.allPlacemarks = docs[0].placemarks;
             this.setupPlacemarkInteractions(this.allPlacemarks);
-            this.applyAllMapHighlights();
+            this.applyAllMapHighlights(true); // Initialer Refresh nach KML-Parse
             if (this.zoomToPlzIdList?.length) this.handleZoomToPlzList(this.zoomToPlzIdList);
             else if (this.selectedPlzIds?.length) this.handleZoomToPlzList(this.selectedPlzIds);
             else if (this.zoomToPlzId) this.handleZoomToSinglePlz(this.zoomToPlzId);
@@ -315,16 +337,12 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
           google.maps.event.addListener(actualPolygon, 'mouseover', () => {
             if (!this.map) return;
             this.currentHoveredPlacemarkIdForHighlight = plzInfo.id;
-            this.applyAllMapHighlights();
-            if (this.hoverPlzDisplayRef?.nativeElement && plzInfo.displayText) {
-              this.hoverPlzDisplayRef.nativeElement.textContent = plzInfo.displayText;
-              this.hoverPlzDisplayRef.nativeElement.style.display = 'block';
-            }
+            this.applyAllMapHighlights(); // Hier kein expliziter Refresh, da Maus-Interaktion
           });
           google.maps.event.addListener(actualPolygon, 'mouseout', () => {
             if (!this.map) return;
             this.currentHoveredPlacemarkIdForHighlight = null;
-            this.applyAllMapHighlights();
+            this.applyAllMapHighlights(); // Hier kein expliziter Refresh
             if (this.hoverPlzDisplayRef?.nativeElement) {
               this.hoverPlzDisplayRef.nativeElement.style.display = 'none';
             }
@@ -337,6 +355,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
           google.maps.event.addListener(actualPolygon, 'click', () => this.ngZone.run(() => {
             if (this.map && plzInfo.id) {
               this.plzClicked.emit({ id: plzInfo.id, name: placemark.name });
+              // Nach einem Klick könnte ein Highlight-Update sinnvoll sein,
+              // da sich selectedPlzIds oft ändert. ngOnChanges sollte das aber abfangen.
             }
           }));
         }
@@ -359,8 +379,11 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
     return { id: plz6, displayText: `PLZ ${plz4}` };
   }
 
-  public applyAllMapHighlights(): void {
+  // applyAllMapHighlights akzeptiert jetzt ein optionales Flag
+  public applyAllMapHighlights(forceAngularUpdate: boolean = false): void {
     if (!this.map || !this.allPlacemarks || this.allPlacemarks.length === 0 || !isPlatformBrowser(this.platformId)) return;
+
+    // Die Kernlogik läuft außerhalb von Angular für Performance
     this.ngZone.runOutsideAngular(() => {
       const selectedSet = new Set(this.selectedPlzIds);
       const hoverSet = new Set(this.highlightOnHoverPlzIds);
@@ -389,6 +412,18 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
         }
       });
     });
+
+    // Wenn ein explizites Update von Angular getriggert werden soll (z.B. nach Input-Änderung)
+    if (forceAngularUpdate) {
+      this.ngZone.run(() => {
+        this.cdr.detectChanges();
+        // Manchmal hilft es, der Karte einen zusätzlichen "Kick" zu geben,
+        // aber sei vorsichtig damit, da es Performance kosten kann.
+        // if (this.map) {
+        //   google.maps.event.trigger(this.map, 'idle'); // Oder ein anderes Event, das ein Neurendern anstößt
+        // }
+      });
+    }
   }
 
   private getPolygonBounds(polygon: any): google.maps.LatLngBounds | null {
@@ -427,12 +462,12 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
                 this.map.setZoom(Math.max(0, currentZoom - 2));
               }
               this.singlePolygonZoomAdjustListener = null;
+              this.applyAllMapHighlights(true); // Nach Zoom und Idle sicherstellen, dass Highlights aktuell sind
             });
           });
-        }
-      }
-    }
-    this.applyAllMapHighlights();
+        } else { this.applyAllMapHighlights(true); } // Falls keine Bounds, trotzdem Highlights anwenden
+      } else { this.applyAllMapHighlights(true); }
+    } else { this.applyAllMapHighlights(true); }
   }
 
   private handleZoomToPlzList(plzIdList: string[]): void {
@@ -441,7 +476,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
       return;
     }
     if (plzIdList.length === 0) {
-      this.resetMapZoom();
+      this.resetMapZoom(); // resetMapZoom sollte auch applyAllMapHighlights(true) am Ende haben
       return;
     }
     this.ngZone.runOutsideAngular(() => {
@@ -471,13 +506,22 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
               this.map.setZoom(Math.max(0, currentZoom - 2));
             }
             this.singlePolygonZoomAdjustListener = null;
+            this.applyAllMapHighlights(true); // Nach Zoom und Idle
+          });
+        } else {
+          // Für Listen mit >1 Polygon, direkt nach fitBounds Highlights anwenden
+          // (oder auf 'idle' warten, wenn fitBounds asynchron ist)
+          google.maps.event.addListenerOnce(this.map, 'idle', () => {
+            this.applyAllMapHighlights(true);
           });
         }
       } else {
-        this.resetMapZoom();
+        this.resetMapZoom(); // resetMapZoom sollte auch applyAllMapHighlights(true) am Ende haben
       }
     });
-    this.applyAllMapHighlights();
+    // Ein sofortiger Aufruf hier könnte zu früh sein, wenn fitBounds asynchron ist.
+    // Besser im 'idle' Event nach fitBounds.
+    // this.applyAllMapHighlights(true);
   }
 
   private resetMapZoom(): void {
@@ -485,11 +529,18 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
       this.ngZone.runOutsideAngular(() => {
         this.map.setCenter(this.mapOptions.initialCenter);
         this.map.setZoom(this.mapOptions.initialZoom);
+        // Nach dem Reset des Zooms ist es wichtig, die Highlights neu anzuwenden,
+        // da sich die sichtbaren Polygone geändert haben könnten oder Selektionen entfernt wurden.
+        google.maps.event.addListenerOnce(this.map, 'idle', () => {
+          this.applyAllMapHighlights(true);
+        });
       });
+    } else if (this.map) { // Falls mapOptions nicht da, aber Karte existiert
+      this.applyAllMapHighlights(true);
     }
   }
 
-  private loadGoogleMapsScriptOnce(): Promise<void> {
+  private loadGoogleMapsScriptOnce(): Promise<void> { /* ... unverändert ... */
     if (!isPlatformBrowser(this.platformId)) {
       return Promise.resolve();
     }
@@ -556,8 +607,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
       };
       document.head.appendChild(script);
     });
-    return googleMapsScriptLoadingPromise;
-  }
+    return googleMapsScriptLoadingPromise;}
 
   private readonly onWindowResize = (): void => {
     clearTimeout(this.resizeTimeoutId);
@@ -569,21 +619,29 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
         if (center) {
           this.map.setCenter(center);
         }
-        const currentBounds = this.map.getBounds();
-        if (currentBounds) {
-          this.map.fitBounds(currentBounds);
-        }
-        if (this.zoomToPlzIdList?.length) {
-          this.handleZoomToPlzList(this.zoomToPlzIdList);
-        } else if (this.selectedPlzIds?.length) {
-          this.handleZoomToPlzList(this.selectedPlzIds);
-        } else if (this.zoomToPlzId) {
-          this.handleZoomToSinglePlz(this.zoomToPlzId);
-        }
+
+        // Warten bis Karte "idle" ist, bevor Zoom/Highlights angepasst werden.
+        google.maps.event.addListenerOnce(this.map, 'idle', () => {
+          const currentBounds = this.map.getBounds();
+          if (currentBounds) {
+            this.map.fitBounds(currentBounds);
+          }
+          if (this.zoomToPlzIdList?.length) {
+            this.handleZoomToPlzList(this.zoomToPlzIdList);
+          } else if (this.selectedPlzIds?.length) {
+            this.handleZoomToPlzList(this.selectedPlzIds);
+          } else if (this.zoomToPlzId) {
+            this.handleZoomToSinglePlz(this.zoomToPlzId);
+          } else {
+            // Nur wenn keine spezifische Zoom-Aktion ansteht, die Highlights direkt anwenden
+            this.applyAllMapHighlights(true);
+          }
+        });
       });
-      this.ngZone.run(() => {
-        this.applyAllMapHighlights();
-      });
+      // Nicht mehr hier, wird im 'idle' Event oben behandelt
+      // this.ngZone.run(() => {
+      //   this.applyAllMapHighlights(true);
+      // });
     }, WINDOW_RESIZE_DEBOUNCE_MS);
   };
 }

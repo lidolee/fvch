@@ -13,7 +13,6 @@ import { SelectionService } from '../../services/selection.service';
 import { MapOptions, MapComponent } from '../map/map.component';
 import { SearchInputComponent, SimpleValidationStatus } from '../search-input/search-input.component';
 import { PlzSelectionTableComponent } from '../plz-selection-table/plz-selection-table.component';
-import { ValidationStatus as OfferProcessValidationStatus } from '../offer-process/offer-process.component';
 
 export interface TableHighlightEvent {
   plzId: string | null;
@@ -21,7 +20,7 @@ export interface TableHighlightEvent {
 }
 type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
 type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
-type OverallValidationStatus = OfferProcessValidationStatus;
+export type OverallValidationStatus = 'valid' | 'invalid';
 
 
 const COLUMN_HIGHLIGHT_DURATION = 1500;
@@ -51,6 +50,8 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   @ViewChild('mapView') mapViewRef!: ElementRef<HTMLDivElement>;
 
   private destroy$ = new Subject<void>();
+  private activeProcessingStadt: string | undefined = undefined;
+
 
   public searchInputInitialTerm: string = '';
   public searchInputStatus: SimpleValidationStatus = 'empty';
@@ -76,6 +77,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   public mapConfig: MapOptions;
   public readonly kmlPathConstant: string = 'assets/ch_plz.kml';
   public readonly apiKeyConstant: string = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc';
+  public kmlFileName: string | null = null;
 
   constructor(
     private ngZone: NgZone,
@@ -98,20 +100,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   ngOnInit(): void {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [DistributionStepComponent] ngOnInit CALLED. initialStadt: ${this.initialStadt}`);
     this.initializeDates();
-
-    if (this.initialStadt) {
-      const decodedStadt = decodeURIComponent(this.initialStadt);
-      console.log(`[${timestamp}] [DistributionStepComponent] "initialStadt" (from @Input in ngOnInit) FOUND. Decoded: ${decodedStadt}. Processing...`);
-      this.processStadtnameFromUrl(decodedStadt);
-    } else {
-      console.log(`[${timestamp}] [DistributionStepComponent] "initialStadt" (from @Input in ngOnInit) NOT FOUND. Clearing selection.`);
-      this.selectionService.clearEntries();
-      this.updateOverallValidationState();
-    }
-
     this.selectedEntries$
       .pipe(takeUntil(this.destroy$))
       .subscribe(entries => {
@@ -124,119 +113,194 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    const timestamp = new Date().toISOString();
     if (changes['initialStadt']) {
-      const newStadtValue = changes['initialStadt'].currentValue;
-      const prevStadtValue = changes['initialStadt'].previousValue;
-      console.log(`[${timestamp}] [DistributionStepComponent] ngOnChanges: "initialStadt" CHANGED. Neu: ${newStadtValue}, Alt: ${prevStadtValue}`);
+      const newStadtInputValue = changes['initialStadt'].currentValue;
+      let effectiveNewStadt: string | undefined;
 
-      if (newStadtValue) {
-        const decodedStadt = decodeURIComponent(newStadtValue);
-        console.log(`[${timestamp}] [DistributionStepComponent] ngOnChanges: Decoded newStadt: ${decodedStadt}. Reprocessing...`);
-        this.processStadtnameFromUrl(decodedStadt);
+      if (newStadtInputValue && typeof newStadtInputValue === 'string' &&
+        newStadtInputValue.trim() !== '' && newStadtInputValue.toLowerCase() !== 'undefined') {
+        effectiveNewStadt = decodeURIComponent(newStadtInputValue);
       } else {
-        console.log(`[${timestamp}] [DistributionStepComponent] ngOnChanges: "initialStadt" ist jetzt leer. Clearing selection and search input.`);
-        this.selectionService.clearEntries();
-        this.mapZoomToPlzId = null;
-        this.mapZoomToPlzIdList = null;
-        if (this.searchInputComponent && typeof this.searchInputComponent.clearInput === 'function') {
-          this.searchInputComponent.clearInput();
+        effectiveNewStadt = undefined;
+      }
+
+      if (this.activeProcessingStadt !== effectiveNewStadt) {
+        this.activeProcessingStadt = effectiveNewStadt;
+
+        if (effectiveNewStadt) {
+          this.processStadtnameFromUrl(effectiveNewStadt);
         } else {
-          console.warn(`[${timestamp}] [DistributionStepComponent] searchInputComponent.clearInput() nicht verfügbar oder searchInputComponent nicht bereit.`);
-          this.searchInputInitialTerm = '';
+          this.selectionService.clearEntries();
+          this.mapZoomToPlzId = null;
+          this.mapZoomToPlzIdList = null;
+          if (this.searchInputComponent && typeof this.searchInputComponent.clearInput === 'function') {
+            this.searchInputComponent.clearInput();
+          } else {
+            this.searchInputInitialTerm = '';
+          }
         }
-        this.updateOverallValidationState();
       }
     }
   }
 
+  // TrackBy function for *ngFor lists of PlzEntry
+  trackByPlzId(index: number, item: PlzEntry): string {
+    return item.id;
+  }
 
   private async processStadtnameFromUrl(stadtname: string): Promise<void> {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [DistributionStepComponent] processStadtnameFromUrl called with: ${stadtname}`);
-    if (!stadtname || stadtname.trim() === '') {
-      console.log(`[${timestamp}] [DistributionStepComponent] processStadtnameFromUrl: stadtname is empty or undefined. Aborting.`);
-      return;
-    }
-
-    let entriesProcessedSuccessfully = false;
+    if (!stadtname || stadtname.trim() === '') { return; }
 
     const dataReady = await this.plzDataService.ensureDataReady();
-    console.log(`[${timestamp}] [DistributionStepComponent] ensureDataReady result: ${dataReady}`);
-
     if (!dataReady) {
-      console.error(`[${timestamp}] [DistributionStepComponent] PLZ Data could not be loaded for deep link.`);
-      this.updateOverallValidationState(); // Sicherstellen, dass CDR aufgerufen wird
+      this.updateOverallValidationState();
       return;
     }
 
-    console.log(`[${timestamp}] [DistributionStepComponent] PLZ Data is ready. Fetching suggestions for "${stadtname}"...`);
+    this.selectionService.clearEntries();
+    this.mapZoomToPlzId = null;
+    this.mapZoomToPlzIdList = null;
+
+    let termToUseForSearchInput = stadtname;
+    let plzEntriesToSelect: PlzEntry[] = [];
+
     try {
       const potentialMatches = await firstValueFrom(
         this.plzDataService.fetchTypeaheadSuggestions(stadtname).pipe(take(1))
       );
-      // ... (Logik zum Finden von targetMatch bleibt gleich)
-      if (!potentialMatches || potentialMatches.length === 0) {
-        console.log(`[${timestamp}] [DistributionStepComponent] No potential matches for ${stadtname}.`);
-        this.updateOverallValidationState();
-        return;
-      }
-      let targetMatch: EnhancedSearchResultItem | undefined = potentialMatches.find(
-        item => item.isGroupHeader && this.plzDataService.normalizeStringForSearch(item.ort) === this.plzDataService.normalizeStringForSearch(stadtname)
-      );
-      if (!targetMatch) {
-        targetMatch = potentialMatches.find(item => item.isGroupHeader);
-      }
-      if (!targetMatch && potentialMatches.length > 0) {
-        targetMatch = potentialMatches.find(item => !item.isGroupHeader && this.plzDataService.normalizeStringForSearch(item.ort) === this.plzDataService.normalizeStringForSearch(stadtname));
-        if(!targetMatch) {
-          if (potentialMatches[0].isGroupHeader || potentialMatches.length === 1) {
-            targetMatch = potentialMatches[0];
+
+      if (potentialMatches && potentialMatches.length > 0) {
+        let targetMatch: EnhancedSearchResultItem | undefined = potentialMatches.find(
+          item => item.isGroupHeader && this.plzDataService.normalizeStringForSearch(item.ort) === this.plzDataService.normalizeStringForSearch(stadtname)
+        );
+        if (!targetMatch) {
+          targetMatch = potentialMatches.find(item => item.isGroupHeader);
+        }
+        if (!targetMatch) {
+          targetMatch = potentialMatches.find(item => !item.isGroupHeader && this.plzDataService.normalizeStringForSearch(item.ort) === this.plzDataService.normalizeStringForSearch(stadtname));
+        }
+        if (!targetMatch && potentialMatches.length > 0 && (potentialMatches[0].isGroupHeader || potentialMatches.length === 1)) {
+          targetMatch = potentialMatches[0];
+        }
+
+        if (targetMatch) {
+          termToUseForSearchInput = targetMatch.ort || (targetMatch.plz4 ? targetMatch.plz4.toString() : stadtname);
+
+          if (targetMatch.isGroupHeader && targetMatch.ort && targetMatch.kt) {
+            plzEntriesToSelect = await firstValueFrom(this.plzDataService.getEntriesByOrtAndKanton(targetMatch.ort, targetMatch.kt).pipe(take(1)));
+          } else if (!targetMatch.isGroupHeader && targetMatch.id) {
+            const entry: PlzEntry = {
+              id: targetMatch.id,
+              plz6: targetMatch.plz6 || targetMatch.id,
+              plz4: targetMatch.plz4 || (targetMatch.id ? targetMatch.id.substring(0,4) : ''),
+              ort: targetMatch.ort || '',
+              kt: targetMatch.kt || '',
+              all: targetMatch.all || 0
+            };
+            plzEntriesToSelect = [entry];
           }
         }
       }
-      // ... (Ende Logik targetMatch)
 
-      if (targetMatch) {
-        const termToShowInSearchInput = targetMatch.ort || (targetMatch.plz4 ? targetMatch.plz4.toString() : stadtname);
-        this.selectionService.clearEntries();
-
-        if (targetMatch.isGroupHeader && targetMatch.ort && targetMatch.kt) {
-          const entries = await firstValueFrom(this.plzDataService.getEntriesByOrtAndKanton(targetMatch.ort, targetMatch.kt).pipe(take(1)));
-          if (entries.length > 0) {
-            this.selectionService.addMultipleEntries(entries);
-            this.quickSearch(termToShowInSearchInput);
-            entriesProcessedSuccessfully = true;
-          }
-        } else if (!targetMatch.isGroupHeader && targetMatch.id) {
-          const entryToSelect: PlzEntry = { ...targetMatch } as PlzEntry;
-          this.selectionService.addEntry(entryToSelect);
-          this.quickSearch(termToShowInSearchInput);
-          entriesProcessedSuccessfully = true;
-        }
+      if (this.searchInputComponent) {
+        this.searchInputComponent.setSearchTerm(termToUseForSearchInput, false);
+      } else {
+        this.searchInputInitialTerm = termToUseForSearchInput;
       }
+
+      if (plzEntriesToSelect.length > 0) {
+        this.selectionService.addMultipleEntries(plzEntriesToSelect);
+      }
+
     } catch (error) {
-      console.error(`[${timestamp}] [DistributionStepComponent] Error processing stadtname ${stadtname} from URL:`, error);
+      if (this.searchInputComponent) {
+        this.searchInputComponent.setSearchTerm(stadtname, false);
+      } else {
+        this.searchInputInitialTerm = stadtname;
+      }
     } finally {
-      this.updateOverallValidationState(); // Ruft cdr.markForCheck()
-      console.log(`[${timestamp}] [DistributionStepComponent] processStadtnameFromUrl finished for ${stadtname}. Entries processed: ${entriesProcessedSuccessfully}`);
+      this.cdr.markForCheck();
+      if (isPlatformBrowser(this.platformId)) {
+        this.ngZone.onStable.pipe(take(1)).subscribe(() => {
+          if (this.searchInputComponent) { this.searchInputComponent.blurInput(); }
+          setTimeout(() => this.scrollToMapView(), 50);
+        });
+      }
+    }
+  }
 
-      if (entriesProcessedSuccessfully) {
-        if (isPlatformBrowser(this.platformId)) {
-          // Warten bis Angular stabil ist (nach CD-Zyklen)
-          this.ngZone.onStable.pipe(take(1)).subscribe(() => {
-            console.log(`[${timestamp}] [DistributionStepComponent] Angular is stable. Proceeding with blur and scroll for URL city.`);
-            if (this.searchInputComponent?.typeaheadInputEl?.nativeElement) {
-              this.searchInputComponent.typeaheadInputEl.nativeElement.blur();
-              console.log(`[${timestamp}] [DistributionStepComponent] Blurred search input (onStable).`);
-            }
-            // Scrollen im nächsten Microtask, nachdem Blur-Effekte (falls vorhanden) verarbeitet wurden.
-            Promise.resolve().then(() => {
-              console.log(`[${timestamp}] [DistributionStepComponent] Attempting scroll in microtask.`);
-              this.scrollToMapView();
-            }).catch(scrollError => console.error("Error in promise for scrollToMapView:", scrollError));
-          });
+  public async selectCityAndFetchPlz(stadtName: string): Promise<void> {
+    if (!stadtName || stadtName.trim() === '') { return; }
+
+    const dataReady = await this.plzDataService.ensureDataReady();
+    if (!dataReady) {
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.activeProcessingStadt = stadtName;
+    this.selectionService.clearEntries();
+    this.mapZoomToPlzId = null;
+    this.mapZoomToPlzIdList = null;
+
+    let termToUseForSearchInput = stadtName;
+    let plzEntriesToSelect: PlzEntry[] = [];
+
+    try {
+      const suggestions = await firstValueFrom(
+        this.plzDataService.fetchTypeaheadSuggestions(stadtName).pipe(take(1))
+      );
+
+      if (suggestions && suggestions.length > 0) {
+        let cityGroupHeader = suggestions.find(
+          item => item.isGroupHeader && this.plzDataService.normalizeStringForSearch(item.ort) === this.plzDataService.normalizeStringForSearch(stadtName)
+        );
+        if (!cityGroupHeader) {
+          cityGroupHeader = suggestions.find(item => item.isGroupHeader);
         }
+
+        if (cityGroupHeader && cityGroupHeader.ort && cityGroupHeader.kt) {
+          termToUseForSearchInput = cityGroupHeader.ort;
+          plzEntriesToSelect = await firstValueFrom(
+            this.plzDataService.getEntriesByOrtAndKanton(cityGroupHeader.ort, cityGroupHeader.kt).pipe(take(1))
+          );
+        } else {
+          const singlePlzMatch = suggestions.find(item => !item.isGroupHeader && this.plzDataService.normalizeStringForSearch(item.ort) === this.plzDataService.normalizeStringForSearch(stadtName));
+          if (singlePlzMatch) {
+            termToUseForSearchInput = singlePlzMatch.ort || stadtName;
+            const entry: PlzEntry = {
+              id: singlePlzMatch.id,
+              plz6: singlePlzMatch.plz6 || singlePlzMatch.id,
+              plz4: singlePlzMatch.plz4 || (singlePlzMatch.id ? singlePlzMatch.id.substring(0,4) : ''),
+              ort: singlePlzMatch.ort || '',
+              kt: singlePlzMatch.kt || '',
+              all: singlePlzMatch.all || 0
+            };
+            plzEntriesToSelect = [entry];
+          }
+        }
+      }
+
+      if (this.searchInputComponent) {
+        this.searchInputComponent.setSearchTerm(termToUseForSearchInput, false);
+      } else {
+        this.searchInputInitialTerm = termToUseForSearchInput;
+      }
+
+      if (plzEntriesToSelect.length > 0) {
+        this.selectionService.addMultipleEntries(plzEntriesToSelect);
+      }
+
+    } catch (error) {
+      if (this.searchInputComponent) { this.searchInputComponent.setSearchTerm(stadtName, false); }
+      else { this.searchInputInitialTerm = stadtName; }
+    } finally {
+      this.cdr.markForCheck();
+      if (isPlatformBrowser(this.platformId)) {
+        this.ngZone.onStable.pipe(take(1)).subscribe(() => {
+          if (this.searchInputComponent) { this.searchInputComponent.blurInput(); }
+          setTimeout(() => this.scrollToMapView(), 150);
+        });
       }
     }
   }
@@ -254,7 +318,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     }
     this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialStartDate);
     this.checkExpressSurcharge();
-    this.updateOverallValidationState();
   }
 
   private formatDateToYyyyMmDd(date: Date): string {
@@ -316,25 +379,20 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   private checkExpressSurcharge(): void {
     if (!this.verteilungStartdatum || !this.defaultStandardStartDate) {
-      if (this.showExpressSurcharge) { // Nur markForCheck, wenn sich der Wert ändert
-        this.showExpressSurcharge = false;
-        this.cdr.markForCheck();
-      }
+      if (this.showExpressSurcharge) { this.showExpressSurcharge = false; this.cdr.markForCheck(); }
       return;
     }
     const selectedStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
     const minAllowedStartDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
 
     if (isNaN(selectedStartDate.getTime()) || isNaN(this.defaultStandardStartDate.getTime()) || isNaN(minAllowedStartDate.getTime())) {
-      if (this.showExpressSurcharge) {
-        this.showExpressSurcharge = false;
-        this.cdr.markForCheck();
-      }
+      if (this.showExpressSurcharge) { this.showExpressSurcharge = false; this.cdr.markForCheck(); }
       return;
     }
     const needsSurcharge = selectedStartDate.getTime() < this.defaultStandardStartDate.getTime() &&
       selectedStartDate.getTime() >= minAllowedStartDate.getTime();
     const newShowExpressSurcharge = needsSurcharge && !this.expressSurchargeConfirmed;
+
     if (this.showExpressSurcharge !== newShowExpressSurcharge) {
       this.showExpressSurcharge = newShowExpressSurcharge;
       this.cdr.markForCheck();
@@ -346,28 +404,22 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     if (this.defaultStandardStartDate) {
       this.verteilungStartdatum = this.formatDateToYyyyMmDd(this.defaultStandardStartDate);
       this.onStartDateChange();
-    } else {
-      this.cdr.markForCheck();
-    }
+    } else { this.cdr.markForCheck(); }
   }
 
   public confirmExpressSurcharge(): void {
     this.expressSurchargeConfirmed = true;
-    this.showExpressSurcharge = false; // Wird durch checkExpressSurcharge in onStartDateChange oder direkt hier aktualisiert
+    this.showExpressSurcharge = false;
     this.updateOverallValidationState();
-    this.cdr.markForCheck(); // explizit für showExpressSurcharge
+    this.cdr.markForCheck();
   }
 
   ngAfterViewInit(): void {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [DistributionStepComponent] ngAfterViewInit CALLED.`);
-    if (this.searchInputComponent && this.searchInputInitialTerm && !this.initialStadt) {
+    if (this.searchInputComponent && this.searchInputInitialTerm && !this.activeProcessingStadt) {
       this.searchInputComponent.initiateSearchForTerm(this.searchInputInitialTerm);
       this.searchInputInitialTerm = '';
     }
-    Promise.resolve().then(() => {
-      this.updateOverallValidationState();
-    });
+    Promise.resolve().then(() => { this.updateOverallValidationState(); });
   }
 
   ngOnDestroy(): void {
@@ -379,9 +431,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     if (entries && entries.length > 0) {
       this.selectionService.addMultipleEntries(entries);
       if (isPlatformBrowser(this.platformId)) {
-        // Scrollen mit kurzer Verzögerung, um DOM-Updates Zeit zu geben
-        // ngZone.onStable wäre hier auch eine Option für mehr Robustheit
-        setTimeout(() => this.scrollToMapView(), 100); // Erhöhte Verzögerung für mehr Stabilität
+        setTimeout(() => this.scrollToMapView(), 100);
       }
     }
   }
@@ -454,40 +504,26 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
             }
           }
         })
-        .catch(error => {
-          console.error(`[${new Date().toISOString()}] [DistributionStepComponent] Error fetching/adding entry from map click:`, error);
-        })
-        .finally(() => {
-          this.updateOverallValidationState();
-        });
+        .catch(error => { /* Handle error */ });
     }
   }
 
   onMapLoadingStatusChanged(isLoading: boolean): void {
     if (this.mapIsLoading !== isLoading) {
       this.mapIsLoading = isLoading;
-      this.updateOverallValidationState(); // Oder direkt cdr.markForCheck(), wenn Validierung nicht betroffen
+      this.updateOverallValidationState();
     }
   }
 
   public quickSearch(term: string): void {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [DistributionStepComponent] quickSearch called with term: "${term}"`);
-    if (this.searchInputComponent) {
-      this.searchInputComponent.initiateSearchForTerm(term);
-    } else {
-      if (this.searchInputInitialTerm !== term) {
-        this.searchInputInitialTerm = term;
-        this.cdr.markForCheck();
-      }
-    }
+    this.selectCityAndFetchPlz(term);
   }
 
   public clearPlzTable(): void {
-    const timestamp = new Date().toISOString();
     this.selectionService.clearEntries();
     this.mapZoomToPlzId = null;
     this.mapZoomToPlzIdList = null;
+    this.activeProcessingStadt = undefined;
 
     if (this.searchInputComponent && typeof this.searchInputComponent.clearInput === 'function') {
       this.searchInputComponent.clearInput();
@@ -495,10 +531,9 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       this.searchInputInitialTerm = '';
     }
     this.router.navigate(['/']);
-    this.updateOverallValidationState();
 
     if (isPlatformBrowser(this.platformId)) {
-      setTimeout(() => this.scrollToMapView(), 100); // Erhöhte Verzögerung
+      setTimeout(() => this.scrollToMapView(), 100);
     }
   }
 
@@ -511,12 +546,9 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     this.mapZoomToPlzIdList = null;
     this.cdr.markForCheck();
     if (isPlatformBrowser(this.platformId)) {
-      setTimeout(() => this.scrollToMapView(), 100); // Erhöhte Verzögerung
+      setTimeout(() => this.scrollToMapView(), 100);
     }
-    setTimeout(() => {
-      this.mapZoomToPlzId = null;
-      this.cdr.markForCheck();
-    }, 150); // Etwas längere Verzögerung für Zoom-Reset
+    setTimeout(() => { this.mapZoomToPlzId = null; this.cdr.markForCheck(); }, 250);
   }
 
   highlightPlacemarkOnMapFromTable(event: TableHighlightEvent): void {
@@ -527,46 +559,63 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  getFlyerMaxForEntry(entry: PlzEntry): number { /* unverändert */ return 0; }
-  getZielgruppeLabel(): string { /* unverändert */ return ''; }
-  private updateOverallValidationState(): void { /* unverändert, ruft cdr.markForCheck() */ }
-  private calculateOverallValidationStatus(): OverallValidationStatus { /* unverändert */ return 'invalid'; }
-  private isExpressSurchargeRelevant(): boolean { /* unverändert */ return false; }
-  proceedToNextStep(): void { /* unverändert, ruft cdr.markForCheck() am Ende*/ }
+  triggerKmlUpload(): void { /* Implement KML */ }
+
+  getFlyerMaxForEntry(entry: PlzEntry): number { return 0; }
+  getZielgruppeLabel(): string { return ''; }
+
+  private updateOverallValidationState(): void {
+    const newStatus = this.calculateOverallValidationStatus();
+    this.validationChange.emit(newStatus);
+    this.cdr.markForCheck();
+  }
+
+  private calculateOverallValidationStatus(): OverallValidationStatus {
+    const hasSelectedPlz = this.selectionService.getSelectedEntries().length > 0;
+    const isDateValid = !!this.verteilungStartdatum && !isNaN(this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime());
+    const isExpressConfirmedIfNeeded = !this.isExpressSurchargeRelevant() || this.expressSurchargeConfirmed;
+
+    if (this.currentVerteilungTyp === 'Nach PLZ') {
+      const isSearchInputStateAcceptable = this.searchInputStatus === 'valid' ||
+        this.searchInputStatus === 'empty' ||
+        (this.activeProcessingStadt && this.searchInputStatus !== 'invalid');
+
+      if (hasSelectedPlz && isDateValid && isExpressConfirmedIfNeeded && isSearchInputStateAcceptable) {
+        return 'valid';
+      }
+    } else {
+      if (isDateValid && isExpressConfirmedIfNeeded /* && kmlIsValid */) {
+        return 'invalid'; // Until KML is implemented
+      }
+    }
+    return 'invalid';
+  }
+
+  private isExpressSurchargeRelevant(): boolean {
+    if (!this.verteilungStartdatum || !this.defaultStandardStartDate) return false;
+    const selected = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
+    const minAllowed = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
+    if (isNaN(selected.getTime()) || isNaN(this.defaultStandardStartDate.getTime()) || isNaN(minAllowed.getTime())) return false;
+    return selected.getTime() < this.defaultStandardStartDate.getTime() && selected.getTime() >= minAllowed.getTime();
+  }
+
+  proceedToNextStep(): void {
+    if (this.calculateOverallValidationStatus() === 'valid') {
+      this.nextStepRequest.emit();
+    }
+    this.cdr.markForCheck();
+  }
 
   private scrollToMapView(): void {
-    if (!isPlatformBrowser(this.platformId)) {
-      console.warn('[DistributionStepComponent] scrollToMapView: Not in browser.');
-      return;
-    }
-    if (!this.mapViewRef?.nativeElement) {
-      console.warn('[DistributionStepComponent] scrollToMapView: mapViewRef not available.');
-      // Optional: Retry, falls es ein sehr spätes Timing-Problem ist
-      // setTimeout(() => { if (this.mapViewRef?.nativeElement) this.scrollToMapView(); }, 200);
-      return;
-    }
-
-    const element = this.mapViewRef.nativeElement;
-    if (element.offsetParent === null || element.offsetWidth === 0 || element.offsetHeight === 0) {
-      console.warn('[DistributionStepComponent] scrollToMapView: mapViewRef element is not visible or has no dimensions. Retrying in 200ms.');
-      // Erneuter Versuch nach kurzer Verzögerung, falls das Element gerade erst sichtbar wird
-      this.ngZone.runOutsideAngular(() => { // setTimeout außerhalb von Angular Zone, um keine unnötige CD auszulösen
-        setTimeout(() => {
-          console.log('[DistributionStepComponent] Retrying scrollToMapView...');
-          this.scrollToMapView(); // Ruft sich selbst erneut auf
-        }, 200);
-      });
-      return;
-    }
-
-    const offset = 18;
-    const elementScrollY = window.pageYOffset + element.getBoundingClientRect().top;
-    const targetScrollPosition = elementScrollY - offset;
-
-    console.log(`[${new Date().toISOString()}] [DistributionStepComponent] Scrolling to map. Element scrollY: ${elementScrollY}, Target scroll position: ${targetScrollPosition}`);
-    window.scrollTo({
-      top: targetScrollPosition,
-      behavior: 'smooth'
+    if (!isPlatformBrowser(this.platformId)) { return; }
+    this.ngZone.onStable.pipe(take(1)).subscribe(() => {
+      if (!this.mapViewRef?.nativeElement) return;
+      const element = this.mapViewRef.nativeElement;
+      if (element.offsetParent === null || element.offsetWidth === 0 || element.offsetHeight === 0) return;
+      const offset = 18;
+      const elementScrollY = window.pageYOffset + element.getBoundingClientRect().top;
+      const targetScrollPosition = elementScrollY - offset;
+      window.scrollTo({ top: targetScrollPosition, behavior: 'smooth' });
     });
   }
 }
