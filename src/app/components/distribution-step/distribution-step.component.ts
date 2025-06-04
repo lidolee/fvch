@@ -1,18 +1,19 @@
 import {
   Component, OnInit, AfterViewInit, OnDestroy, ViewChild, Output, EventEmitter,
-  Inject, PLATFORM_ID, NgZone, ChangeDetectorRef, Input, OnChanges, SimpleChanges // Added Input, OnChanges, SimpleChanges
+  Inject, PLATFORM_ID, NgZone, ChangeDetectorRef, Input, OnChanges, SimpleChanges, ElementRef
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable, Subject, firstValueFrom } from 'rxjs';
 import { takeUntil, take } from 'rxjs/operators';
+import { Router } from '@angular/router';
 
 import { PlzDataService, PlzEntry, EnhancedSearchResultItem } from '../../services/plz-data.service';
 import { SelectionService } from '../../services/selection.service';
 import { MapOptions, MapComponent } from '../map/map.component';
 import { SearchInputComponent, SimpleValidationStatus } from '../search-input/search-input.component';
 import { PlzSelectionTableComponent } from '../plz-selection-table/plz-selection-table.component';
-import { ValidationStatus as OfferProcessValidationStatus } from '../offer-process/offer-process.component'; // Assuming this is the type
+import { ValidationStatus as OfferProcessValidationStatus } from '../offer-process/offer-process.component';
 
 export interface TableHighlightEvent {
   plzId: string | null;
@@ -20,7 +21,6 @@ export interface TableHighlightEvent {
 }
 type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
 type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
-// Use the ValidationStatus from OfferProcessComponent or define your own if different
 type OverallValidationStatus = OfferProcessValidationStatus;
 
 
@@ -39,14 +39,15 @@ const COLUMN_HIGHLIGHT_DURATION = 1500;
     PlzSelectionTableComponent
   ]
 })
-export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges { // Added OnChanges
-  @Input() initialStadt: string | undefined; // << NEW INPUT
+export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges {
+  @Input() initialStadt: string | undefined;
 
   @Output() nextStepRequest = new EventEmitter<void>();
   @Output() validationChange = new EventEmitter<OverallValidationStatus>();
 
   @ViewChild(SearchInputComponent) searchInputComponent!: SearchInputComponent;
   @ViewChild(MapComponent) mapComponent!: MapComponent;
+  @ViewChild('mapView') mapViewRef!: ElementRef<HTMLDivElement>;
 
   private destroy$ = new Subject<void>();
 
@@ -81,6 +82,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     private plzDataService: PlzDataService,
     public selectionService: SelectionService,
     private cdr: ChangeDetectorRef,
+    private router: Router
   ) {
     this.selectedEntries$ = this.selectionService.selectedEntries$;
     this.mapConfig = {
@@ -96,16 +98,17 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   ngOnInit(): void {
     const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [DistributionStepComponent] ngOnInit CALLED.`);
+    console.log(`[${timestamp}] [DistributionStepComponent] ngOnInit CALLED. initialStadt: ${this.initialStadt}`);
     this.initializeDates();
 
-    // Process initialStadt from @Input if provided
     if (this.initialStadt) {
       const decodedStadt = decodeURIComponent(this.initialStadt);
-      console.log(`[${timestamp}] [DistributionStepComponent] "initialStadt" (from @Input) FOUND. Decoded: ${decodedStadt}. Processing...`);
+      console.log(`[${timestamp}] [DistributionStepComponent] "initialStadt" (from @Input in ngOnInit) FOUND. Decoded: ${decodedStadt}. Processing...`);
       this.processStadtnameFromUrl(decodedStadt);
     } else {
-      console.log(`[${timestamp}] [DistributionStepComponent] "initialStadt" (from @Input) NOT FOUND.`);
+      console.log(`[${timestamp}] [DistributionStepComponent] "initialStadt" (from @Input in ngOnInit) NOT FOUND. Clearing selection.`);
+      this.selectionService.clearEntries();
+      this.updateOverallValidationState();
     }
 
     this.selectedEntries$
@@ -122,17 +125,28 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   ngOnChanges(changes: SimpleChanges): void {
     const timestamp = new Date().toISOString();
-    if (changes['initialStadt'] && !changes['initialStadt'].firstChange) {
+    if (changes['initialStadt']) {
       const newStadtValue = changes['initialStadt'].currentValue;
+      const prevStadtValue = changes['initialStadt'].previousValue;
+      console.log(`[${timestamp}] [DistributionStepComponent] ngOnChanges: "initialStadt" CHANGED. Neu: ${newStadtValue}, Alt: ${prevStadtValue}`);
+
       if (newStadtValue) {
         const decodedStadt = decodeURIComponent(newStadtValue);
-        console.log(`[${timestamp}] [DistributionStepComponent] ngOnChanges: "initialStadt" (from @Input) CHANGED. Decoded: ${decodedStadt}. Reprocessing...`);
+        console.log(`[${timestamp}] [DistributionStepComponent] ngOnChanges: Decoded newStadt: ${decodedStadt}. Reprocessing...`);
         this.processStadtnameFromUrl(decodedStadt);
       } else {
-        console.log(`[${timestamp}] [DistributionStepComponent] ngOnChanges: "initialStadt" (from @Input) CHANGED to undefined/null.`);
-        // Optionally clear selection or reset state if stadtname becomes undefined
-        // this.selectionService.clearEntries();
-        // this.updateOverallValidationState();
+        console.log(`[${timestamp}] [DistributionStepComponent] ngOnChanges: "initialStadt" ist jetzt leer. Clearing selection and search input.`);
+        this.selectionService.clearEntries();
+        this.mapZoomToPlzId = null;
+        this.mapZoomToPlzIdList = null;
+        if (this.searchInputComponent && typeof this.searchInputComponent.clearInput === 'function') {
+          this.searchInputComponent.clearInput();
+        } else {
+          console.warn(`[${timestamp}] [DistributionStepComponent] searchInputComponent.clearInput() nicht verfügbar oder searchInputComponent nicht bereit.`);
+          this.searchInputInitialTerm = '';
+        }
+        this.updateOverallValidationState();
+        this.cdr.markForCheck();
       }
     }
   }
@@ -146,13 +160,13 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       return;
     }
 
+    let entriesProcessedSuccessfully = false;
+
     const dataReady = await this.plzDataService.ensureDataReady();
     console.log(`[${timestamp}] [DistributionStepComponent] ensureDataReady result: ${dataReady}`);
 
     if (!dataReady) {
       console.error(`[${timestamp}] [DistributionStepComponent] PLZ Data could not be loaded for deep link.`);
-      // Consider if navigateToOfferBase is still the right action, or if an error should be propagated up.
-      // this.navigateToOfferBase();
       return;
     }
 
@@ -165,7 +179,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
       if (!potentialMatches || potentialMatches.length === 0) {
         console.log(`[${timestamp}] [DistributionStepComponent] No potential matches for ${stadtname}.`);
-        // this.navigateToOfferBase(); // Consider alternative to navigation
         return;
       }
 
@@ -203,33 +216,43 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
           console.log(`[${timestamp}] [DistributionStepComponent] Entries for group:`, entries);
           if (entries.length > 0) {
             this.selectionService.addMultipleEntries(entries);
-            this.quickSearch(termToShowInSearchInput); // This will set searchInputInitialTerm if component not ready
+            this.quickSearch(termToShowInSearchInput);
+            entriesProcessedSuccessfully = true;
             console.log(`[${timestamp}] [DistributionStepComponent] Selected ${entries.length} entries for group ${termToShowInSearchInput}`);
           } else {
             console.warn(`[${timestamp}] [DistributionStepComponent] No entries found for group ${targetMatch.ort}, ${targetMatch.kt}.`);
-            // this.navigateToOfferBase(); // Consider alternative
           }
         } else if (!targetMatch.isGroupHeader && targetMatch.id) {
           console.log(`[${timestamp}] [DistributionStepComponent] Target is single entry. ID: ${targetMatch.id}`);
           const entryToSelect: PlzEntry = { ...targetMatch } as PlzEntry;
           this.selectionService.addEntry(entryToSelect);
-          this.quickSearch(termToShowInSearchInput); // This will set searchInputInitialTerm
+          this.quickSearch(termToShowInSearchInput);
+          entriesProcessedSuccessfully = true;
           console.log(`[${timestamp}] [DistributionStepComponent] Selected single entry ${entryToSelect.id}`);
         } else {
           console.warn(`[${timestamp}] [DistributionStepComponent] Match found for ${stadtname} but could not be processed as group or single entry.`);
-          // this.navigateToOfferBase(); // Consider alternative
         }
       } else {
         console.log(`[${timestamp}] [DistributionStepComponent] No suitable actionable match found for ${stadtname}.`);
-        // this.navigateToOfferBase(); // Consider alternative
       }
     } catch (error) {
       console.error(`[${timestamp}] [DistributionStepComponent] Error processing stadtname ${stadtname} from URL:`, error);
-      // this.navigateToOfferBase(); // Consider alternative
     } finally {
       this.cdr.markForCheck();
       this.updateOverallValidationState();
       console.log(`[${timestamp}] [DistributionStepComponent] processStadtnameFromUrl finished for ${stadtname}.`);
+      if (entriesProcessedSuccessfully) {
+        if (isPlatformBrowser(this.platformId)) {
+          // Nach kurzer Verzögerung, um DOM-Updates (z.B. Wert im Suchfeld) Zeit zu geben.
+          setTimeout(() => {
+            if (this.searchInputComponent?.typeaheadInputEl?.nativeElement) {
+              this.searchInputComponent.typeaheadInputEl.nativeElement.blur(); // << HIER: Blur hinzufügen
+              console.log(`[${timestamp}] [DistributionStepComponent] Blurred search input after URL processing.`);
+            }
+            this.scrollToMapView(); // Scrollen zur Karte
+          }, 100);
+        }
+      }
     }
   }
 
@@ -298,8 +321,8 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     const minStartDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
     if (isNaN(selectedStartDate.getTime()) || selectedStartDate.getTime() < minStartDate.getTime()) {
       this.verteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
-      this.cdr.detectChanges(); // Allow view to update before recursive call
-      this.onStartDateChange(); // Re-validate with corrected date
+      this.cdr.detectChanges();
+      this.onStartDateChange();
       return;
     }
     this.checkExpressSurcharge();
@@ -342,13 +365,16 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   ngAfterViewInit(): void {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] [DistributionStepComponent] ngAfterViewInit CALLED.`);
-    // If searchInputInitialTerm was set by processStadtnameFromUrl before searchInputComponent was ready
-    if (this.searchInputComponent && this.searchInputInitialTerm) {
-      console.log(`[${timestamp}] [DistributionStepComponent] ngAfterViewInit: Found initial term "${this.searchInputInitialTerm}", initiating search.`);
+    // Wenn initialStadt vorhanden ist, wurde processStadtnameFromUrl bereits in ngOnInit/OnChanges aufgerufen.
+    // Der Aufruf von initiateSearchForTerm hier ist nur für Fälle, in denen searchInputInitialTerm
+    // auf andere Weise als durch initialStadt gesetzt wird (aktuell nicht der Fall).
+    // Um Doppelverarbeitung zu vermeiden, prüfen wir, ob initialStadt bereits verarbeitet wurde.
+    if (this.searchInputComponent && this.searchInputInitialTerm && !this.initialStadt) {
+      console.log(`[${timestamp}] [DistributionStepComponent] ngAfterViewInit: Found initial term "${this.searchInputInitialTerm}" AND no initialStadt, initiating search.`);
       this.searchInputComponent.initiateSearchForTerm(this.searchInputInitialTerm);
-      this.searchInputInitialTerm = ''; // Clear it after use
+      this.searchInputInitialTerm = ''; // Zurücksetzen, um erneute Verarbeitung zu verhindern
     }
-    Promise.resolve().then(() => { // Ensure validation runs after view is stable
+    Promise.resolve().then(() => {
       this.updateOverallValidationState();
       this.cdr.markForCheck();
     });
@@ -364,13 +390,14 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   onSearchInputEntriesSelected(entries: PlzEntry[]): void {
     if (entries && entries.length > 0) {
       this.selectionService.addMultipleEntries(entries);
+      if (isPlatformBrowser(this.platformId)) {
+        setTimeout(() => this.scrollToMapView(), 50);
+      }
     }
-    this.cdr.markForCheck();
-    this.updateOverallValidationState();
   }
 
   onSearchInputTermChanged(term: string): void {
-    // Placeholder for any logic if needed
+    // Placeholder
   }
 
   onSearchInputStatusChanged(status: SimpleValidationStatus): void {
@@ -396,7 +423,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   private updateUiFlagsAndMapState(): void {
     this.showPlzUiContainer = this.currentVerteilungTyp === 'Nach PLZ';
     this.showPerimeterUiContainer = this.currentVerteilungTyp === 'Nach Perimeter';
-    this.cdr.detectChanges(); // Ensure UI flags take effect before validation
+    this.cdr.detectChanges();
     this.updateOverallValidationState();
     this.cdr.markForCheck();
   }
@@ -425,11 +452,10 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
           if (entry && this.selectionService.validateEntry(entry)) {
             this.selectionService.addEntry(entry);
           } else {
-            // Fallback for entries not directly in our detailed DB but present on map
             const plz6 = entryIdFromMap;
             const plz4 = plz6.length >= 4 ? plz6.substring(0, 4) : plz6;
-            const pseudoOrt = event.name || 'Unbekannt'; // Use name from map if available
-            const pseudoEntry: PlzEntry = { id: entryIdFromMap, plz6, plz4, ort: pseudoOrt, kt: 'N/A', all: 0 }; // Populate with what we have
+            const pseudoOrt = event.name || 'Unbekannt';
+            const pseudoEntry: PlzEntry = { id: entryIdFromMap, plz6, plz4, ort: pseudoOrt, kt: 'N/A', all: 0 };
             if (this.selectionService.validateEntry(pseudoEntry)) {
               this.selectionService.addEntry(pseudoEntry);
             }
@@ -458,29 +484,48 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       this.searchInputComponent.initiateSearchForTerm(term);
     } else {
       console.warn(`[${timestamp}] [DistributionStepComponent] searchInputComponent not available yet, setting initial term for ngAfterViewInit.`);
-      this.searchInputInitialTerm = term; // Store for ngAfterViewInit
+      this.searchInputInitialTerm = term; // Wird in ngAfterViewInit verarbeitet, falls searchInputComponent noch nicht da ist
       this.cdr.markForCheck();
     }
   }
 
   public clearPlzTable(): void {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [DistributionStepComponent] clearPlzTable CALLED. Clearing selection, navigating, and scrolling.`);
+
     this.selectionService.clearEntries();
     this.mapZoomToPlzId = null;
     this.mapZoomToPlzIdList = null;
-    this.cdr.markForCheck();
+
+    if (this.searchInputComponent && typeof this.searchInputComponent.clearInput === 'function') {
+      this.searchInputComponent.clearInput();
+    } else {
+      console.warn(`[${timestamp}] [DistributionStepComponent] searchInputComponent.clearInput() nicht verfügbar oder searchInputComponent nicht bereit. Setze searchInputInitialTerm.`);
+      this.searchInputInitialTerm = '';
+    }
+
+    this.router.navigate(['/']);
+
     this.updateOverallValidationState();
+    this.cdr.markForCheck();
+
+    if (isPlatformBrowser(this.platformId)) {
+      setTimeout(() => this.scrollToMapView(), 100);
+    }
   }
 
   removePlzFromTable(entry: PlzEntry): void {
     this.selectionService.removeEntry(entry.id);
-    this.updateOverallValidationState(); // cdr.markForCheck() is in updateOverallValidationState
   }
 
   zoomToTableEntryOnMap(entry: PlzEntry): void {
     this.mapZoomToPlzId = entry.id;
-    this.mapZoomToPlzIdList = null; // Clear list zoom when zooming to single ID
+    this.mapZoomToPlzIdList = null;
     this.cdr.markForCheck();
-    setTimeout(() => { this.mapZoomToPlzId = null; this.cdr.markForCheck(); }, 100); // Reset after a short delay
+    if (isPlatformBrowser(this.platformId)) {
+      setTimeout(() => this.scrollToMapView(), 50);
+    }
+    setTimeout(() => { this.mapZoomToPlzId = null; this.cdr.markForCheck(); }, 100);
   }
 
   highlightPlacemarkOnMapFromTable(event: TableHighlightEvent): void {
@@ -511,11 +556,10 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   private updateOverallValidationState(): void {
     const newOverallStatus = this.calculateOverallValidationStatus();
-    // Check if validationChange has observers before emitting
     if (this.validationChange.observers && this.validationChange.observers.length > 0) {
-      this.validationChange.emit(newOverallStatus);
+      Promise.resolve().then(() => this.validationChange.emit(newOverallStatus));
     }
-    this.cdr.markForCheck(); // Ensure view updates with new validation state
+    this.cdr.markForCheck();
   }
 
   private calculateOverallValidationStatus(): OverallValidationStatus {
@@ -530,21 +574,15 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       }
       return 'invalid';
     } else if (this.showPerimeterUiContainer) {
-      // Assuming perimeter selection has its own validation not shown here
-      // For now, just checking date completion for perimeter
       return verteilungsDetailsComplete ? 'valid' : 'invalid';
     }
-    return 'invalid'; // Default to invalid if no known UI container is active
+    return 'invalid';
   }
 
   private isExpressSurchargeRelevant(): boolean {
-    if (!this.verteilungStartdatum || !this.defaultStandardStartDate) {
-      return false;
-    }
+    if (!this.verteilungStartdatum || !this.defaultStandardStartDate) return false;
     const selectedStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
-    if (isNaN(selectedStartDate.getTime()) || isNaN(this.defaultStandardStartDate.getTime())) {
-      return false;
-    }
+    if (isNaN(selectedStartDate.getTime()) || isNaN(this.defaultStandardStartDate.getTime())) return false;
     const standardStartDateMs = this.defaultStandardStartDate.getTime();
     const minStartDateMs = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum).getTime();
     if (isNaN(minStartDateMs)) return false;
@@ -554,9 +592,8 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   proceedToNextStep(): void {
     const currentOverallStatus = this.calculateOverallValidationStatus();
-    // Emit status even if not proceeding, so parent knows the final state
     if (this.validationChange.observers && this.validationChange.observers.length > 0) {
-      this.validationChange.emit(currentOverallStatus);
+      Promise.resolve().then(() => this.validationChange.emit(currentOverallStatus));
     }
 
     if (currentOverallStatus === 'valid') {
@@ -567,23 +604,34 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       const startDateSelected = !!this.verteilungStartdatum && !isNaN(this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime());
       const isExpressSurchargeRelevantAndNotConfirmed = this.isExpressSurchargeRelevant() && !this.expressSurchargeConfirmed;
 
-      if (!startDateSelected) {
-        message = "Bitte wählen Sie ein gültiges Startdatum für die Verteilung aus.";
-      } else if (isExpressSurchargeRelevantAndNotConfirmed) {
-        message = "Bitte bestätigen Sie den Express-Zuschlag oder wählen Sie ein späteres Startdatum.";
-      } else if (this.showPlzUiContainer && !hasSelectedPlzEntries) {
-        if (this.searchInputStatus === 'pending') {
-          message = "Bitte wählen Sie einen Eintrag aus der Suchliste oder vervollständigen Sie Ihre Eingabe.";
-        } else if (this.searchInputStatus === 'valid' && this.searchInputComponent?.typeaheadSearchTerm?.trim().length > 0) {
-          message = "Bitte übernehmen Sie Ihre Eingabe im Suchfeld (z.B. einen PLZ-Bereich mit Enter).";
-        } else {
-          message = "Bitte wählen Sie mindestens ein PLZ-Gebiet aus oder geben Sie einen gültigen PLZ-Bereich ein.";
-        }
+      if (!startDateSelected) message = "Bitte wählen Sie ein gültiges Startdatum für die Verteilung aus.";
+      else if (isExpressSurchargeRelevantAndNotConfirmed) message = "Bitte bestätigen Sie den Express-Zuschlag oder wählen Sie ein späteres Startdatum.";
+      else if (this.showPlzUiContainer && !hasSelectedPlzEntries) {
+        if (this.searchInputStatus === 'pending') message = "Bitte wählen Sie einen Eintrag aus der Suchliste oder vervollständigen Sie Ihre Eingabe.";
+        else if (this.searchInputStatus === 'valid' && this.searchInputComponent?.typeaheadSearchTerm?.trim().length > 0) message = "Bitte übernehmen Sie Ihre Eingabe im Suchfeld (z.B. einen PLZ-Bereich mit Enter).";
+        else message = "Bitte wählen Sie mindestens ein PLZ-Gebiet aus oder geben Sie einen gültigen PLZ-Bereich ein.";
       }
-      // Only show alert if in browser environment
-      if (isPlatformBrowser(this.platformId)) {
-        alert(message);
-      }
+      if (isPlatformBrowser(this.platformId)) alert(message);
+    }
+  }
+
+  private scrollToMapView(): void {
+    if (isPlatformBrowser(this.platformId) && this.mapViewRef?.nativeElement) {
+      const element = this.mapViewRef.nativeElement;
+      const offset = 18;
+      const bodyRect = document.body.getBoundingClientRect().top;
+      const elementRect = element.getBoundingClientRect().top;
+      const elementPosition = elementRect - bodyRect;
+      const offsetPosition = elementPosition - offset;
+
+      console.log(`[DistributionStepComponent] Scrolling to map. Element top relative to viewport: ${elementRect}, Target scroll position: ${offsetPosition}`);
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+    } else {
+      console.warn('[DistributionStepComponent] scrollToMapView: mapViewRef not available or not in browser.');
     }
   }
 }

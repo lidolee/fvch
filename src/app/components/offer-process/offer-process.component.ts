@@ -1,15 +1,13 @@
 import { Component, ViewChild, ChangeDetectorRef, Input, OnInit, OnChanges, SimpleChanges, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NgbNavModule, NgbNav, NgbNavChangeEvent } from '@ng-bootstrap/ng-bootstrap';
-import { Router } from '@angular/router'; // ActivatedRoute hier nicht nötig, da wir es nicht injizieren
+import { Router } from '@angular/router';
 
-// Importiere deine Kindkomponenten
 import { DistributionStepComponent } from '../distribution-step/distribution-step.component';
 import { DesignPrintStepComponent } from '../design-print-step/design-print-step.component';
 import { SummaryStepComponent } from '../summary-step/summary-step.component';
 import { CalculatorComponent } from '../calculator/calculator.component';
 
-// Deine ValidationStatus-Typdefinition
 export type ValidationStatus = 'valid' | 'invalid' | 'pending' | 'neutral';
 
 @Component({
@@ -40,26 +38,23 @@ export class OfferProcessComponent implements OnInit, OnChanges {
     3: 'neutral',
   };
 
-  // private logTimestamp = "2025-06-04 01:57:09"; // ENTFERNEN
-  private userLogin = "lidolee"; // from user context
+  private userLogin = "lidolee";
 
-  // Helfer für dynamische Zeitstempel
   private get logPrefix() {
     return `[${new Date().toISOString()}][${this.userLogin}] [OfferProcessComponent]`;
   }
 
   constructor(private cdr: ChangeDetectorRef, private router: Router) {
-    // Verwende this.logPrefix für dynamische Zeitstempel
-    console.log(`${this.logPrefix} Constructor. Aktueller Router-Pfad: ${this.router.url}, @Input stadtname: ${this.stadtname}`);
+    console.log(`${this.logPrefix} Constructor. Aktueller Router-Pfad: ${this.router.url}, @Input stadtname (initial): ${this.stadtname}`);
   }
 
   ngOnInit(): void {
-    console.log(`${this.logPrefix} ngOnInit. Aktueller Router-Pfad: ${this.router.url}, @Input stadtname: ${this.stadtname}`);
+    console.log(`${this.logPrefix} ngOnInit. Aktueller Router-Pfad: ${this.router.url}, @Input stadtname (nach init): ${this.stadtname}`);
     this.updateInitialStadtForDistributionStep();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    console.log(`${this.logPrefix} ngOnChanges. Aktueller Router-Pfad: ${this.router.url}, @Input stadtname: ${this.stadtname}, Änderungen:`, changes);
+    console.log(`${this.logPrefix} ngOnChanges. Aktueller Router-Pfad: ${this.router.url}, @Input stadtname (bei OnChanges): ${this.stadtname}, Änderungen:`, changes);
     if (changes['stadtname']) {
       console.log(`${this.logPrefix} ngOnChanges: 'stadtname' Input spezifisch geändert. Neuer Wert: ${changes['stadtname'].currentValue}, Vorheriger Wert: ${changes['stadtname'].previousValue}, Ist erste Änderung: ${changes['stadtname'].firstChange}`);
       this.updateInitialStadtForDistributionStep();

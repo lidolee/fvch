@@ -2,7 +2,7 @@ import {
   Component, Input, Output, EventEmitter, AfterViewInit, OnDestroy, ViewChild, ElementRef, NgZone, Inject, PLATFORM_ID, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, OnChanges, SimpleChanges
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Subject } from 'rxjs'; // Import RxJS Subject
+import { Subject } from 'rxjs';
 
 declare var google: any;
 declare var geoXML3: any;
@@ -11,6 +11,7 @@ const LOG_PREFIX_MAP = '[MapComponent]';
 const MAP_INIT_TIMEOUT = 200;
 const MAP_RETRY_INIT_TIMEOUT = 100;
 const WINDOW_RESIZE_DEBOUNCE = 250;
+const MOBILE_BREAKPOINT_WIDTH = 768; // Pixels
 
 export interface MapOptions {
   initialCenter: { lat: number; lng: number };
@@ -56,6 +57,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
   private singlePolygonZoomAdjustListener: any = null;
   private resizeTimeout: any;
   private currentHoveredPlacemarkIdForHighlight: string | null = null;
+  private previousWindowWidth: number = 0; // Für die Logik der Breitenänderung
 
   constructor(
     private ngZone: NgZone,
@@ -68,6 +70,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
 
   ngAfterViewInit(): void {
     if (isPlatformBrowser(this.platformId)) {
+      this.previousWindowWidth = window.innerWidth;
+      // adjustMapAspectRatio() wird innerhalb von initMapInternal oder scheduleMapInitialization (wenn map schon existiert) aufgerufen
       this.scheduleMapInitialization();
       window.addEventListener('resize', this.onWindowResize);
     }
@@ -102,30 +106,59 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
     if (isPlatformBrowser(this.platformId)) {
       window.removeEventListener('resize', this.onWindowResize);
       clearTimeout(this.resizeTimeout);
-      // Cleanup global callback if it somehow still exists and belongs to this instance context (though unlikely with current design)
       if (typeof (window as any).angularGoogleMapsCallback === 'function') {
-        // Consider if multiple map instances could exist, this simple delete might be problematic.
-        // However, the loadGoogleMapsScript tries to make the loading singleton.
+        // Cleanup
       }
     }
   }
 
-  private scheduleMapInitialization(): void {
-    if (this.map) {
+  private adjustMapAspectRatio(): void {
+    if (!isPlatformBrowser(this.platformId) || !this.mapDiv?.nativeElement) {
+      return;
+    }
+    const mapDivElement = this.mapDiv.nativeElement;
+    const currentDivWidth = mapDivElement.offsetWidth;
+
+    if (currentDivWidth === 0 && window.innerWidth > 0) {
+      // console.warn(`${LOG_PREFIX_MAP} adjustMapAspectRatio: mapDiv width is 0.`);
+    }
+
+    let newHeight: number;
+    if (window.innerWidth < MOBILE_BREAKPOINT_WIDTH) { // Mobile
+      newHeight = currentDivWidth * (9 / 16); // 16:9
+    } else { // Desktop/Tablet
+      newHeight = currentDivWidth * (3 / 4);   // 4:3
+    }
+    mapDivElement.style.height = `${Math.round(newHeight)}px`;
+
+    // Trigger Google Map's internal resize AFTER setting the new height
+    if (this.map && typeof google !== 'undefined' && google.maps && google.maps.event) {
       this.ngZone.runOutsideAngular(() => {
-        if (typeof google !== 'undefined' && google.maps && this.map) {
-          google.maps.event.trigger(this.map, 'resize');
-          if (this.zoomToPlzIdList && this.zoomToPlzIdList.length > 0) {
-            this.handleZoomToPlzList(this.zoomToPlzIdList);
-          } else if (this.selectedPlzIds && this.selectedPlzIds.length > 0) {
-            this.handleZoomToPlzList(this.selectedPlzIds);
-          } else {
-            this.resetMapZoom();
-          }
+        google.maps.event.trigger(this.map, 'resize');
+      });
+    }
+  }
+
+  private scheduleMapInitialization(): void {
+    if (this.map) { // Map already initialized
+      this.adjustMapAspectRatio(); // Adjust div height and trigger map.resize
+      this.ngZone.runOutsideAngular(() => {
+        // Re-evaluate zoom based on current selections
+        if (this.zoomToPlzIdList && this.zoomToPlzIdList.length > 0) {
+          this.handleZoomToPlzList(this.zoomToPlzIdList);
+        } else if (this.selectedPlzIds && this.selectedPlzIds.length > 0) {
+          this.handleZoomToPlzList(this.selectedPlzIds);
+        } else {
+          this.resetMapZoom();
         }
+      });
+      // After zoom/pan, re-apply highlights. Needs to be in Angular zone due to cdr.detectChanges().
+      this.ngZone.run(() => {
+        this.applyAllMapHighlights();
       });
       return;
     }
+    // If map doesn't exist yet, schedule its full initialization
     setTimeout(() => {
       if (this.mapDiv?.nativeElement && !this.map) {
         this.ngZone.run(() => this.initializeMapAndGeoXml());
@@ -172,11 +205,13 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
       return;
     }
 
+    this.adjustMapAspectRatio(); // Erste Anpassung der Höhe vor Karteninitialisierung
+
     const mapDivElement = this.mapDiv.nativeElement;
     const rect = mapDivElement.getBoundingClientRect();
     if (!(rect.width > 0 && rect.height > 0)) {
       setTimeout(() => {
-        if (!this.map && this.mapDiv?.nativeElement) {
+        if (!this.map && this.mapDiv?.nativeElement) { // Nur erneut versuchen, wenn Karte noch nicht erstellt wurde
           this.initMapInternal();
         }
       }, MAP_RETRY_INIT_TIMEOUT);
@@ -258,9 +293,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
       const actualPolygon = placemark.polygon || placemark.gObject;
       if (actualPolygon && typeof actualPolygon.setOptions === 'function') {
         const plzInfo = this.extractPlzInfoFromPlacemark(placemark);
-
         google.maps.event.clearInstanceListeners(actualPolygon);
-
         google.maps.event.addListener(actualPolygon, 'mouseover', () => this.ngZone.runOutsideAngular(() => {
           if (!this.map) return;
           this.currentHoveredPlacemarkIdForHighlight = plzInfo.id;
@@ -270,7 +303,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
             this.hoverPlzDisplayDiv.nativeElement.style.display = 'block';
           }
         }));
-
         google.maps.event.addListener(actualPolygon, 'mouseout', () => this.ngZone.runOutsideAngular(() => {
           if (!this.map) return;
           this.currentHoveredPlacemarkIdForHighlight = null;
@@ -279,13 +311,11 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
             this.hoverPlzDisplayDiv.nativeElement.style.display = 'none';
           }
         }));
-
         google.maps.event.addListener(actualPolygon, 'mousemove', (event: any) => {
           if (!this.map || !this.hoverPlzDisplayDiv?.nativeElement || this.hoverPlzDisplayDiv.nativeElement.style.display !== 'block' || !event.domEvent) return;
           this.hoverPlzDisplayDiv.nativeElement.style.left = (event.domEvent.clientX + 15) + 'px';
           this.hoverPlzDisplayDiv.nativeElement.style.top = (event.domEvent.clientY + 15) + 'px';
         });
-
         google.maps.event.addListener(actualPolygon, 'click', () => this.ngZone.run(() => {
           if (this.map && plzInfo.id) {
             this.plzClicked.emit({ id: plzInfo.id, name: placemark.name });
@@ -430,12 +460,10 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
         resolve();
         return;
       }
-
       if ((window as any).googleMapsScriptLoadingPromise) {
         (window as any).googleMapsScriptLoadingPromise.then(resolve).catch(reject);
         return;
       }
-
       const promise = new Promise<void>((innerResolve, innerReject) => {
         (window as any).angularGoogleMapsCallback = () => {
           try {
@@ -451,19 +479,16 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
           }
         };
       });
-
       (window as any).googleMapsScriptLoadingPromise = promise;
-
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${this.apiKey}&callback=angularGoogleMapsCallback&libraries=visualization,geometry&language=de&region=CH`;
       script.async = true;
       script.onerror = (e) => {
-        (window as any).googleMapsScriptLoadingPromise = null; // Allow retry
+        (window as any).googleMapsScriptLoadingPromise = null;
         delete (window as any).angularGoogleMapsCallback;
         reject(e);
       };
       document.head.appendChild(script);
-
       promise.then(resolve).catch(reject);
     });
   }
@@ -472,11 +497,15 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
     clearTimeout(this.resizeTimeout);
     this.resizeTimeout = setTimeout(() => {
       if (!this.map || !isPlatformBrowser(this.platformId)) return;
-      this.ngZone.runOutsideAngular(() => {
-        const center = this.map.getCenter();
-        if (typeof google !== 'undefined' && google.maps && this.map) {
-          google.maps.event.trigger(this.map, 'resize');
-          if (center) this.map.setCenter(center);
+
+      const currentWindowWidth = window.innerWidth;
+      this.adjustMapAspectRatio(); // Passt die Höhe des mapDiv an und löst map.resize aus
+
+      if (currentWindowWidth !== this.previousWindowWidth) {
+        this.previousWindowWidth = currentWindowWidth;
+
+        // Nur wenn sich die Breite ändert, den Karteninhalt (Zoom/Center) neu anpassen
+        this.ngZone.runOutsideAngular(() => {
           if (this.zoomToPlzIdList && this.zoomToPlzIdList.length > 0) {
             this.handleZoomToPlzList(this.zoomToPlzIdList);
           } else if (this.selectedPlzIds && this.selectedPlzIds.length > 0) {
@@ -484,8 +513,14 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
           } else {
             this.resetMapZoom();
           }
-        }
-      });
+        });
+        // Highlights neu anwenden (innerhalb der Angular-Zone, da cdr.detectChanges() aufgerufen wird)
+        this.ngZone.run(() => {
+          this.applyAllMapHighlights();
+        });
+      }
+      // Wenn sich nur die Höhe des Fensters geändert hat, wurde die Kartenhöhe bereits durch
+      // adjustMapAspectRatio angepasst. Der Inhalt (Zoom/Center) wird nicht neu berechnet.
     }, WINDOW_RESIZE_DEBOUNCE);
   };
 }
