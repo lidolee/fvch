@@ -69,7 +69,6 @@
   </div>
 
   <ng-container *ngIf="(selectedEntries$ | async) as selectedEntries">
-    <!-- Zielgruppen-Auswahl (nur wenn Einträge vorhanden) -->
     <div class="my-4 row" *ngIf="selectedEntries && selectedEntries.length > 0">
       <div class="col-sm-12">
         <div class="choice-card-group choice-card-group-zielgruppe">
@@ -107,7 +106,6 @@
       </div>
     </div>
 
-    <!-- Titel für Auswahlliste und "Liste löschen" Button (nur wenn Einträge vorhanden) -->
     <div *ngIf="selectedEntries && selectedEntries.length > 0">
       <h3 class="section-title mt-4 mb-0"><span>Ihre Auswahl: {{ selectedEntries.length }} PLZ</span></h3>
       <div class="delete-plz-list text-end mt-2 mb-4">
@@ -115,7 +113,6 @@
       </div>
     </div>
 
-    <!-- PLZ Tabelle ODER Beliebte Städte -->
     <div *ngIf="selectedEntries && selectedEntries.length > 0; else showBeliebteRegionenBlock">
       <app-plz-selection-table
         [entries]="selectedEntries"
@@ -128,7 +125,6 @@
     </div>
 
     <ng-template #showBeliebteRegionenBlock>
-      <!-- Dieser Block wird angezeigt, wenn selectedEntries leer ist oder die Observable noch nichts geliefert hat -->
       <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer">
         <div class="popular-locations text-center">
           <div class="my-2"><h6 class="text-uppercase">Beliebte Städte</h6></div>
@@ -166,8 +162,7 @@
     <li>KML-Datei hochladen - nutzen Sie unsere Upload-Funktion weiter unten</li>
   </ol>
   <div class="mt-3">
-    <button type="button" class="btn btn-primary" (click)="triggerKmlUpload()" disabled> <!-- Logik für KML Upload muss implementiert werden -->
-      <i class="mdi mdi-upload"></i> KML-Datei hochladen
+    <button type="button" class="btn btn-primary" (click)="triggerKmlUpload()" disabled> <i class="mdi mdi-upload"></i> KML-Datei hochladen
     </button>
     <div *ngIf="kmlFileName" class="mt-2 small">Hochgeladen: {{ kmlFileName }}</div>
   </div>

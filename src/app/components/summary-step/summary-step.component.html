@@ -1,5 +1,5 @@
 <div class="step-intro">
-  <p class="step-title">Prüfung & Abschluss</p>
+  <p class="step-title">Check & Absenden</p>
   <h2>Bitte überprüfen Sie Ihre Auswahl.</h2>
 </div>
 
@@ -23,14 +23,7 @@
 
 <hr>
 
-<app-contact-data></app-contact-data>
-
-
-<div class="d-flex justify-content-between mt-4">
-  <button type="button" class="btn btn-secondary" (click)="goBack()">
-    <i class="bi bi-arrow-left me-1"></i> Zurück zu Kontaktdaten
-  </button>
-  <button type="button" class="btn btn-success" (click)="proceedToNextStep()">
-    <i class="bi bi-check-lg me-1"></i> Offerte jetzt anfordern
-  </button>
-</div>
+<app-contact-data
+  (validationChange)="onContactDataValidationChange($event)"
+  (submitRequest)="onContactDataSubmitRequest()">
+</app-contact-data>

@@ -25,8 +25,6 @@ export type FormatOption = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN-Lang' | 'anderes' | 
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DesignPrintStepComponent implements OnInit, OnDestroy {
-  @Output() prevStepRequest = new EventEmitter<void>();
-  @Output() nextStepRequest = new EventEmitter<void>();
   @Output() validationChange = new EventEmitter<ValidationStatus>();
 
   selectedDesignPackage: DesignPackage = '';
@@ -59,7 +57,6 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
           if (this.druckAuflage !== count) {
             this.druckAuflage = count;
             this.cdr.markForCheck();
-            // Validierung wird durch onSelectionChange getriggert, wenn sich relevante Felder ändern
           }
         }
       });
@@ -71,7 +68,6 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // Wird für Design-Paket, Druckoption und (ngModelChange) von druckReserve aufgerufen
   onSelectionChange(): void {
     if (this.selectedPrintOption === 'service') {
       if (!this.isDruckAuflageManuallySet) {
@@ -81,14 +77,10 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
         }
       }
     }
-    // Keine Notwendigkeit, PrintServiceDetails hier zu resetten,
-    // da die Felder für 'anliefern' und 'service' getrennt sind und
-    // die Sichtbarkeit durch *ngIf im Template gesteuert wird.
     this.determineAndEmitValidationStatus();
     this.cdr.markForCheck();
   }
 
-  // Wird für Änderungen an Druckdetails (Format, Grammatur etc.) aufgerufen, wenn Druck-Service gewählt ist
   onPrintServiceDetailChange(): void {
     this.determineAndEmitValidationStatus();
     this.cdr.markForCheck();
@@ -102,22 +94,17 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  // Wieder hinzugefügt, da im Template verwendet
   setAnlieferung(anlieferung: AnlieferungOption): void {
     if (this.currentAnlieferung !== anlieferung) {
       this.currentAnlieferung = anlieferung;
-      this.onSelectionChange(); // Ruft Validierung und markForCheck
+      this.onSelectionChange();
     }
   }
 
-  // Wieder hinzugefügt, da im Template verwendet
   setFormat(format: FormatOption): void {
     if (this.currentFormat !== format) {
       this.currentFormat = format;
-      // Wenn currentFormat über Klick gesetzt wird und auch (ngModelChange) auf onSelectionChange() hört,
-      // könnte onSelectionChange doppelt aufgerufen werden. Hier ist es aber ein (click)-Handler.
-      // Wir rufen onSelectionChange, um die Logik zu zentralisieren.
-      this.onSelectionChange(); // Ruft Validierung und markForCheck
+      this.onSelectionChange();
     }
   }
 
@@ -142,12 +129,12 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
       if (!this.druckFormat || !this.druckGrammatur || !this.druckArt || !this.druckAusfuehrung) {
         isValid = false;
       }
-      if (this.druckAuflage <= 0) {
+      if (this.druckAuflage <= 0) { // Auflage muss größer 0 sein
         isValid = false;
       }
     }
 
-    const newStatus = isValid ? 'valid' : 'pending';
+    const newStatus = isValid ? 'valid' : 'pending'; // Or 'invalid' if you want immediate red
     if (this.currentStatus !== newStatus) {
       this.currentStatus = newStatus;
       this.validationChange.emit(this.currentStatus);
@@ -155,39 +142,17 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  goBack(): void {
-    this.prevStepRequest.emit();
+  // This method can be called by the parent to force UI updates for validation
+  public triggerValidationDisplay(): void {
+    // For template-driven forms, re-emitting the status might be enough
+    // if the UI relies on `currentStatus` for error messages.
+    // If using reactive forms, you might mark controls as touched here.
+    this.determineAndEmitValidationStatus(); // Re-check and emit
+    this.cdr.markForCheck();
   }
 
-  proceedToNextStep(): void {
-    this.determineAndEmitValidationStatus(); // Letzte Validierung
 
-    if (this.currentStatus === 'valid') {
-      this.nextStepRequest.emit();
-    } else {
-      let message = "Bitte füllen Sie alle erforderlichen Felder aus.";
-      const missingFields: string[] = [];
-      if (!this.selectedDesignPackage) missingFields.push("Design-Paket");
-      if (!this.selectedPrintOption) missingFields.push("Druckoption");
-
-      if (this.selectedPrintOption === 'anliefern') {
-        if (!this.currentAnlieferung) missingFields.push("Anlieferung der Flyer");
-        if (!this.currentFormat) missingFields.push("Flyer Format (Anlieferung)");
-      } else if (this.selectedPrintOption === 'service') {
-        if (!this.druckFormat) missingFields.push("Druckformat");
-        if (!this.druckGrammatur) missingFields.push("Grammatur");
-        if (!this.druckArt) missingFields.push("Druckart");
-        if (!this.druckAusfuehrung) missingFields.push("Ausführung");
-        if (this.druckAuflage <= 0) missingFields.push("Auflage (muss > 0 sein)");
-      }
-
-      if (missingFields.length > 0) {
-        message = `Bitte vervollständigen Sie die folgenden Angaben: ${missingFields.join(', ')}.`;
-      }
-      if (typeof alert !== 'undefined') alert(message);
-    }
-  }
-
+  // Example method for testing, can be removed
   setExampleStatus(status: ValidationStatus): void {
     this.currentStatus = status;
     this.validationChange.emit(this.currentStatus);

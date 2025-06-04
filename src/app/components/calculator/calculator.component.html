@@ -1,2 +1,25 @@
-<h3 class="calculator-title">Kostenübersicht</h3>
-<button type="button" class="btn btn-lg btn-primary w-100 my-4">Weiter zu Design & Druck <i class="bi bi-arrow-right ms-1"></i></button>
+<div class="calculator-container">
+  <h3 class="calculator-title">Kostenübersicht</h3>
+
+  <div class="my-3 p-3 border rounded bg-light">
+    <p class="text-muted text-center">Dynamische Kostenübersicht hier...</p>
+  </div>
+
+
+  <div *ngIf="activeStep === 1" class="d-grid">
+    <button type="button" class="btn btn-lg btn-primary w-100" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>
+  </div>
+
+  <div *ngIf="activeStep === 2" class="d-flex justify-content-between">
+    <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2" (click)="onRequestPrevious()">Zurück</button>
+    <button type="button" class="btn btn-lg btn-primary w-50 ms-2" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>
+  </div>
+
+  <div *ngIf="activeStep === 3" class="d-flex justify-content-between">
+    <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2" (click)="onRequestPrevious()">Zurück</button>
+    <button type="button" class="btn btn-lg btn-success w-50 ms-2" (click)="onRequestSubmit()" [disabled]="currentStepValidationStatus !== 'valid'">Absenden</button>
+  </div>
+  <div *ngIf="activeStep === 3" class="secure-box text-center"><i class="mdi mdi-lock-check fs-4">&nbsp;</i>256-Bit TLS Verschlüsselte Übertragung</div>
+</div>
+
+

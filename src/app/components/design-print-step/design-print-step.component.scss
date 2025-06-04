@@ -191,7 +191,6 @@
       }
 
       &.selected {
-        //border-top-color: $primary;
       }
     }
 
@@ -200,9 +199,8 @@
     }
     @media (max-width: 767px) {
       flex-basis: 100%;
-      &.bestseller {
-        padding-top: 1.25rem;
-      }
+
+      &.bestseller { }
     }
   }
 

@@ -1,16 +1,13 @@
 <div class="step-intro">
-  <p class="step-title">Flyer Design- und Druck</p>
+  <p class="step-title">Design & Druck</p>
   <h2>Benötigen Sie Flyer Design und Druck?</h2>
   <p>Wählen Sie Ihre Design- und Druckoptionen.</p>
 </div>
 
 
-<!-- FLYER DESIGN ////////////////////////////////////////////////////////// -->
-
 <h3 class="section-title"><span>1. Flyer Design</span></h3>
 
 <div class="choice-card-group design-package-group">
-  <!-- Basis Paket -->
   <div class="choice-card clickable-card design-package" [class.selected]="selectedDesignPackage === 'basis'" (click)="selectedDesignPackage = 'basis'; onSelectionChange()">
     <div class="card-header">
       <h5 class="package-name">Basis Paket</h5>
@@ -28,14 +25,13 @@
     </div>
     <div class="card-footer">
       <span class="savings-info" *ngIf="selectedDesignPackage !== 'basis'">Sie sparen CHF 50</span>
-      <button type="button" class="btn btn-sm w-100" [class.btn-primary]="selectedDesignPackage === 'basis'" [class.btn-outline-primary]="selectedDesignPackage !== 'basis'" (click)="selectedDesignPackage = 'basis'; onSelectionChange()">
+      <button type="button" class="btn btn-sm w-100" [class.btn-primary]="selectedDesignPackage === 'basis'" [class.btn-outline-primary]="selectedDesignPackage !== 'basis'" (click)="$event.stopPropagation(); selectedDesignPackage = 'basis'; onSelectionChange()">
         {{ selectedDesignPackage === 'basis' ? 'Ausgewählt' : 'Auswählen' }}
       </button>
     </div>
     <i *ngIf="selectedDesignPackage === 'basis'" class="mdi mdi-check-circle selected-indicator-package"></i>
   </div>
 
-  <!-- Plus Paket -->
   <div class="choice-card clickable-card design-package bestseller" [class.selected]="selectedDesignPackage === 'plus'" (click)="selectedDesignPackage = 'plus'; onSelectionChange()">
     <div class="card-header">
       <h5 class="package-name">Plus Paket <span class="badge text-bg-secondary bestseller-badge">Bestseller</span></h5>
@@ -54,14 +50,13 @@
     </div>
     <div class="card-footer">
       <span class="savings-info" *ngIf="selectedDesignPackage !== 'plus'">Sie sparen CHF 100</span>
-      <button type="button" class="btn btn-sm w-100" [class.btn-primary]="selectedDesignPackage === 'plus'" [class.btn-outline-primary]="selectedDesignPackage !== 'plus'" (click)="selectedDesignPackage = 'plus'; onSelectionChange()">
+      <button type="button" class="btn btn-sm w-100" [class.btn-primary]="selectedDesignPackage === 'plus'" [class.btn-outline-primary]="selectedDesignPackage !== 'plus'" (click)="$event.stopPropagation(); selectedDesignPackage = 'plus'; onSelectionChange()">
         {{ selectedDesignPackage === 'plus' ? 'Ausgewählt' : 'Auswählen' }}
       </button>
     </div>
     <i *ngIf="selectedDesignPackage === 'plus'" class="mdi mdi-check-circle selected-indicator-package"></i>
   </div>
 
-  <!-- Premium Paket -->
   <div class="choice-card clickable-card design-package" [class.selected]="selectedDesignPackage === 'premium'" (click)="selectedDesignPackage = 'premium'; onSelectionChange()">
     <div class="card-header">
       <h5 class="package-name">Premium Paket</h5>
@@ -82,14 +77,13 @@
     </div>
     <div class="card-footer">
       <span class="savings-info" *ngIf="selectedDesignPackage !== 'premium'">Sie sparen CHF 500</span>
-      <button type="button" class="btn btn-sm w-100" [class.btn-primary]="selectedDesignPackage === 'premium'" [class.btn-outline-primary]="selectedDesignPackage !== 'premium'" (click)="selectedDesignPackage = 'premium'; onSelectionChange()">
+      <button type="button" class="btn btn-sm w-100" [class.btn-primary]="selectedDesignPackage === 'premium'" [class.btn-outline-primary]="selectedDesignPackage !== 'premium'" (click)="$event.stopPropagation(); selectedDesignPackage = 'premium'; onSelectionChange()">
         {{ selectedDesignPackage === 'premium' ? 'Ausgewählt' : 'Auswählen' }}
       </button>
     </div>
     <i *ngIf="selectedDesignPackage === 'premium'" class="mdi mdi-check-circle selected-indicator-package"></i>
   </div>
 
-  <!-- Eigenes Design -->
   <div class="choice-card clickable-card design-package" [class.selected]="selectedDesignPackage === 'eigenes'" (click)="selectedDesignPackage = 'eigenes'; onSelectionChange()">
     <div class="card-header">
       <h5 class="package-name">Eigenes Design</h5>
@@ -104,15 +98,13 @@
       </ul>
     </div>
     <div class="card-footer">
-      <button type="button" class="btn btn-sm w-100" [class.btn-primary]="selectedDesignPackage === 'eigenes'" [class.btn-outline-primary]="selectedDesignPackage !== 'eigenes'" (click)="selectedDesignPackage = 'eigenes'; onSelectionChange()">
+      <button type="button" class="btn btn-sm w-100" [class.btn-primary]="selectedDesignPackage === 'eigenes'" [class.btn-outline-primary]="selectedDesignPackage !== 'eigenes'" (click)="$event.stopPropagation(); selectedDesignPackage = 'eigenes'; onSelectionChange()">
         {{ selectedDesignPackage === 'eigenes' ? 'Ausgewählt' : 'Auswählen' }}
       </button>
     </div>
     <i *ngIf="selectedDesignPackage === 'eigenes'" class="mdi mdi-check-circle selected-indicator-package"></i>
   </div>
 </div>
-
-<!-- FLYER DRUCK /////////////////////////////////////////////////////////// -->
 
 <h3 class="section-title"><span>2. Flyer Druck</span></h3>
 
@@ -139,8 +131,6 @@
     </div>
   </div>
 </div>
-
-<!-- ANLIEFERUNG /////////////////////////////////////////////////////////// -->
 
 <div *ngIf="selectedPrintOption === 'anliefern'" class="print-service-details">
 
@@ -194,7 +184,7 @@
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="currentFormat === 'anderes'" (click)="currentFormat = 'anderes'; onSelectionChange()">
+                  [class.active]="currentFormat === 'anderes'" (click)="setFormat('anderes')">
             <i class="mdi mdi-invoice-text card-icon"></i>
             <span class="card-content"><span class="card-title">Anderes Format</span><span class="card-description">Wird separat offeriert</span></span>
             <span class="card-indicator"></span>
@@ -237,8 +227,6 @@
 
 </div>
 
-<!-- DRUCK CONFIG ////////////////////////////////////////////////////////// -->
-
 <div *ngIf="selectedPrintOption === 'service'" class="print-service-details mb-4">
 
   <div class="row align-items-center">
@@ -259,37 +247,37 @@
         <legend><span>Flyer Format</span></legend>
         <div class="choice-card-group">
           <button type="button" class="choice-card"
-                  [class.active]="druckFormat === 'A6'" (click)="druckFormat = 'A6'; onSelectionChange()">
+                  [class.active]="druckFormat === 'A6'" (click)="druckFormat = 'A6'; onPrintServiceDetailChange()">
             <i class="mdi mdi-invoice-text card-icon"></i>
             <span class="card-content"><span class="card-title">A6</span><span class="card-description">Kein Zuschlag</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="druckFormat === 'A5'" (click)="druckFormat = 'A5'; onSelectionChange()">
+                  [class.active]="druckFormat === 'A5'" (click)="druckFormat = 'A5'; onPrintServiceDetailChange()">
             <i class="mdi mdi-invoice-text card-icon"></i>
             <span class="card-content"><span class="card-title">A5</span><span class="card-description">Kein Zuschlag</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="druckFormat === 'A4'" (click)="druckFormat = 'A4'; onSelectionChange()">
+                  [class.active]="druckFormat === 'A4'" (click)="druckFormat = 'A4'; onPrintServiceDetailChange()">
             <i class="mdi mdi-invoice-text card-icon"></i>
             <span class="card-content"><span class="card-title">A4</span><span class="card-description">+ CHF 30 / 1'000 Flyer</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="druckFormat === 'A3'" (click)="druckFormat = 'A3'; onSelectionChange()">
+                  [class.active]="druckFormat === 'A3'" (click)="druckFormat = 'A3'; onPrintServiceDetailChange()">
             <i class="mdi mdi-invoice-text card-icon"></i>
             <span class="card-content"><span class="card-title">A3</span><span class="card-description">+ CHF 50 / 1'000 Flyer</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="druckFormat === 'DIN-Lang'" (click)="druckFormat = 'DIN-Lang'; onSelectionChange()">
+                  [class.active]="druckFormat === 'DIN-Lang'" (click)="druckFormat = 'DIN-Lang'; onPrintServiceDetailChange()">
             <i class="mdi mdi-invoice-text card-icon"></i>
             <span class="card-content"><span class="card-title">DIN Lang</span><span class="card-description">+ CHF 20 / 1'000 Flyer</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="druckFormat === 'anderes'" (click)="druckFormat = 'anderes'; onSelectionChange()">
+                  [class.active]="druckFormat === 'anderes'" (click)="druckFormat = 'anderes'; onPrintServiceDetailChange()">
             <i class="mdi mdi-invoice-text card-icon"></i>
             <span class="card-content"><span class="card-title">Anderes Format</span><span class="card-description">Wird separat offeriert</span></span>
             <span class="card-indicator"></span>
@@ -303,37 +291,37 @@
         <legend><span>Grammatur</span></legend>
         <div class="choice-card-group">
           <button type="button" class="choice-card"
-                  [class.active]="druckGrammatur === '90'" (click)="druckGrammatur = '90'; onSelectionChange()">
+                  [class.active]="druckGrammatur === '90'" (click)="druckGrammatur = '90'; onPrintServiceDetailChange()">
             <i class="mdi mdi-format-line-weight card-icon"></i>
             <span class="card-content"><span class="card-title">90g/m²</span><span class="card-description">Budget Flyer</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="druckGrammatur === '115'" (click)="druckGrammatur = '115'; onSelectionChange()">
+                  [class.active]="druckGrammatur === '115'" (click)="druckGrammatur = '115'; onPrintServiceDetailChange()">
             <i class="mdi mdi-format-line-weight card-icon"></i>
             <span class="card-content"><span class="card-title">115g/m²</span><span class="card-description">Standard Flyer</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="druckGrammatur === '130'" (click)="druckGrammatur = '130'; onSelectionChange()">
+                  [class.active]="druckGrammatur === '130'" (click)="druckGrammatur = '130'; onPrintServiceDetailChange()">
             <i class="mdi mdi-format-line-weight card-icon"></i>
             <span class="card-content"><span class="card-title">130g/m²</span><span class="card-description">Werbeflyer mit Anspruch</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="druckGrammatur === '170'" (click)="druckGrammatur = '170'; onSelectionChange()">
+                  [class.active]="druckGrammatur === '170'" (click)="druckGrammatur = '170'; onPrintServiceDetailChange()">
             <i class="mdi mdi-format-line-weight card-icon"></i>
             <span class="card-content"><span class="card-title">170g/m²</span><span class="card-description">Für längere Haltbarkeit</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="druckGrammatur === '250'" (click)="druckGrammatur = '250'; onSelectionChange()">
+                  [class.active]="druckGrammatur === '250'" (click)="druckGrammatur = '250'; onPrintServiceDetailChange()">
             <i class="mdi mdi-format-line-weight card-icon"></i>
             <span class="card-content"><span class="card-title">250g/m²</span><span class="card-description">Stabil & hochwertig</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="druckGrammatur === '300'" (click)="druckGrammatur = '300'; onSelectionChange()">
+                  [class.active]="druckGrammatur === '300'" (click)="druckGrammatur = '300'; onPrintServiceDetailChange()">
             <i class="mdi mdi-format-line-weight card-icon"></i>
             <span class="card-content"><span class="card-title">300g/m²</span><span class="card-description">Exklusive premium Karten</span></span>
             <span class="card-indicator"></span>
@@ -348,13 +336,13 @@
         <legend><span>Druckart</span></legend>
         <div class="choice-card-group">
           <button type="button" class="choice-card"
-                  [class.active]="druckArt === 'einseitig'" (click)="druckArt = 'einseitig'; onSelectionChange()">
+                  [class.active]="druckArt === 'einseitig'" (click)="druckArt = 'einseitig'; onPrintServiceDetailChange()">
             <i class="mdi mdi-book-open-blank-variant card-icon"></i>
             <span class="card-content"><span class="card-title">Einseitig</span><span class="card-description">Vorne bedruckt</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="druckArt === 'zweiseitig'" (click)="druckArt = 'zweiseitig'; onSelectionChange()">
+                  [class.active]="druckArt === 'zweiseitig'" (click)="druckArt = 'zweiseitig'; onPrintServiceDetailChange()">
             <i class="mdi mdi-book-open-blank-variant-outline card-icon"></i>
             <span class="card-content"><span class="card-title">Zweiseitig</span><span class="card-description">Vorne und Hinten bedruckt</span></span>
             <span class="card-indicator"></span>
@@ -368,13 +356,13 @@
         <legend><span>Ausführung</span></legend>
         <div class="choice-card-group">
           <button type="button" class="choice-card"
-                  [class.active]="druckAusfuehrung === 'glaenzend'" (click)="druckAusfuehrung = 'glaenzend'; onSelectionChange()">
+                  [class.active]="druckAusfuehrung === 'glaenzend'" (click)="druckAusfuehrung = 'glaenzend'; onPrintServiceDetailChange()">
             <i class="mdi mdi-creation card-icon"></i>
             <span class="card-content"><span class="card-title">Glänzend gestrichen</span><span class="card-description">Farbstark mit Glanz</span></span>
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="druckAusfuehrung === 'matt'" (click)="druckAusfuehrung = 'matt'; onSelectionChange()">
+                  [class.active]="druckAusfuehrung === 'matt'" (click)="druckAusfuehrung = 'matt'; onPrintServiceDetailChange()">
             <i class="mdi mdi-star-four-points card-icon"></i>
             <span class="card-content"><span class="card-title">Matt gestrichen</span><span class="card-description">Matt & edel</span></span>
             <span class="card-indicator"></span>
@@ -402,22 +390,4 @@
       </div>
     </div>
   </div>
-
-  <div class="d-flex justify-content-between mt-5">
-    <button type="button" class="btn btn-secondary" (click)="goBack()">
-      <i class="mdi mdi-arrow-left me-1"></i> Zurück zu Verteilung
-    </button>
-    <button type="button" class="btn btn-primary" (click)="proceedToNextStep()">
-      Weiter zu Kontakt <i class="mdi mdi-arrow-right ms-1"></i>
-    </button>
-  </div>
-
-  <div class="mt-3 p-2 border rounded bg-light-subtle small">
-    <p class="mb-1">Test-Buttons für Validierungsstatus:</p>
-    <button class="btn btn-sm btn-outline-success me-1" (click)="setExampleStatus('valid')">Set Valid</button>
-    <button class="btn btn-sm btn-outline-warning me-1" (click)="setExampleStatus('pending')">Set Pending</button>
-    <button class="btn btn-sm btn-outline-danger" (click)="setExampleStatus('invalid')">Set Invalid</button>
-    <p class="mt-1">Aktueller Status: <strong>{{ currentStatus }}</strong></p>
-  </div>
-
 </div>

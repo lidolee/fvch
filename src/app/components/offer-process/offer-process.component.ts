@@ -1,7 +1,7 @@
-import { Component, ViewChild, ChangeDetectorRef, Input, OnInit, OnChanges, SimpleChanges, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, ViewChild, ChangeDetectorRef, Input, OnInit, OnChanges, SimpleChanges, ChangeDetectionStrategy, AfterViewInit, PLATFORM_ID, Inject } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { NgbNavModule, NgbNav, NgbNavChangeEvent } from '@ng-bootstrap/ng-bootstrap';
-import { Router } from '@angular/router'; // Router is imported but not used in the original logic, kept for structural integrity
+import { Router } from '@angular/router';
 
 import { DistributionStepComponent } from '../distribution-step/distribution-step.component';
 import { DesignPrintStepComponent } from '../design-print-step/design-print-step.component';
@@ -25,21 +25,30 @@ export type ValidationStatus = 'valid' | 'invalid' | 'pending' | 'neutral';
   styleUrls: ['./offer-process.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class OfferProcessComponent implements OnInit, OnChanges {
-  @ViewChild('nav') navInstance: NgbNav | undefined;
+export class OfferProcessComponent implements OnInit, OnChanges, AfterViewInit {
+  @ViewChild('nav') navInstance!: NgbNav;
+  @ViewChild(DistributionStepComponent) distributionStepComponent?: DistributionStepComponent;
+  @ViewChild(DesignPrintStepComponent) designPrintStepComponent?: DesignPrintStepComponent;
+  @ViewChild(SummaryStepComponent) summaryStepComponent?: SummaryStepComponent;
 
-  @Input() stadtname: string | undefined; // This is the input from the parent
+  @Input() stadtname: string | undefined;
   initialStadtnameForDistribution: string | undefined;
 
   activeStepId = 1;
   stepValidationStatus: { [key: number]: ValidationStatus } = {
-    1: 'neutral',
-    2: 'neutral',
-    3: 'neutral',
+    1: 'pending',
+    2: 'pending',
+    3: 'pending',
   };
 
-  constructor(private cdr: ChangeDetectorRef, private router: Router) {
-    // Constructor logic, logs removed
+  private readonly isBrowser: boolean;
+
+  constructor(
+    private cdr: ChangeDetectorRef,
+    private router: Router,
+    @Inject(PLATFORM_ID) private platformId: Object
+  ) {
+    this.isBrowser = isPlatformBrowser(this.platformId);
   }
 
   ngOnInit(): void {
@@ -52,18 +61,23 @@ export class OfferProcessComponent implements OnInit, OnChanges {
     }
   }
 
+  ngAfterViewInit(): void {
+    if (this.activeStepId === 1 && this.distributionStepComponent) {
+      // Potentially trigger a re-validation or status check if needed
+    }
+    this.cdr.detectChanges();
+  }
+
+
   private updateInitialStadtForDistributionStep(): void {
     let newInitialStadtValue: string | undefined;
 
     if (this.stadtname && this.stadtname.trim() !== '' && this.stadtname.toLowerCase() !== 'undefined') {
-      // If stadtname is a non-empty string and not literally "undefined" (case-insensitive)
       newInitialStadtValue = this.stadtname;
     } else {
-      // Otherwise, treat as no city specified
       newInitialStadtValue = undefined;
     }
 
-    // Only update and trigger change detection if the actual value for the child component changes
     if (this.initialStadtnameForDistribution !== newInitialStadtValue) {
       this.initialStadtnameForDistribution = newInitialStadtValue;
       this.cdr.markForCheck();
@@ -72,10 +86,13 @@ export class OfferProcessComponent implements OnInit, OnChanges {
 
   navigateToStep(stepId: number): void {
     if (this.navInstance && this.activeStepId !== stepId && stepId >= 1 && stepId <= 3) {
+      this.activeStepId = stepId;
       this.navInstance.select(stepId);
+      this.cdr.markForCheck();
     } else if (stepId === 4 && this.activeStepId === 3 && this.stepValidationStatus[3] === 'valid') {
-      // Logic for step 4 (completion)
-      // e.g. this.router.navigate(['/danke']);
+      console.log('Offer process completed, navigating to thank you page (simulated).');
+      // this.router.navigate(['/danke']); // Example completion navigation
+      this.scrollToTop(); // Scroll on final step completion
     }
   }
 
@@ -97,7 +114,72 @@ export class OfferProcessComponent implements OnInit, OnChanges {
   }
 
   onNavChange(event: NgbNavChangeEvent<number>): void {
+    if (event.activeId < event.nextId && this.stepValidationStatus[event.activeId] !== 'valid') {
+      event.preventDefault();
+      this.triggerStepValidationFeedback(event.activeId);
+      return;
+    }
     this.activeStepId = event.nextId;
     this.cdr.markForCheck();
+    this.scrollToTop(); // Scroll whenever a tab navigation occurs
+  }
+
+  private triggerStepValidationFeedback(stepId: number): void {
+    const componentInstance = this.getActiveStepComponentInstance(stepId);
+    if (componentInstance && typeof componentInstance.triggerValidationDisplay === 'function') {
+      componentInstance.triggerValidationDisplay();
+    } else if (componentInstance && stepId === 3 && componentInstance instanceof SummaryStepComponent) {
+      componentInstance.triggerFinalizeOrder();
+    }
+  }
+
+  onCalculatorPrevious(): void {
+    if (this.activeStepId > 1) {
+      this.navigateToStep(this.activeStepId - 1);
+      this.scrollToTop(); // Scroll on previous step navigation
+    }
+  }
+
+  onCalculatorNext(): void {
+    if (this.stepValidationStatus[this.activeStepId] === 'valid') {
+      if (this.activeStepId < 3) {
+        const nextStepId = this.activeStepId + 1;
+        this.navigateToStep(nextStepId);
+        this.scrollToTop(); // Scroll on next step navigation
+      }
+    } else {
+      console.warn(`Calculator requested next step, but step ${this.activeStepId} is not valid.`);
+      this.triggerStepValidationFeedback(this.activeStepId);
+    }
+  }
+
+  onCalculatorSubmit(): void {
+    if (this.activeStepId === 3) {
+      if (this.stepValidationStatus[3] === 'valid') {
+        const summaryComp = this.summaryStepComponent;
+        if (summaryComp) {
+          summaryComp.triggerFinalizeOrder(); // This eventually calls navigateToStep(4) via events
+          // Scroll to top will be handled by navigateToStep(4) as it calls scrollToTop itself
+        }
+      } else {
+        console.warn('Calculator requested submit, but step 3 is not valid.');
+        this.triggerStepValidationFeedback(this.activeStepId);
+      }
+    }
+  }
+
+  private getActiveStepComponentInstance(stepId: number): any {
+    switch (stepId) {
+      case 1: return this.distributionStepComponent;
+      case 2: return this.designPrintStepComponent;
+      case 3: return this.summaryStepComponent;
+      default: return null;
+    }
+  }
+
+  private scrollToTop(): void {
+    if (this.isBrowser) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
 }

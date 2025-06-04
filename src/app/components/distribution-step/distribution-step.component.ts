@@ -13,6 +13,9 @@ import { SelectionService } from '../../services/selection.service';
 import { MapOptions, MapComponent } from '../map/map.component';
 import { SearchInputComponent, SimpleValidationStatus } from '../search-input/search-input.component';
 import { PlzSelectionTableComponent } from '../plz-selection-table/plz-selection-table.component';
+// Ensure ValidationStatus is imported from the correct location
+import { ValidationStatus as OverallValidationStatusOfferProcess } from '../offer-process/offer-process.component';
+
 
 export interface TableHighlightEvent {
   plzId: string | null;
@@ -20,7 +23,6 @@ export interface TableHighlightEvent {
 }
 type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
 type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
-export type OverallValidationStatus = 'valid' | 'invalid';
 
 
 const COLUMN_HIGHLIGHT_DURATION = 1500;
@@ -42,8 +44,7 @@ const COLUMN_HIGHLIGHT_DURATION = 1500;
 export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges {
   @Input() initialStadt: string | undefined;
 
-  @Output() nextStepRequest = new EventEmitter<void>();
-  @Output() validationChange = new EventEmitter<OverallValidationStatus>();
+  @Output() validationChange = new EventEmitter<OverallValidationStatusOfferProcess>();
 
   @ViewChild(SearchInputComponent) searchInputComponent!: SearchInputComponent;
   @ViewChild(MapComponent) mapComponent!: MapComponent;
@@ -76,7 +77,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   public mapIsLoading: boolean = false;
   public mapConfig: MapOptions;
   public readonly kmlPathConstant: string = 'assets/ch_plz.kml';
-  public readonly apiKeyConstant: string = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc';
+  public readonly apiKeyConstant: string = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc'; // Replace with your actual API key storage/retrieval
   public kmlFileName: string | null = null;
 
   constructor(
@@ -108,8 +109,11 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
         if (!this.mapZoomToPlzId && (!this.mapZoomToPlzIdList || this.mapZoomToPlzIdList.length === 0)) {
           this.mapZoomToPlzIdList = this.mapSelectedPlzIds.length > 0 ? [...this.mapSelectedPlzIds] : null;
         }
-        this.updateOverallValidationState();
+        this.updateAndEmitOverallValidationState();
+        this.cdr.markForCheck();
       });
+    // Initial validation emit after setup
+    Promise.resolve().then(() => this.updateAndEmitOverallValidationState());
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -143,7 +147,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  // TrackBy function for *ngFor lists of PlzEntry
   trackByPlzId(index: number, item: PlzEntry): string {
     return item.id;
   }
@@ -153,7 +156,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
     const dataReady = await this.plzDataService.ensureDataReady();
     if (!dataReady) {
-      this.updateOverallValidationState();
+      this.updateAndEmitOverallValidationState();
       return;
     }
 
@@ -195,7 +198,9 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
               plz4: targetMatch.plz4 || (targetMatch.id ? targetMatch.id.substring(0,4) : ''),
               ort: targetMatch.ort || '',
               kt: targetMatch.kt || '',
-              all: targetMatch.all || 0
+              all: targetMatch.all || 0,
+              mfh: targetMatch.mfh,
+              efh: targetMatch.efh
             };
             plzEntriesToSelect = [entry];
           }
@@ -219,11 +224,12 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
         this.searchInputInitialTerm = stadtname;
       }
     } finally {
+      this.updateAndEmitOverallValidationState();
       this.cdr.markForCheck();
       if (isPlatformBrowser(this.platformId)) {
         this.ngZone.onStable.pipe(take(1)).subscribe(() => {
           if (this.searchInputComponent) { this.searchInputComponent.blurInput(); }
-          setTimeout(() => this.scrollToMapView(), 250); // Increased timeout
+          setTimeout(() => this.scrollToMapView(), 250);
         });
       }
     }
@@ -274,7 +280,9 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
               plz4: singlePlzMatch.plz4 || (singlePlzMatch.id ? singlePlzMatch.id.substring(0,4) : ''),
               ort: singlePlzMatch.ort || '',
               kt: singlePlzMatch.kt || '',
-              all: singlePlzMatch.all || 0
+              all: singlePlzMatch.all || 0,
+              mfh: singlePlzMatch.mfh,
+              efh: singlePlzMatch.efh
             };
             plzEntriesToSelect = [entry];
           }
@@ -295,11 +303,12 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       if (this.searchInputComponent) { this.searchInputComponent.setSearchTerm(stadtName, false); }
       else { this.searchInputInitialTerm = stadtName; }
     } finally {
+      this.updateAndEmitOverallValidationState();
       this.cdr.markForCheck();
       if (isPlatformBrowser(this.platformId)) {
         this.ngZone.onStable.pipe(take(1)).subscribe(() => {
           if (this.searchInputComponent) { this.searchInputComponent.blurInput(); }
-          setTimeout(() => this.scrollToMapView(), 250); // Increased timeout
+          setTimeout(() => this.scrollToMapView(), 250);
         });
       }
     }
@@ -362,7 +371,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     this.expressSurchargeConfirmed = false;
     if (!this.verteilungStartdatum) {
       this.showExpressSurcharge = false;
-      this.updateOverallValidationState();
+      this.updateAndEmitOverallValidationState();
       return;
     }
     const selectedStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
@@ -370,11 +379,11 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
     if (isNaN(selectedStartDate.getTime()) || selectedStartDate.getTime() < minStartDate.getTime()) {
       this.verteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
-      this.onStartDateChange();
+      this.onStartDateChange(); // Recursive call to re-validate and update UI
       return;
     }
     this.checkExpressSurcharge();
-    this.updateOverallValidationState();
+    this.updateAndEmitOverallValidationState();
   }
 
   private checkExpressSurcharge(): void {
@@ -403,14 +412,14 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     this.expressSurchargeConfirmed = false;
     if (this.defaultStandardStartDate) {
       this.verteilungStartdatum = this.formatDateToYyyyMmDd(this.defaultStandardStartDate);
-      this.onStartDateChange();
+      this.onStartDateChange(); // This will also call checkExpressSurcharge and updateAndEmitOverallValidationState
     } else { this.cdr.markForCheck(); }
   }
 
   public confirmExpressSurcharge(): void {
     this.expressSurchargeConfirmed = true;
     this.showExpressSurcharge = false;
-    this.updateOverallValidationState();
+    this.updateAndEmitOverallValidationState();
     this.cdr.markForCheck();
   }
 
@@ -419,7 +428,8 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       this.searchInputComponent.initiateSearchForTerm(this.searchInputInitialTerm);
       this.searchInputInitialTerm = '';
     }
-    Promise.resolve().then(() => { this.updateOverallValidationState(); });
+    // Ensure initial validation status is emitted correctly after view is initialized
+    Promise.resolve().then(() => this.updateAndEmitOverallValidationState());
   }
 
   ngOnDestroy(): void {
@@ -434,14 +444,15 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
         setTimeout(() => this.scrollToMapView(), 100);
       }
     }
+    this.updateAndEmitOverallValidationState();
   }
 
-  onSearchInputTermChanged(term: string): void { /* No-op */ }
+  onSearchInputTermChanged(term: string): void { /* No-op for now, status handled by onSearchInputStatusChanged */ }
 
   onSearchInputStatusChanged(status: SimpleValidationStatus): void {
     if (this.searchInputStatus !== status) {
       this.searchInputStatus = status;
-      this.updateOverallValidationState();
+      this.updateAndEmitOverallValidationState();
     }
   }
 
@@ -468,7 +479,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     if (oldPlzFlag !== this.showPlzUiContainer || oldPerimeterFlag !== this.showPerimeterUiContainer) {
       this.cdr.markForCheck();
     }
-    this.updateOverallValidationState();
+    this.updateAndEmitOverallValidationState();
   }
 
   private onZielgruppeChange(): void {
@@ -478,7 +489,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       this.highlightFlyerMaxColumn = false;
       this.cdr.markForCheck();
     }, COLUMN_HIGHLIGHT_DURATION);
-    this.updateOverallValidationState();
+    this.updateAndEmitOverallValidationState();
   }
 
   onPlzClickedOnMap(event: { id: string; name?: string }): void {
@@ -504,14 +515,15 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
             }
           }
         })
-        .catch(error => { /* Handle error */ });
+        .catch(error => { console.error(`Error adding PLZ ${entryIdFromMap} from map click:`, error); });
     }
+    this.updateAndEmitOverallValidationState();
   }
 
   onMapLoadingStatusChanged(isLoading: boolean): void {
     if (this.mapIsLoading !== isLoading) {
       this.mapIsLoading = isLoading;
-      this.updateOverallValidationState();
+      this.updateAndEmitOverallValidationState();
     }
   }
 
@@ -530,15 +542,17 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     } else {
       this.searchInputInitialTerm = '';
     }
-    this.router.navigate(['/']);
+    this.router.navigate(['/']); // Reset route if city was in URL
 
     if (isPlatformBrowser(this.platformId)) {
       setTimeout(() => this.scrollToMapView(), 100);
     }
+    this.updateAndEmitOverallValidationState();
   }
 
   removePlzFromTable(entry: PlzEntry): void {
     this.selectionService.removeEntry(entry.id);
+    this.updateAndEmitOverallValidationState();
   }
 
   zoomToTableEntryOnMap(entry: PlzEntry): void {
@@ -559,34 +573,46 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  triggerKmlUpload(): void { /* Implement KML */ }
+  triggerKmlUpload(): void {
+    console.log('KML Upload triggered (Not implemented)');
+    // Implement KML upload logic here
+    // After KML is processed, call updateAndEmitOverallValidationState()
+  }
 
-  getFlyerMaxForEntry(entry: PlzEntry): number { return 0; }
-  getZielgruppeLabel(): string { return ''; }
+  getFlyerMaxForEntry(entry: PlzEntry): number {
+    if (!entry) return 0;
+    switch (this.currentZielgruppe) {
+      case 'Mehrfamilienhäuser': return entry.mfh ?? 0;
+      case 'Ein- und Zweifamilienhäuser': return entry.efh ?? 0;
+      default: return entry.all ?? 0;
+    }
+  }
 
-  private updateOverallValidationState(): void {
+  private updateAndEmitOverallValidationState(): void {
     const newStatus = this.calculateOverallValidationStatus();
     this.validationChange.emit(newStatus);
     this.cdr.markForCheck();
   }
 
-  private calculateOverallValidationStatus(): OverallValidationStatus {
+  private calculateOverallValidationStatus(): OverallValidationStatusOfferProcess {
     const hasSelectedPlz = this.selectionService.getSelectedEntries().length > 0;
     const isDateValid = !!this.verteilungStartdatum && !isNaN(this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime());
-    const isExpressConfirmedIfNeeded = !this.isExpressSurchargeRelevant() || this.expressSurchargeConfirmed;
+    const isExpressValidOrConfirmed = !this.isExpressSurchargeRelevant() || this.expressSurchargeConfirmed;
 
     if (this.currentVerteilungTyp === 'Nach PLZ') {
       const isSearchInputStateAcceptable = this.searchInputStatus === 'valid' ||
         this.searchInputStatus === 'empty' ||
         (this.activeProcessingStadt && this.searchInputStatus !== 'invalid');
 
-      if (hasSelectedPlz && isDateValid && isExpressConfirmedIfNeeded && isSearchInputStateAcceptable) {
+      if (hasSelectedPlz && isDateValid && isExpressValidOrConfirmed && isSearchInputStateAcceptable) {
         return 'valid';
       }
-    } else {
-      if (isDateValid && isExpressConfirmedIfNeeded /* && kmlIsValid */) {
-        return 'invalid'; // Until KML is implemented
-      }
+    } else { // Nach Perimeter
+      // For now, KML upload is not implemented, so this path cannot be 'valid'
+      // if (kmlFileUploadedAndValid && isDateValid && isExpressValidOrConfirmed) {
+      //   return 'valid';
+      // }
+      return 'invalid'; // Or 'pending' if KML upload is in progress
     }
     return 'invalid';
   }
@@ -599,12 +625,16 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     return selected.getTime() < this.defaultStandardStartDate.getTime() && selected.getTime() >= minAllowed.getTime();
   }
 
-  proceedToNextStep(): void {
-    if (this.calculateOverallValidationStatus() === 'valid') {
-      this.nextStepRequest.emit();
-    }
+  public triggerValidationDisplay(): void {
+    // This method can be called by the parent to force UI updates for validation.
+    // For example, if using reactive forms, mark controls as touched.
+    // For template-driven forms or custom validation, ensure errors are displayed.
+    console.log('[DistributionStepComponent] Triggering validation display (if implemented).');
+    // For now, we just re-check and emit. The UI relies on component state for error display.
+    this.updateAndEmitOverallValidationState();
     this.cdr.markForCheck();
   }
+
 
   private scrollToMapView(): void {
     if (!isPlatformBrowser(this.platformId)) { return; }

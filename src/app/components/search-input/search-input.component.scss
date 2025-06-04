@@ -17,6 +17,11 @@
 
   .form-control {
     text-transform: uppercase;
+    font-weight: bold;
+
+    &::placeholder {
+      color: $gray-500;
+    }
   }
 }
 
