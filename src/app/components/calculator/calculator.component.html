@@ -1,25 +1,116 @@
-<div class="calculator-container">
+<div class="calculator-wrapper">
   <h3 class="calculator-title">Kostenübersicht</h3>
 
-  <div class="my-3 p-3 border rounded bg-light">
-    <p class="text-muted text-center">Dynamische Kostenübersicht hier...</p>
+  <div class="cost-summary">
+
+    <!-- VERTEILUNG //////////////////////////////////////////////////////// -->
+
+    <div class="cost-group">
+      <h4 class="cost-group-title"><span>Flyer Verteilung</span></h4>
+      <div class="table-responsive">
+        <table class="table calculation-table">
+          <thead>
+          <tr>
+            <th class="item-label">PLZ Ort</th>
+            <th class="item-quantity text-end">Flyer</th>
+            <th class="item-subtotal text-end">Preis</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr>
+            <td class="item-label">8001 Zürich</td>
+            <td class="item-quantity text-end">1'250</td>
+            <td class="item-subtotal text-end">187.50</td>
+          </tr>
+          <tr>
+            <td class="item-label">3854 Oberried am Brienzersee</td>
+            <td class="item-quantity text-end">850</td>
+            <td class="item-subtotal text-end">127.50</td>
+          </tr>
+          <tr>
+            <td class="item-label">Zuschlag Format A4</td>
+            <td class="item-quantity text-end">850</td>
+            <td class="item-subtotal text-end">127.50</td>
+          </tr>
+          <tr>
+            <td class="item-label">Flyer Abholung</td>
+            <td class="item-quantity text-end"></td>
+            <td class="item-subtotal text-end">50.00</td>
+          </tr>
+          <tr>
+            <td class="item-label">Express Zuschlag 50%</td>
+            <td class="item-quantity text-end"></td>
+            <td class="item-subtotal text-end">50.00</td>
+          </tr>
+          <tr>
+            <td class="item-label">Mindestabnahme Pauschale</td>
+            <td class="item-quantity text-end"></td>
+            <td class="item-subtotal text-end">50.00</td>
+          </tr>
+          </tbody>
+          <tfoot>
+          <tr>
+            <td colspan="2">Zwischensumme</td>
+            <td class="text-end">315.00</td>
+          </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- DRUCK ///////////////////////////////////////////////////////////// -->
+
+    <div class="cost-group">
+      <h4 class="cost-group-title"><span>Flyer Druck</span></h4>
+      <div class="table-responsive">
+        <table class="table calculation-table">
+          <tbody>
+          <tr>
+            <td>Wird separat offeriert</td>
+            <td class="text-end">—</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DESIGN //////////////////////////////////////////////////////////// -->
+
+    <div class="cost-group">
+      <h4 class="cost-group-title"><span>Flyer Design</span></h4>
+      <div class="table-responsive">
+        <table class="table calculation-table">
+          <tbody>
+          <tr>
+            <td class="item-label">Premium Paket</td>
+            <td class="item-subtotal text-end">1'999</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 
+  <!-- BUTTONS ///////////////////////////////////////////////////////////// -->
 
-  <div *ngIf="activeStep === 1" class="d-grid">
-    <button type="button" class="btn btn-lg btn-primary w-100" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>
+  <div class="actions-container mt-4">
+    <div *ngIf="activeStep === 1" class="d-grid">
+      <button type="button" class="btn btn-lg btn-primary w-100" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>
+    </div>
+
+    <div *ngIf="activeStep === 2" class="d-flex justify-content-between">
+      <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2" (click)="onRequestPrevious()">Zurück</button>
+      <button type="button" class="btn btn-lg btn-primary w-50 ms-2" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>
+    </div>
+
+    <div *ngIf="activeStep === 3" class="d-flex justify-content-between">
+      <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2" (click)="onRequestPrevious()">Zurück</button>
+      <button type="button" class="btn btn-lg btn-success w-50 ms-2" (click)="onRequestSubmit()" [disabled]="currentStepValidationStatus !== 'valid'">Absenden</button>
+    </div>
+    <div *ngIf="activeStep === 3" class="secure-box text-center"><i class="mdi mdi-lock-check fs-4">&nbsp;</i>256-Bit TLS Verschlüsselte Übertragung</div>
   </div>
 
-  <div *ngIf="activeStep === 2" class="d-flex justify-content-between">
-    <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2" (click)="onRequestPrevious()">Zurück</button>
-    <button type="button" class="btn btn-lg btn-primary w-50 ms-2" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>
-  </div>
-
-  <div *ngIf="activeStep === 3" class="d-flex justify-content-between">
-    <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2" (click)="onRequestPrevious()">Zurück</button>
-    <button type="button" class="btn btn-lg btn-success w-50 ms-2" (click)="onRequestSubmit()" [disabled]="currentStepValidationStatus !== 'valid'">Absenden</button>
-  </div>
-  <div *ngIf="activeStep === 3" class="secure-box text-center"><i class="mdi mdi-lock-check fs-4">&nbsp;</i>256-Bit TLS Verschlüsselte Übertragung</div>
 </div>
 
 

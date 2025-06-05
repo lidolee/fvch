@@ -6,7 +6,11 @@
 
 
 .tab-content {
-  padding: 36px 0 120px 0;
+  padding: 36px 0 36px 0;
+
+  @include media-breakpoint-up(xl) {
+    padding-bottom: 140px;
+  }
 }
 
 .nav.nav-tabs {
@@ -20,7 +24,7 @@
   .nav-link {
     @include font-headline();
     text-transform: uppercase;
-    font-size: 13px;
+    font-size: 12px;
     letter-spacing: .3px;
     font-weight: 900;
     background-color: transparent;
@@ -39,18 +43,13 @@
       color: $primary;
       font-weight: 900;
     }
-  }
-}
 
-@include media-breakpoint-up(md) {
-  aside.calculator-container {
-    app-calculator {
-      position: sticky;
-      top: 32px;
-      z-index: 1020;
+    .validation-icon {
+      margin-left: 4px;
+      font-size: 9px;
+      line-height: 12px;
     }
   }
-
 }
 
 @include media-breakpoint-up(md) {
@@ -65,8 +64,8 @@
       @include font-headline();
       text-transform: uppercase;
       font-size: 16px;
-      letter-spacing: 1px;
-      font-weight: 800;
+      letter-spacing: .5px;
+      font-weight: 900;
       background-color: transparent;
       padding: 20px 16px !important;
       line-height: 100%;
@@ -75,6 +74,7 @@
       border-right: 1px solid transparent;
       border-bottom: 1px solid $border-color;
       border-left: 1px solid transparent;
+      color: $gray-700;
 
       &:hover {
         color: $gray-900;
@@ -89,6 +89,12 @@
         border-bottom: 1px solid transparent;
         border-left: 1px solid $border-color;
         background: linear-gradient(to bottom, $white, mix($primary, $white, 2%));
+      }
+
+      .validation-icon {
+        font-size: 12px;
+        line-height: 12px;
+        margin-left: 6px;
       }
     }
   }

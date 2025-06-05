@@ -645,7 +645,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
         console.warn('[DistributionStepComponent] scrollToMapView: mapViewRef not ready or visible when scroll attempted.');
         return;
       }
-      const offset = 18;
+      const offset = 90;
       const elementScrollY = window.pageYOffset + element.getBoundingClientRect().top;
       const targetScrollPosition = elementScrollY - offset;
       window.scrollTo({ top: targetScrollPosition, behavior: 'smooth' });

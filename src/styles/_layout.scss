@@ -4,12 +4,15 @@
 // LAYOUT STYLES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 header {
+  position: sticky;
+  top: 0;
   height: auto;
   width: 100%;
-  padding: 28px 0 20px 0;
-  margin-bottom: 36px;
-  border-bottom: 1px solid $border-color;
+  padding: 22px 0;
+  margin: 0;
+  border-bottom: 1px solid $gray-400;
   background-color: $white;
+  z-index: 2000;
 }
 
 .page-title {
@@ -19,6 +22,7 @@ header {
   font-size: 24px;
   letter-spacing: 1px;
   color: $gray-600;
+  margin-top: 36px;
 }
 
 .lead {

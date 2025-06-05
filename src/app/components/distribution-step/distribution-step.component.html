@@ -61,12 +61,9 @@
     [(ngModel)]="searchInputInitialTerm"
     name="searchInputPlzOrtDistributionStep">
   </app-search-input>
-  <div *ngIf="searchInputStatus === 'invalid' && searchInputInitialTerm && searchInputInitialTerm.length > 0" class="text-danger small mt-1 ps-1">
-    Eingabe ungültig oder keine Treffer.
-  </div>
-  <div *ngIf="searchInputStatus === 'pending'" class="text-muted small mt-1 ps-1">
-    Suche aktiv...
-  </div>
+
+  <div *ngIf="searchInputStatus === 'invalid' && searchInputInitialTerm && searchInputInitialTerm.length > 0" class="text-danger small mt-1 ps-1">Eingabe ungültig oder keine Treffer.</div>
+  <div *ngIf="searchInputStatus === 'pending'" class="text-muted small mt-1 ps-1">Suche aktiv...</div>
 
   <ng-container *ngIf="(selectedEntries$ | async) as selectedEntries">
     <div class="my-4 row" *ngIf="selectedEntries && selectedEntries.length > 0">

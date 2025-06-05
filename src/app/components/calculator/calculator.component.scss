@@ -1,36 +1,87 @@
 @import "bootstrap/scss/functions";
 @import "bootstrap/scss/variables";
-@import "../../../styles/variables";
 @import "bootstrap/scss/mixins";
+@import "../../../styles/variables";
+@import "../../../styles/mixins";
 
 :host {
+  display: block;
+  height: 100%;
+  width: 100%;
+  position: relative;
 
-}
+  .calculator-wrapper {
+    position: relative;
+    top: 0;
 
-.calculator-title {
-  text-transform: uppercase;
-  font-size: 21px;
-  letter-spacing: 0.5px;
-  font-weight: 800;
-  color: $gray-700;
-  padding-bottom: 16px;
-  margin-top: 18px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid $border-color;
-}
+    @include media-breakpoint-up(xl) {
+      position: sticky;
+      top: 90px;
+    }
 
-.calculator-container {
-  padding-bottom: 120px;
+    .calculator-title {
+      @include font-headline();
+      text-transform: uppercase;
+      font-size: 22px;
+      letter-spacing: .5px;
+      font-weight: 900;
+      color: $gray-600;
+      padding: 18px 0 17px 0;
+      margin-top: 0;
+      margin-bottom: 16px;
+      border-bottom: 1px solid $border-color;
+    }
 
-  .btn {
+    .cost-summary {
+      .cost-group {
+        .cost-group-title {
+          @include lined();
+          margin: 24px 0 18px 0;
 
+          span {
+            font-weight: 900;
+            color: $gray-700;
+          }
+
+          &:before {
+            top: 8px;
+          }
+        }
+
+        .calculation-table {
+          margin: 0;
+
+          th,
+          td {
+            text-transform: uppercase;
+            font-weight: 900;
+
+            &:first-of-type {
+              padding-left: 0 !important;
+            }
+
+            &:last-of-type {
+              padding-right: 0 !important;
+            }
+          }
+
+          td {
+            color: $gray-800;
+            font-weight: 600;
+            padding: 10px 8px;
+          }
+        }
+      }
+    }
+
+
+    .secure-box {
+      margin-top: 16px;
+      text-transform: uppercase;
+      font-size: 16px;
+      font-weight: bold;
+      color: $gray-600;
+    }
   }
-
-  .secure-box {
-    margin-top: 16px;
-    text-transform: uppercase;
-    font-size: 16px;
-    font-weight: bold;
-    color: $gray-600;
-  }
 }
+
