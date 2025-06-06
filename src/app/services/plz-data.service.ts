@@ -13,6 +13,7 @@ export interface PlzEntry {
   plz4: string;
   ort: string;
   kt: string;
+  preisKategorie: string; // Added: Price category (A, B, C, D, E)
   all: number;
   mfh?: number;
   efh?: number;
@@ -66,6 +67,7 @@ export class PlzDataService {
     this.plzData$ = this.http.get<any[]>(FVDB_JSON_PATH).pipe(
       map(rawDataArray => {
         if (!Array.isArray(rawDataArray)) {
+          console.error(`${this.logPrefix()} loadPlzData (map): rawDataArray is not an array!`);
           this.dataLoadedSuccessfully = false;
           this.rawEntriesCache = [];
           return [];
@@ -78,6 +80,8 @@ export class PlzDataService {
             const plz6FromInput = String(rawEntry.plz).trim();
             const ortFromInput = String(rawEntry.name).trim();
             const ktFromInput = String(rawEntry.ct || 'N/A').trim();
+            // Map the 'cat' field from JSON to 'preisKategorie'
+            const preisKategorie = String(rawEntry.cat || 'A').trim().toUpperCase();
 
             if (!plz6FromInput || !ortFromInput) {
               return null;
@@ -90,6 +94,7 @@ export class PlzDataService {
               plz4: plz4,
               ort: ortFromInput,
               kt: ktFromInput,
+              preisKategorie: preisKategorie, // Added: Map from 'cat' field
               all: Number(rawEntry.all) || 0,
               mfh: rawEntry.mfh !== undefined && rawEntry.mfh !== null ? Number(rawEntry.mfh) : undefined,
               efh: rawEntry.efh !== undefined && rawEntry.efh !== null ? Number(rawEntry.efh) : undefined,
@@ -99,6 +104,7 @@ export class PlzDataService {
 
         this.rawEntriesCache = processedEntries;
         this.dataLoadedSuccessfully = processedEntries.length > 0;
+        console.log(`${this.logPrefix()} Loaded ${this.rawEntriesCache.length} PLZ entries with price categories`);
         return this.rawEntriesCache;
       }),
       shareReplay(1),
@@ -133,6 +139,7 @@ export class PlzDataService {
         await this.dataLoadingPromise;
         return this.dataLoadedSuccessfully;
       } catch(e) {
+        console.error(`${this.logPrefix()} ensureDataReady: Error awaiting existing dataLoadingPromise.`, e);
         return false;
       }
     }
@@ -140,6 +147,7 @@ export class PlzDataService {
     this.dataLoadingPromise = firstValueFrom(
       this.getPlzData().pipe(
         catchError(err => {
+          console.error(`${this.logPrefix()} ensureDataReady (firstValueFrom catchError): Error from getPlzData stream. Error:`, err);
           this.dataLoadedSuccessfully = false;
           return of([]);
         })

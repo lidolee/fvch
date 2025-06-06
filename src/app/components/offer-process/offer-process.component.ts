@@ -3,7 +3,7 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { NgbNavModule, NgbNav, NgbNavChangeEvent } from '@ng-bootstrap/ng-bootstrap';
 import { Router } from '@angular/router';
 
-import { DistributionStepComponent } from '../distribution-step/distribution-step.component';
+import { DistributionStepComponent, ZielgruppeOption } from '../distribution-step/distribution-step.component';
 import { DesignPrintStepComponent } from '../design-print-step/design-print-step.component';
 import { SummaryStepComponent } from '../summary-step/summary-step.component';
 import { CalculatorComponent } from '../calculator/calculator.component';
@@ -41,6 +41,9 @@ export class OfferProcessComponent implements OnInit, OnChanges, AfterViewInit {
     3: 'pending',
   };
 
+  // NEU: Zielgruppe State zentral im OfferProcess
+  zielgruppe: ZielgruppeOption = 'Alle Haushalte';
+
   private readonly isBrowser: boolean;
 
   constructor(
@@ -68,7 +71,6 @@ export class OfferProcessComponent implements OnInit, OnChanges, AfterViewInit {
     this.cdr.detectChanges();
   }
 
-
   private updateInitialStadtForDistributionStep(): void {
     let newInitialStadtValue: string | undefined;
 
@@ -90,7 +92,6 @@ export class OfferProcessComponent implements OnInit, OnChanges, AfterViewInit {
       this.navInstance.select(stepId);
       this.cdr.markForCheck();
     } else if (stepId === 4 && this.activeStepId === 3 && this.stepValidationStatus[3] === 'valid') {
-      console.log('Offer process completed, navigating to thank you page (simulated).');
       // this.router.navigate(['/danke']); // Example completion navigation
       this.scrollToTop(); // Scroll on final step completion
     }
@@ -108,7 +109,6 @@ export class OfferProcessComponent implements OnInit, OnChanges, AfterViewInit {
     switch (status) {
       case 'valid': return 'mdi-check-circle text-success';
       case 'invalid': return 'mdi-alert-circle text-danger';
-      //case 'pending': return 'mdi-timer-sand text-warning';
       default: return 'mdi-circle-outline text-secondary';
     }
   }
@@ -148,7 +148,6 @@ export class OfferProcessComponent implements OnInit, OnChanges, AfterViewInit {
         this.scrollToTop(); // Scroll on next step navigation
       }
     } else {
-      console.warn(`Calculator requested next step, but step ${this.activeStepId} is not valid.`);
       this.triggerStepValidationFeedback(this.activeStepId);
     }
   }
@@ -159,12 +158,18 @@ export class OfferProcessComponent implements OnInit, OnChanges, AfterViewInit {
         const summaryComp = this.summaryStepComponent;
         if (summaryComp) {
           summaryComp.triggerFinalizeOrder(); // This eventually calls navigateToStep(4) via events
-          // Scroll to top will be handled by navigateToStep(4) as it calls scrollToTop itself
         }
       } else {
-        console.warn('Calculator requested submit, but step 3 is not valid.');
         this.triggerStepValidationFeedback(this.activeStepId);
       }
+    }
+  }
+
+  // NEU: Zielgruppenwechsel annehmen
+  onZielgruppeChange(zielgruppe: ZielgruppeOption) {
+    if (this.zielgruppe !== zielgruppe) {
+      this.zielgruppe = zielgruppe;
+      this.cdr.markForCheck();
     }
   }
 

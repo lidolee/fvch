@@ -7,8 +7,9 @@
       <th scope="col" class="canton text-start">KT</th>
       <th scope="col" class="flyer-max text-end"
           [class.highlight-column]="highlightFlyerMaxColumn"
-      [title]="'Flyer Max basierend auf Zielgruppe: ' + currentZielgruppe">Flyer</th>
+          [title]="'Flyer Max basierend auf Zielgruppe: ' + currentZielgruppe">Flyer</th>
       <th scope="col" class="flyer-limit text-start"
+          *ngIf="currentZielgruppe !== 'Alle Haushalte'"
           title="Definitive Wunschmenge, die wir für diese PLZ verteilen. Bitte abrunden auf nächste 100er Zahl">Definitiv</th>
       <th scope="col" class="actions text-end">&nbsp;</th>
     </tr>
@@ -25,7 +26,9 @@
           [class.text-muted]="entry.is_manual_count">
         {{ getAudienceCalculatedFlyerCount(entry) | number:'1.0-0' }}
       </td>
-      <td class="flyer-limit text-end" title="Definitive Wunschmenge, die wir für diese PLZ verteilen. Bitte abrunden auf nächste 100er Zahl">
+      <td class="flyer-limit text-end"
+          *ngIf="currentZielgruppe !== 'Alle Haushalte'"
+          title="Definitive Wunschmenge, die wir für diese PLZ verteilen. Bitte abrunden auf nächste 100er Zahl">
         <input class="form-control form-control-sm text-end"
                type="number"
                [ngModel]="entry.selected_display_flyer_count"
@@ -45,17 +48,17 @@
       </td>
     </tr>
     </tbody>
-    <tfoot>
+<!--    <tfoot>
     <tr class="table-light">
       <td colspan="3" class="fw-bold">Total Auswahl</td>
       <td class="text-end fw-bold" [class.highlight-column]="highlightFlyerMaxColumn">
         {{ getTotalAudienceCalculatedFlyers() | number:'1.0-0' }}
       </td>
-      <td class="text-end fw-bold">
+      <td class="text-end fw-bold" *ngIf="currentZielgruppe !== 'Alle Haushalte'">
         {{ getTotalDefinitiveFlyers() | number:'1.0-0' }}
       </td>
       <td></td>
     </tr>
-    </tfoot>
+    </tfoot>-->
   </table>
 </div>

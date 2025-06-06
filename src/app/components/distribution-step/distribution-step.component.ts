@@ -1,6 +1,19 @@
 import {
-  Component, OnInit, OnDestroy, ViewChild, Output, EventEmitter,
-  Inject, PLATFORM_ID, NgZone, ChangeDetectorRef, Input, OnChanges, SimpleChanges, ElementRef, ChangeDetectionStrategy
+  Component,
+  OnInit,
+  OnDestroy,
+  ViewChild,
+  Output,
+  EventEmitter,
+  Inject,
+  PLATFORM_ID,
+  NgZone,
+  ChangeDetectorRef,
+  Input,
+  OnChanges,
+  SimpleChanges,
+  ElementRef,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -42,7 +55,9 @@ const COLUMN_HIGHLIGHT_DURATION = 1500;
 })
 export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges {
   @Input() initialStadt: string | undefined;
+  @Input() currentZielgruppe: ZielgruppeOption = 'Alle Haushalte';
   @Output() validationChange = new EventEmitter<OverallValidationStatusOfferProcess>();
+  @Output() zielgruppeChange = new EventEmitter<ZielgruppeOption>();
 
   @ViewChild(SearchInputComponent) searchInputComponent!: SearchInputComponent;
   @ViewChild(MapComponent) mapComponent!: MapComponent;
@@ -58,7 +73,6 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges {
   currentVerteilungTyp: VerteilungTypOption = 'Nach PLZ';
   showPlzUiContainer: boolean = true;
   showPerimeterUiContainer: boolean = false;
-  currentZielgruppe: ZielgruppeOption = 'Alle Haushalte';
   highlightFlyerMaxColumn: boolean = false;
 
   verteilungStartdatum: string = '';
@@ -190,8 +204,15 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges {
             plzEntriesToSelect = await firstValueFrom(this.plzDataService.getEntriesByOrtAndKanton(targetMatch.ort, targetMatch.kt).pipe(take(1)));
           } else if (!targetMatch.isGroupHeader && targetMatch.id) {
             plzEntriesToSelect = [{
-              id: targetMatch.id, plz6: targetMatch.plz6 || targetMatch.id, plz4: targetMatch.plz4 || (targetMatch.id ? targetMatch.id.substring(0, 4) : ''),
-              ort: targetMatch.ort || '', kt: targetMatch.kt || '', all: targetMatch.all || 0, mfh: targetMatch.mfh, efh: targetMatch.efh
+              id: targetMatch.id,
+              plz6: targetMatch.plz6 || targetMatch.id,
+              plz4: targetMatch.plz4 || (targetMatch.id ? targetMatch.id.substring(0, 4) : ''),
+              ort: targetMatch.ort || '',
+              kt: targetMatch.kt || '',
+              preisKategorie: targetMatch.preisKategorie || 'A',
+              all: targetMatch.all || 0,
+              mfh: targetMatch.mfh,
+              efh: targetMatch.efh
             }];
           }
         }
@@ -237,8 +258,15 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges {
           if (singlePlzMatch) {
             termToUseForSearchInput = singlePlzMatch.ort || stadtName;
             plzEntriesToSelect = [{
-              id: singlePlzMatch.id, plz6: singlePlzMatch.plz6 || singlePlzMatch.id, plz4: singlePlzMatch.plz4 || (singlePlzMatch.id.substring(0, 4)),
-              ort: singlePlzMatch.ort || '', kt: singlePlzMatch.kt || '', all: singlePlzMatch.all || 0, mfh: singlePlzMatch.mfh, efh: singlePlzMatch.efh
+              id: singlePlzMatch.id,
+              plz6: singlePlzMatch.plz6 || singlePlzMatch.id,
+              plz4: singlePlzMatch.plz4 || (singlePlzMatch.id.substring(0, 4)),
+              ort: singlePlzMatch.ort || '',
+              kt: singlePlzMatch.kt || '',
+              preisKategorie: singlePlzMatch.preisKategorie || 'A',
+              all: singlePlzMatch.all || 0,
+              mfh: singlePlzMatch.mfh,
+              efh: singlePlzMatch.efh
             }];
           }
         }
@@ -424,6 +452,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges {
   setZielgruppe(zielgruppe: ZielgruppeOption): void {
     if (this.currentZielgruppe !== zielgruppe) {
       this.currentZielgruppe = zielgruppe;
+      this.zielgruppeChange.emit(zielgruppe);
       this.onZielgruppeChange();
     }
   }
@@ -466,7 +495,15 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges {
             const plz6 = entryIdFromMap;
             const plz4 = plz6.length >= 4 ? plz6.substring(0, 4) : plz6;
             const pseudoOrt = event.name || 'Unbekannt';
-            const pseudoEntry: PlzEntry = { id: entryIdFromMap, plz6, plz4, ort: pseudoOrt, kt: 'N/A', all: 0 };
+            const pseudoEntry: PlzEntry = {
+              id: entryIdFromMap,
+              plz6,
+              plz4,
+              ort: pseudoOrt,
+              kt: 'N/A',
+              preisKategorie: 'A',
+              all: 0
+            };
             if (this.selectionService.validateEntry(pseudoEntry)) {
               (this.selectionService as any).addEntry(pseudoEntry, this.currentZielgruppe);
             }

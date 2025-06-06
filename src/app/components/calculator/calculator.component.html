@@ -30,7 +30,10 @@
           </tr>
 
           <tr *ngIf="zuschlagFormatAnzeige">
-            <td class="item-label" [innerHTML]="zuschlagFormatAnzeige"></td>
+            <td class="item-label">
+              <span *ngIf="isAnderesFormatSelected">Zuschlag Anderes Format: Individuelle Berechnung<sup>1</sup></span>
+              <span *ngIf="!isAnderesFormatSelected && zuschlagFormatAnzeige">Zuschlag Format {{ zuschlagFormatAnzeige === 'Lang' ? 'DIN Lang' : 'DIN ' + zuschlagFormatAnzeige }}</span>
+            </td>
             <td class="item-quantity text-end">
               <span *ngIf="!isAnderesFormatSelected">{{ totalFlyersForDistribution | number:'1.0-0' }}</span>
             </td>

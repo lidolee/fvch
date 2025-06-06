@@ -15,7 +15,10 @@
             <div>
               <app-distribution-step
                 [initialStadt]="initialStadtnameForDistribution"
-                (validationChange)="updateValidationStatus(1, $event)">
+                (validationChange)="updateValidationStatus(1, $event)"
+                (zielgruppeChange)="onZielgruppeChange($event)"
+              [currentZielgruppe]="zielgruppe"
+              >
               </app-distribution-step>
             </div>
           </ng-template>
@@ -46,6 +49,7 @@
     </main>
     <aside class="col-xl-5">
       <app-calculator
+        [zielgruppe]="zielgruppe"
         [activeStep]="activeStepId"
         [currentStepValidationStatus]="stepValidationStatus[activeStepId]"
         (requestPreviousStep)="onCalculatorPrevious()"
