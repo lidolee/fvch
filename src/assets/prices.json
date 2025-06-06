@@ -35,5 +35,8 @@
     "plus": 899,
     "premium": 1999,
     "eigenes": 0
+  },
+  "tax": {
+    "vat-ch": 0.81
   }
 }
