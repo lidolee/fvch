@@ -3,7 +3,6 @@
 
   <div class="cost-summary">
 
-    <!-- VERTEILUNG //////////////////////////////////////////////////////// -->
     <div class="cost-group">
       <h4 class="cost-group-title"><span>Flyer Verteilung</span></h4>
       <div class="table-responsive" *ngIf="selectedPlzEntries.length > 0">
@@ -16,20 +15,29 @@
           </tr>
           </thead>
           <tbody>
-          <!-- PLZ-spezifische Kosten -->
           <ng-container *ngFor="let item of distributionCostItems">
-            <tr *ngIf="!item.isSurcharge"> <!-- Nur PLZ-Kosten hier anzeigen -->
+            <tr *ngIf="!item.isSurcharge">
               <td class="item-label">{{ item.label }}</td>
               <td class="item-quantity text-end">{{ item.flyers | number:'1.0-0' }}</td>
               <td class="item-subtotal text-end">{{ item.price | currency:' ':'symbol':'1.2-2' }}</td>
             </tr>
           </ng-container>
 
-          <!-- Zuschläge -->
+          <tr *ngIf="fahrzeugGpsApplicable">
+            <td class="item-label">Fahrtkosten, Planung und GPS-Tracking</td>
+            <td class="item-quantity text-end"></td>
+            <td class="item-subtotal text-end">{{ fahrzeugGpsPrice | currency:' ':'symbol':'1.2-2' }}</td>
+          </tr>
+
           <tr *ngIf="zuschlagFormatAnzeige">
-            <td class="item-label">Zuschlag Format {{ zuschlagFormatAnzeige }}</td>
-            <td class="item-quantity text-end">{{ totalFlyersForDistribution | number:'1.0-0' }}</td>
-            <td class="item-subtotal text-end">{{ zuschlagFormatPrice | currency:'  ':'symbol':'1.2-2' }}</td>
+            <td class="item-label" [innerHTML]="zuschlagFormatAnzeige"></td>
+            <td class="item-quantity text-end">
+              <span *ngIf="!isAnderesFormatSelected">{{ totalFlyersForDistribution | number:'1.0-0' }}</span>
+            </td>
+            <td class="item-subtotal text-end">
+              <span *ngIf="isAnderesFormatSelected">—</span>
+              <span *ngIf="!isAnderesFormatSelected">{{ zuschlagFormatPrice | currency:' ':'symbol':'1.2-2' }}</span>
+            </td>
           </tr>
           <tr *ngIf="flyerAbholungApplicable">
             <td class="item-label">Flyer Abholung</td>
@@ -61,23 +69,19 @@
       </div>
     </div>
 
-    <!-- DRUCK ///////////////////////////////////////////////////////////// -->
-
-    <div class="cost-group">
+    <div class="cost-group" *ngIf="selectedPrintOption === 'service'">
       <h4 class="cost-group-title"><span>Flyer Druck</span></h4>
       <div class="table-responsive">
         <table class="table calculation-table">
           <tbody>
           <tr>
-            <td>Wird separat offeriert</td>
+            <td>Wird separat offeriert - Individuelle Berechnung<sup>1</sup></td>
             <td class="text-end">—</td>
           </tr>
           </tbody>
         </table>
       </div>
     </div>
-
-    <!-- DESIGN //////////////////////////////////////////////////////////// -->
 
     <div class="cost-group" *ngIf="selectedDesignPackageKey">
       <h4 class="cost-group-title"><span>Flyer Design</span></h4>
@@ -96,7 +100,6 @@
       Kein Designpaket ausgewählt oder eigenes Design wird angeliefert.
     </div>
 
-    <!-- GESAMTSUMME -->
     <div class="cost-group total-summary mt-3 pt-3 border-top">
       <table class="table calculation-table">
         <tbody>
@@ -108,12 +111,11 @@
       </table>
     </div>
     <div class="text-muted small mt-1">
-      Preise für Verteilung und Druck werden nach Prüfung offeriert.
+      1. Spezielle Formate und Druckaufträge erfordern eine manuelle Prüfung. Der genaue Preis wird Ihnen anschliessend per E-Mail mitgeteilt.
     </div>
 
   </div>
 
-  <!-- BUTTONS ///////////////////////////////////////////////////////////// -->
   <div class="actions-container mt-4">
     <div *ngIf="activeStep === 1" class="d-grid">
       <button type="button" class="btn btn-lg btn-primary w-100" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>

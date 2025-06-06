@@ -1,7 +1,7 @@
 import {Inject, Injectable, PLATFORM_ID} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {firstValueFrom, Observable, of, throwError} from 'rxjs';
-import {catchError, map, shareReplay, tap} from 'rxjs/operators';
+import {catchError, map, shareReplay} from 'rxjs/operators';
 import {isPlatformBrowser} from '@angular/common';
 
 const FVDB_JSON_PATH = 'assets/fvdb.json';
@@ -13,14 +13,12 @@ export interface PlzEntry {
   plz4: string;
   ort: string;
   kt: string;
-  all: number; // This is the total households count from your fvdb.json
+  all: number;
   mfh?: number;
   efh?: number;
-
-  // Properties for selection state and display by components
   isSelected?: boolean;
   isHighlighted?: boolean;
-  selected_display_flyer_count?: number; // The definitive flyer count to be used everywhere
+  selected_display_flyer_count?: number;
   is_manual_count?: boolean;
 }
 
@@ -42,9 +40,7 @@ export class PlzDataService {
   constructor(
     private http: HttpClient,
     @Inject(PLATFORM_ID) private platformId: Object
-  ) {
-    // console.log(`${this.logPrefix()} Constructor. Platform: ${isPlatformBrowser(this.platformId) ? 'Browser' : 'Server'}`);
-  }
+  ) {}
 
   public normalizeStringForSearch(str: string): string {
     if (!str) return '';
@@ -70,7 +66,6 @@ export class PlzDataService {
     this.plzData$ = this.http.get<any[]>(FVDB_JSON_PATH).pipe(
       map(rawDataArray => {
         if (!Array.isArray(rawDataArray)) {
-          console.error(`${this.logPrefix()} loadPlzData (map): rawDataArray is not an array!`);
           this.dataLoadedSuccessfully = false;
           this.rawEntriesCache = [];
           return [];
@@ -98,7 +93,6 @@ export class PlzDataService {
               all: Number(rawEntry.all) || 0,
               mfh: rawEntry.mfh !== undefined && rawEntry.mfh !== null ? Number(rawEntry.mfh) : undefined,
               efh: rawEntry.efh !== undefined && rawEntry.efh !== null ? Number(rawEntry.efh) : undefined,
-              // selected_display_flyer_count and is_manual_count are initialized by SelectionService
             };
           })
           .filter(entry => entry !== null) as PlzEntry[];
@@ -139,7 +133,6 @@ export class PlzDataService {
         await this.dataLoadingPromise;
         return this.dataLoadedSuccessfully;
       } catch(e) {
-        console.error(`${this.logPrefix()} ensureDataReady: Error awaiting existing dataLoadingPromise.`, e);
         return false;
       }
     }
@@ -147,7 +140,6 @@ export class PlzDataService {
     this.dataLoadingPromise = firstValueFrom(
       this.getPlzData().pipe(
         catchError(err => {
-          console.error(`${this.logPrefix()} ensureDataReady (firstValueFrom catchError): Error from getPlzData stream. Error:`, err);
           this.dataLoadedSuccessfully = false;
           return of([]);
         })

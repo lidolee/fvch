@@ -1,5 +1,5 @@
 import {
-  Component, OnInit, AfterViewInit, OnDestroy, ViewChild, Output, EventEmitter,
+  Component, OnInit, OnDestroy, ViewChild, Output, EventEmitter,
   Inject, PLATFORM_ID, NgZone, ChangeDetectorRef, Input, OnChanges, SimpleChanges, ElementRef, ChangeDetectionStrategy
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
@@ -16,22 +16,19 @@ import { SearchInputComponent, SimpleValidationStatus } from '../search-input/se
 import { PlzSelectionTableComponent } from '../plz-selection-table/plz-selection-table.component';
 import { ValidationStatus as OverallValidationStatusOfferProcess } from '../offer-process/offer-process.component';
 
-
 export interface TableHighlightEvent {
   plzId: string | null;
   highlight: boolean;
 }
 
 export type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
-// 'export' hinzugefügt, damit es von anderen Dateien importiert werden kann
 export type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
-
 
 const COLUMN_HIGHLIGHT_DURATION = 1500;
 
 @Component({
   selector: 'app-distribution-step',
-  templateUrl: './distribution-step.component.html', // KORRIGIERT: templateUrl zeigt jetzt auf die eigene HTML-Datei
+  templateUrl: './distribution-step.component.html',
   styleUrls: ['./distribution-step.component.scss'],
   standalone: true,
   imports: [
@@ -43,10 +40,8 @@ const COLUMN_HIGHLIGHT_DURATION = 1500;
   ],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-// 'export' hinzugefügt, damit die Komponente importiert werden kann
-export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges {
+export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges {
   @Input() initialStadt: string | undefined;
-
   @Output() validationChange = new EventEmitter<OverallValidationStatusOfferProcess>();
 
   @ViewChild(SearchInputComponent) searchInputComponent!: SearchInputComponent;
@@ -55,7 +50,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   private destroy$ = new Subject<void>();
   private activeProcessingStadt: string | undefined = undefined;
-
 
   public searchInputInitialTerm: string = '';
   public searchInputStatus: SimpleValidationStatus = 'empty';
@@ -81,6 +75,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   public mapConfig: MapOptions;
   public readonly kmlPathConstant: string = 'assets/ch_plz.kml';
   public readonly apiKeyConstant: string = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc';
+
   public kmlFileName: string | null = null;
 
   constructor(
@@ -105,6 +100,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   ngOnInit(): void {
+    this.expressSurchargeConfirmed = this.orderDataService.getCurrentExpressConfirmed();
     this.initializeDates();
     this.selectedEntries$
       .pipe(takeUntil(this.destroy$))
@@ -124,6 +120,11 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       this.updateOrderDataServiceExpressStatus();
       this.updateAndEmitOverallValidationState();
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -189,7 +190,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
             plzEntriesToSelect = await firstValueFrom(this.plzDataService.getEntriesByOrtAndKanton(targetMatch.ort, targetMatch.kt).pipe(take(1)));
           } else if (!targetMatch.isGroupHeader && targetMatch.id) {
             plzEntriesToSelect = [{
-              id: targetMatch.id, plz6: targetMatch.plz6 || targetMatch.id, plz4: targetMatch.plz4 || (targetMatch.id ? targetMatch.id.substring(0,4) : ''),
+              id: targetMatch.id, plz6: targetMatch.plz6 || targetMatch.id, plz4: targetMatch.plz4 || (targetMatch.id ? targetMatch.id.substring(0, 4) : ''),
               ort: targetMatch.ort || '', kt: targetMatch.kt || '', all: targetMatch.all || 0, mfh: targetMatch.mfh, efh: targetMatch.efh
             }];
           }
@@ -236,7 +237,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
           if (singlePlzMatch) {
             termToUseForSearchInput = singlePlzMatch.ort || stadtName;
             plzEntriesToSelect = [{
-              id: singlePlzMatch.id, plz6: singlePlzMatch.plz6 || singlePlzMatch.id, plz4: singlePlzMatch.plz4 || (singlePlzMatch.id.substring(0,4)),
+              id: singlePlzMatch.id, plz6: singlePlzMatch.plz6 || singlePlzMatch.id, plz4: singlePlzMatch.plz4 || (singlePlzMatch.id.substring(0, 4)),
               ort: singlePlzMatch.ort || '', kt: singlePlzMatch.kt || '', all: singlePlzMatch.all || 0, mfh: singlePlzMatch.mfh, efh: singlePlzMatch.efh
             }];
           }
@@ -262,40 +263,66 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private initializeDates(): void {
-    const today = new Date(); today.setUTCHours(0,0,0,0);
-    const minStartDate = new Date(today.getTime()); minStartDate.setUTCDate(today.getUTCDate() + 1);
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const minStartDate = new Date(today.getTime());
+    minStartDate.setUTCDate(today.getUTCDate() + 1);
     this.minVerteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
+
     this.defaultStandardStartDate = this.addWorkingDays(new Date(today.getTime()), 3);
+
     let initialStartDate = new Date(this.defaultStandardStartDate.getTime());
-    if (initialStartDate.getTime() < minStartDate.getTime()) initialStartDate = new Date(minStartDate.getTime());
+
+    if (this.verteilungStartdatum) {
+      const preselectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
+      if (preselectedDate.getTime() >= minStartDate.getTime()) {
+        initialStartDate = preselectedDate;
+      }
+    }
+
+    if (initialStartDate.getTime() < minStartDate.getTime()) {
+      initialStartDate = new Date(minStartDate.getTime());
+    }
     this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialStartDate);
     this.checkExpressSurcharge();
   }
 
   private formatDateToYyyyMmDd(date: Date): string {
-    const year = date.getUTCFullYear(); const month = ('0' + (date.getUTCMonth() + 1)).slice(-2);
-    const day = ('0' + date.getUTCDate()).slice(-2); return `${year}-${month}-${day}`;
+    const year = date.getUTCFullYear();
+    const month = ('0' + (date.getUTCMonth() + 1)).slice(-2);
+    const day = ('0' + date.getUTCDate()).slice(-2);
+    return `${year}-${month}-${day}`;
   }
 
   public getFormattedDefaultStandardDateForDisplay(): string {
     if (!this.defaultStandardStartDate) return '';
     const day = ('0' + this.defaultStandardStartDate.getUTCDate()).slice(-2);
     const month = ('0' + (this.defaultStandardStartDate.getUTCMonth() + 1)).slice(-2);
-    const year = this.defaultStandardStartDate.getUTCFullYear(); return `${day}.${month}.${year}`;
+    const year = this.defaultStandardStartDate.getUTCFullYear();
+    return `${day}.${month}.${year}`;
   }
 
   private parseYyyyMmDdToDate(dateString: string): Date {
     const parts = dateString.split('-');
-    if (parts.length === 3) return new Date(Date.UTC(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10)));
-    const invalidDate = new Date(0); invalidDate.setTime(NaN); return invalidDate;
+    if (parts.length === 3) {
+      return new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+    }
+    const invalidDate = new Date(0);
+    invalidDate.setTime(NaN);
+    return invalidDate;
   }
 
   private addWorkingDays(baseDate: Date, daysToAdd: number): Date {
-    let currentDate = new Date(baseDate.getTime()); let workingDaysAdded = 0;
+    let currentDate = new Date(baseDate.getTime());
+    let workingDaysAdded = 0;
     while (workingDaysAdded < daysToAdd) {
       currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-      const dayOfWeek = currentDate.getUTCDay(); if (dayOfWeek !== 0 && dayOfWeek !== 6) workingDaysAdded++;
-    } return currentDate;
+      const dayOfWeek = currentDate.getUTCDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        workingDaysAdded++;
+      }
+    }
+    return currentDate;
   }
 
   onStartDateChange(): void {
@@ -306,8 +333,10 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       this.updateAndEmitOverallValidationState();
       return;
     }
+
     const selectedStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
     const minStartDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
+
     if (isNaN(selectedStartDate.getTime()) || selectedStartDate.getTime() < minStartDate.getTime()) {
       this.verteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
       this.onStartDateChange();
@@ -358,32 +387,38 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private updateOrderDataServiceExpressStatus(): void {
-    const isEffectivelyExpress = this.expressSurchargeConfirmed || (this.showExpressSurcharge && !this.expressSurchargeConfirmed) ;
-    this.orderDataService.updateExpressConfirmed(isEffectivelyExpress);
+    this.orderDataService.updateExpressConfirmed(this.expressSurchargeConfirmed);
   }
 
   ngAfterViewInit(): void {
     if (this.searchInputComponent && this.searchInputInitialTerm && !this.activeProcessingStadt) {
-      this.searchInputComponent.initiateSearchForTerm(this.searchInputInitialTerm); this.searchInputInitialTerm = '';
+      this.searchInputComponent.setSearchTerm(this.searchInputInitialTerm, false);
+      this.searchInputInitialTerm = '';
     }
   }
-
-  ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
   onSearchInputEntriesSelected(entries: PlzEntry[]): void {
     if (entries && entries.length > 0) {
       (this.selectionService as any).addMultipleEntries(entries, this.currentZielgruppe);
       if (isPlatformBrowser(this.platformId)) setTimeout(() => this.scrollToMapView(), 100);
-    } this.updateAndEmitOverallValidationState();
+    }
+    this.updateAndEmitOverallValidationState();
   }
 
-  onSearchInputTermChanged(term: string): void { /* No-op */ }
+  onSearchInputTermChanged(term: string): void { }
+
   onSearchInputStatusChanged(status: SimpleValidationStatus): void {
-    if (this.searchInputStatus !== status) { this.searchInputStatus = status; this.updateAndEmitOverallValidationState(); }
+    if (this.searchInputStatus !== status) {
+      this.searchInputStatus = status;
+      this.updateAndEmitOverallValidationState();
+    }
   }
 
   setVerteilungTyp(typ: VerteilungTypOption): void {
-    if (this.currentVerteilungTyp !== typ) { this.currentVerteilungTyp = typ; this.updateUiFlagsAndMapState(); }
+    if (this.currentVerteilungTyp !== typ) {
+      this.currentVerteilungTyp = typ;
+      this.updateUiFlagsAndMapState();
+    }
   }
 
   setZielgruppe(zielgruppe: ZielgruppeOption): void {
@@ -394,15 +429,19 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private updateUiFlagsAndMapState(): void {
-    const oldPlzFlag = this.showPlzUiContainer; const oldPerimeterFlag = this.showPerimeterUiContainer;
+    const oldPlzFlag = this.showPlzUiContainer;
+    const oldPerimeterFlag = this.showPerimeterUiContainer;
     this.showPlzUiContainer = this.currentVerteilungTyp === 'Nach PLZ';
     this.showPerimeterUiContainer = this.currentVerteilungTyp === 'Nach Perimeter';
-    if (oldPlzFlag !== this.showPlzUiContainer || oldPerimeterFlag !== this.showPerimeterUiContainer) this.cdr.markForCheck();
+    if (oldPlzFlag !== this.showPlzUiContainer || oldPerimeterFlag !== this.showPerimeterUiContainer) {
+      this.cdr.markForCheck();
+    }
     this.updateAndEmitOverallValidationState();
   }
 
   private onZielgruppeChange(): void {
-    this.highlightFlyerMaxColumn = true; this.cdr.markForCheck();
+    this.highlightFlyerMaxColumn = true;
+    this.cdr.markForCheck();
     if (typeof (this.selectionService as any).updateFlyerCountsForAudience === 'function') {
       (this.selectionService as any).updateFlyerCountsForAudience(this.currentZielgruppe);
     } else {
@@ -413,16 +452,19 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   onPlzClickedOnMap(event: { id: string; name?: string }): void {
-    const entryIdFromMap = event.id; if (!entryIdFromMap) return;
+    const entryIdFromMap = event.id;
+    if (!entryIdFromMap) return;
     const isCurrentlySelected = this.selectionService.getSelectedEntries().some(e => e.id === entryIdFromMap);
-    if (isCurrentlySelected) this.selectionService.removeEntry(entryIdFromMap);
-    else {
+    if (isCurrentlySelected) {
+      this.selectionService.removeEntry(entryIdFromMap);
+    } else {
       firstValueFrom(this.plzDataService.getEntryById(entryIdFromMap))
         .then(entry => {
           if (entry && this.selectionService.validateEntry(entry)) {
             (this.selectionService as any).addEntry(entry, this.currentZielgruppe);
           } else {
-            const plz6 = entryIdFromMap; const plz4 = plz6.length >= 4 ? plz6.substring(0,4) : plz6;
+            const plz6 = entryIdFromMap;
+            const plz4 = plz6.length >= 4 ? plz6.substring(0, 4) : plz6;
             const pseudoOrt = event.name || 'Unbekannt';
             const pseudoEntry: PlzEntry = { id: entryIdFromMap, plz6, plz4, ort: pseudoOrt, kt: 'N/A', all: 0 };
             if (this.selectionService.validateEntry(pseudoEntry)) {
@@ -430,7 +472,8 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
             }
           }
         }).catch(error => console.error(`Error adding PLZ ${entryIdFromMap} from map click:`, error));
-    } this.updateAndEmitOverallValidationState();
+    }
+    this.updateAndEmitOverallValidationState();
   }
 
   onManualFlyerCountUpdatedFromTable(event: { entryId: string, newCount: number | null }): void {
@@ -441,20 +484,31 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-
   onMapLoadingStatusChanged(isLoading: boolean): void {
-    if (this.mapIsLoading !== isLoading) { this.mapIsLoading = isLoading; this.updateAndEmitOverallValidationState(); }
+    if (this.mapIsLoading !== isLoading) {
+      this.mapIsLoading = isLoading;
+      this.updateAndEmitOverallValidationState();
+    }
   }
 
-  public quickSearch(term: string): void { this.selectCityAndFetchPlz(term); }
+  public quickSearch(term: string): void {
+    this.selectCityAndFetchPlz(term);
+  }
 
   public clearPlzTable(): void {
     this.selectionService.clearEntries();
-    this.mapZoomToPlzId = null; this.mapZoomToPlzIdList = null; this.activeProcessingStadt = undefined;
-    if (this.searchInputComponent && typeof this.searchInputComponent.clearInput === 'function') this.searchInputComponent.clearInput();
-    else this.searchInputInitialTerm = '';
+    this.mapZoomToPlzId = null;
+    this.mapZoomToPlzIdList = null;
+    this.activeProcessingStadt = undefined;
+    if (this.searchInputComponent && typeof this.searchInputComponent.clearInput === 'function') {
+      this.searchInputComponent.clearInput();
+    } else {
+      this.searchInputInitialTerm = '';
+    }
     this.router.navigate(['/']);
-    if (isPlatformBrowser(this.platformId)) setTimeout(() => this.scrollToMapView(), 100);
+    if (isPlatformBrowser(this.platformId)) {
+      setTimeout(() => this.scrollToMapView(), 100);
+    }
     this.updateAndEmitOverallValidationState();
   }
 
@@ -464,17 +518,26 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   zoomToTableEntryOnMap(entry: PlzEntry): void {
-    this.mapZoomToPlzId = entry.id; this.mapZoomToPlzIdList = null; this.cdr.markForCheck();
-    if (isPlatformBrowser(this.platformId)) setTimeout(() => this.scrollToMapView(), 100);
+    this.mapZoomToPlzId = entry.id;
+    this.mapZoomToPlzIdList = null;
+    this.cdr.markForCheck();
+    if (isPlatformBrowser(this.platformId)) {
+      setTimeout(() => this.scrollToMapView(), 100);
+    }
     setTimeout(() => { this.mapZoomToPlzId = null; this.cdr.markForCheck(); }, 250);
   }
 
   highlightPlacemarkOnMapFromTable(event: TableHighlightEvent): void {
     const newHoverId = (event.highlight && event.plzId) ? event.plzId : null;
-    if (this.mapTableHoverPlzId !== newHoverId) { this.mapTableHoverPlzId = newHoverId; this.cdr.markForCheck(); }
+    if (this.mapTableHoverPlzId !== newHoverId) {
+      this.mapTableHoverPlzId = newHoverId;
+      this.cdr.markForCheck();
+    }
   }
 
-  triggerKmlUpload(): void { console.log('KML Upload triggered (Not implemented)'); }
+  triggerKmlUpload(): void {
+    console.log('KML Upload triggered (Not implemented)');
+  }
 
   getFlyerMaxForEntry(entry: PlzEntry): number {
     if (!entry) return 0;
@@ -487,18 +550,24 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   private updateAndEmitOverallValidationState(): void {
     const newStatus = this.calculateOverallValidationStatus();
-    this.validationChange.emit(newStatus); this.cdr.markForCheck();
+    this.validationChange.emit(newStatus);
+    this.cdr.markForCheck();
   }
 
   private calculateOverallValidationStatus(): OverallValidationStatusOfferProcess {
     const hasSelectedPlz = this.selectionService.getSelectedEntries().length > 0;
     const isDateValid = !!this.verteilungStartdatum && !isNaN(this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime());
     const isExpressValidOrConfirmed = !this.isExpressSurchargeRelevant() || this.expressSurchargeConfirmed;
+
     if (this.currentVerteilungTyp === 'Nach PLZ') {
       const isSearchInputStateAcceptable = this.searchInputStatus === 'valid' || this.searchInputStatus === 'empty' ||
         (this.activeProcessingStadt && this.searchInputStatus !== 'invalid');
-      if (hasSelectedPlz && isDateValid && isExpressValidOrConfirmed && isSearchInputStateAcceptable) return 'valid';
-    } else return 'invalid';
+      if (hasSelectedPlz && isDateValid && isExpressValidOrConfirmed && isSearchInputStateAcceptable) {
+        return 'valid';
+      }
+    } else {
+      return 'invalid';
+    }
     return 'invalid';
   }
 
@@ -511,7 +580,8 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   public triggerValidationDisplay(): void {
-    this.updateAndEmitOverallValidationState(); this.cdr.markForCheck();
+    this.updateAndEmitOverallValidationState();
+    this.cdr.markForCheck();
   }
 
   private scrollToMapView(): void {
@@ -522,7 +592,8 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       if (element.offsetParent === null || element.offsetWidth === 0 || element.offsetHeight === 0) {
         return;
       }
-      const offset = 90; const elementScrollY = window.pageYOffset + element.getBoundingClientRect().top;
+      const offset = 90;
+      const elementScrollY = window.pageYOffset + element.getBoundingClientRect().top;
       const targetScrollPosition = elementScrollY - offset;
       window.scrollTo({ top: targetScrollPosition, behavior: 'smooth' });
     });
