@@ -1,4 +1,34 @@
 {
+  "distribution": {
+    "mfh": {
+      "A": 140,
+      "B": 150,
+      "C": 160,
+      "D": 175,
+      "E": 250
+    },
+    "efh": {
+      "A": 375,
+      "B": 375,
+      "C": 375,
+      "D": 375,
+      "E": 375
+    },
+    "perimeter": {
+      "base": 250
+    },
+    "verteilungZuschlagFormat": {
+      "Lang": 20,
+      "A4": 30,
+      "A3": 50,
+      "anderes": "wird separat offeriert"
+    },
+    "surcharges": {
+      "fahrzeugGPS": 150,
+      "abholungFlyer": 50,
+      "mindestbestellwert": 250
+    }
+  },
   "designPackages": {
     "basis": 399,
     "plus": 899,
