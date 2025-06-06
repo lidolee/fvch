@@ -4,57 +4,60 @@
   <div class="cost-summary">
 
     <!-- VERTEILUNG //////////////////////////////////////////////////////// -->
-
     <div class="cost-group">
       <h4 class="cost-group-title"><span>Flyer Verteilung</span></h4>
-      <div class="table-responsive">
+      <div class="table-responsive" *ngIf="selectedPlzEntries.length > 0">
         <table class="table calculation-table">
           <thead>
           <tr>
-            <th class="item-label">PLZ Ort</th>
+            <th class="item-label">Beschreibung</th>
             <th class="item-quantity text-end">Flyer</th>
             <th class="item-subtotal text-end">Preis</th>
           </tr>
           </thead>
           <tbody>
-          <tr>
-            <td class="item-label">8001 Zürich</td>
-            <td class="item-quantity text-end">1'250</td>
-            <td class="item-subtotal text-end">187.50</td>
+          <!-- PLZ-spezifische Kosten -->
+          <ng-container *ngFor="let item of distributionCostItems">
+            <tr *ngIf="!item.isSurcharge"> <!-- Nur PLZ-Kosten hier anzeigen -->
+              <td class="item-label">{{ item.label }}</td>
+              <td class="item-quantity text-end">{{ item.flyers | number:'1.0-0' }}</td>
+              <td class="item-subtotal text-end">{{ item.price | currency:' ':'symbol':'1.2-2' }}</td>
+            </tr>
+          </ng-container>
+
+          <!-- Zuschläge -->
+          <tr *ngIf="zuschlagFormatAnzeige">
+            <td class="item-label">Zuschlag Format {{ zuschlagFormatAnzeige }}</td>
+            <td class="item-quantity text-end">{{ totalFlyersForDistribution | number:'1.0-0' }}</td>
+            <td class="item-subtotal text-end">{{ zuschlagFormatPrice | currency:'  ':'symbol':'1.2-2' }}</td>
           </tr>
-          <tr>
-            <td class="item-label">3854 Oberried am Brienzersee</td>
-            <td class="item-quantity text-end">850</td>
-            <td class="item-subtotal text-end">127.50</td>
-          </tr>
-          <tr>
-            <td class="item-label">Zuschlag Format A4</td>
-            <td class="item-quantity text-end">850</td>
-            <td class="item-subtotal text-end">127.50</td>
-          </tr>
-          <tr>
+          <tr *ngIf="flyerAbholungApplicable">
             <td class="item-label">Flyer Abholung</td>
             <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">50.00</td>
+            <td class="item-subtotal text-end">{{ flyerAbholungPrice | currency:' ':'symbol':'1.2-2' }}</td>
           </tr>
-          <tr>
+          <tr *ngIf="expressZuschlagApplicable">
             <td class="item-label">Express Zuschlag 50%</td>
             <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">50.00</td>
+            <td class="item-subtotal text-end">{{ expressZuschlagPrice | currency:' ':'symbol':'1.2-2' }}</td>
           </tr>
-          <tr>
+          <tr *ngIf="mindestAbnahmePauschaleApplicable">
             <td class="item-label">Mindestabnahme Pauschale</td>
             <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">50.00</td>
+            <td class="item-subtotal text-end">{{ mindestAbnahmePauschalePrice | currency:' ':'symbol':'1.2-2' }}</td>
           </tr>
           </tbody>
           <tfoot>
-          <tr>
-            <td colspan="2">Zwischensumme</td>
-            <td class="text-end">315.00</td>
+          <tr class="table-light">
+            <td colspan="2" class="fw-bold">Zwischensumme Verteilung</td>
+            <td class="text-end fw-bold">{{ zwischensummeVerteilung | currency:' ':'symbol':'1.2-2' }}</td>
           </tr>
           </tfoot>
         </table>
+      </div>
+
+      <div class="" *ngIf="selectedPlzEntries.length === 0">
+        Noch keine Verteilgebiete oder Optionen ausgewählt.
       </div>
     </div>
 
@@ -76,24 +79,41 @@
 
     <!-- DESIGN //////////////////////////////////////////////////////////// -->
 
-    <div class="cost-group">
+    <div class="cost-group" *ngIf="selectedDesignPackageKey">
       <h4 class="cost-group-title"><span>Flyer Design</span></h4>
       <div class="table-responsive">
         <table class="table calculation-table">
           <tbody>
           <tr>
-            <td class="item-label">Premium Paket</td>
-            <td class="item-subtotal text-end">1'999</td>
+            <td class="item-label">{{ selectedDesignPackageName }}</td>
+            <td class="item-subtotal text-end">{{ designPackagePrice | currency:' ':'symbol':'1.2-2' }}</td>
           </tr>
           </tbody>
         </table>
       </div>
     </div>
+    <div class="cost-group text-muted small" *ngIf="!selectedDesignPackageKey">
+      Kein Designpaket ausgewählt oder eigenes Design wird angeliefert.
+    </div>
+
+    <!-- GESAMTSUMME -->
+    <div class="cost-group total-summary mt-3 pt-3 border-top">
+      <table class="table calculation-table">
+        <tbody>
+        <tr class="fs-5 fw-bold">
+          <td>Total (provisorisch exkl. MWST)</td>
+          <td class="text-end">{{ overallTotalPrice | currency:' ':'symbol':'1.2-2' }}</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="text-muted small mt-1">
+      Preise für Verteilung und Druck werden nach Prüfung offeriert.
+    </div>
 
   </div>
 
   <!-- BUTTONS ///////////////////////////////////////////////////////////// -->
-
   <div class="actions-container mt-4">
     <div *ngIf="activeStep === 1" class="d-grid">
       <button type="button" class="btn btn-lg btn-primary w-100" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>
@@ -112,5 +132,3 @@
   </div>
 
 </div>
-
-

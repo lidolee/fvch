@@ -51,11 +51,13 @@
         .calculation-table {
           margin: 0;
 
-          th,
-          td {
+          th {
             text-transform: uppercase;
             font-weight: 900;
+          }
 
+          th,
+          td {
             &:first-of-type {
               padding-left: 0 !important;
             }
@@ -66,14 +68,12 @@
           }
 
           td {
-            color: $gray-800;
             font-weight: 600;
             padding: 10px 8px;
           }
         }
       }
     }
-
 
     .secure-box {
       margin-top: 16px;

@@ -4,10 +4,12 @@
     <tr>
       <th scope="col" class="plz">PLZ</th>
       <th scope="col" class="ort">Ort</th>
-      <th scope="col" class="canton">KANTON</th>
+      <th scope="col" class="canton text-start">KT</th>
       <th scope="col" class="flyer-max text-end"
-          [title]="'Flyer Max basierend auf Zielgruppe: ' + currentZielgruppe">Flyer</th>
-      <th scope="col" class="flyer-limit">Ändern</th>
+          [class.highlight-column]="highlightFlyerMaxColumn"
+      [title]="'Flyer Max basierend auf Zielgruppe: ' + currentZielgruppe">Flyer</th>
+      <th scope="col" class="flyer-limit text-start"
+          title="Definitive Wunschmenge, die wir für diese PLZ verteilen. Bitte abrunden auf nächste 100er Zahl">Definitiv</th>
       <th scope="col" class="actions text-end">&nbsp;</th>
     </tr>
     </thead>
@@ -17,10 +19,21 @@
         (mouseleave)="highlight.emit({plzId: null, highlight: false})">
       <td class="plz">{{ entry.plz4 }}</td>
       <td class="ort">{{ entry.ort }}</td>
-      <td class="canton">{{ entry.kt }}</td>
-      <td class="flyer-max text-end" [class.column-highlighted]="highlightFlyerMaxColumn">{{ getFlyerMaxForEntry(entry) | number }}</td>
-      <td class="flyer-limit" title="Ihre Wunschmenge, die wir für diese PLZ verteilen. Bitte abrunden auf nächste 100er Zahl">
-        <input class="form-control form-control-sm" type="number" [value]="getFlyerMaxForEntry(entry)" min="0" max="{{ getFlyerMaxForEntry(entry) }}" step="100" [max]="getFlyerMaxForEntry(entry)"/>
+      <td class="canton text-start">{{ entry.kt }}</td>
+      <td class="flyer-max text-end"
+          [class.column-highlighted]="highlightFlyerMaxColumn"
+          [class.text-muted]="entry.is_manual_count">
+        {{ getAudienceCalculatedFlyerCount(entry) | number:'1.0-0' }}
+      </td>
+      <td class="flyer-limit text-end" title="Definitive Wunschmenge, die wir für diese PLZ verteilen. Bitte abrunden auf nächste 100er Zahl">
+        <input class="form-control form-control-sm text-end"
+               type="number"
+               [ngModel]="entry.selected_display_flyer_count"
+               (blur)="onManualFlyerInputBlur(entry, $event.target)"
+               min="0"
+               step="100"
+               [max]="getAudienceCalculatedFlyerCount(entry)"
+               placeholder=""/>
       </td>
       <td class="has-icon actions-zoom text-end">
         <button type="button" class="btn btn-sm btn-outline-secondary me-1 action-btn" (click)="zoom.emit(entry)" title="Auf Karte zentrieren">
@@ -32,5 +45,17 @@
       </td>
     </tr>
     </tbody>
+    <tfoot>
+    <tr class="table-light">
+      <td colspan="3" class="fw-bold">Total Auswahl</td>
+      <td class="text-end fw-bold" [class.highlight-column]="highlightFlyerMaxColumn">
+        {{ getTotalAudienceCalculatedFlyers() | number:'1.0-0' }}
+      </td>
+      <td class="text-end fw-bold">
+        {{ getTotalDefinitiveFlyers() | number:'1.0-0' }}
+      </td>
+      <td></td>
+    </tr>
+    </tfoot>
   </table>
 </div>

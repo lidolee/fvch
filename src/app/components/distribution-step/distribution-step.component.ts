@@ -10,10 +10,10 @@ import { Router } from '@angular/router';
 
 import { PlzDataService, PlzEntry, EnhancedSearchResultItem } from '../../services/plz-data.service';
 import { SelectionService } from '../../services/selection.service';
+import { OrderDataService } from '../../services/order-data.service';
 import { MapOptions, MapComponent } from '../map/map.component';
 import { SearchInputComponent, SimpleValidationStatus } from '../search-input/search-input.component';
 import { PlzSelectionTableComponent } from '../plz-selection-table/plz-selection-table.component';
-// Ensure ValidationStatus is imported from the correct location
 import { ValidationStatus as OverallValidationStatusOfferProcess } from '../offer-process/offer-process.component';
 
 
@@ -21,15 +21,17 @@ export interface TableHighlightEvent {
   plzId: string | null;
   highlight: boolean;
 }
-type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
-type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
+
+export type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
+// 'export' hinzugefügt, damit es von anderen Dateien importiert werden kann
+export type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
 
 
 const COLUMN_HIGHLIGHT_DURATION = 1500;
 
 @Component({
   selector: 'app-distribution-step',
-  templateUrl: './distribution-step.component.html',
+  templateUrl: './distribution-step.component.html', // KORRIGIERT: templateUrl zeigt jetzt auf die eigene HTML-Datei
   styleUrls: ['./distribution-step.component.scss'],
   standalone: true,
   imports: [
@@ -41,6 +43,7 @@ const COLUMN_HIGHLIGHT_DURATION = 1500;
   ],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
+// 'export' hinzugefügt, damit die Komponente importiert werden kann
 export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges {
   @Input() initialStadt: string | undefined;
 
@@ -77,7 +80,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   public mapIsLoading: boolean = false;
   public mapConfig: MapOptions;
   public readonly kmlPathConstant: string = 'assets/ch_plz.kml';
-  public readonly apiKeyConstant: string = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc'; // Replace with your actual API key storage/retrieval
+  public readonly apiKeyConstant: string = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc';
   public kmlFileName: string | null = null;
 
   constructor(
@@ -85,6 +88,7 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     @Inject(PLATFORM_ID) private platformId: Object,
     private plzDataService: PlzDataService,
     public selectionService: SelectionService,
+    private orderDataService: OrderDataService,
     private cdr: ChangeDetectorRef,
     private router: Router
   ) {
@@ -112,25 +116,28 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
         this.updateAndEmitOverallValidationState();
         this.cdr.markForCheck();
       });
-    // Initial validation emit after setup
-    Promise.resolve().then(() => this.updateAndEmitOverallValidationState());
+
+    Promise.resolve().then(() => {
+      if (typeof (this.selectionService as any).updateFlyerCountsForAudience === 'function') {
+        (this.selectionService as any).updateFlyerCountsForAudience(this.currentZielgruppe);
+      }
+      this.updateOrderDataServiceExpressStatus();
+      this.updateAndEmitOverallValidationState();
+    });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['initialStadt']) {
       const newStadtInputValue = changes['initialStadt'].currentValue;
       let effectiveNewStadt: string | undefined;
-
       if (newStadtInputValue && typeof newStadtInputValue === 'string' &&
         newStadtInputValue.trim() !== '' && newStadtInputValue.toLowerCase() !== 'undefined') {
         effectiveNewStadt = decodeURIComponent(newStadtInputValue);
       } else {
         effectiveNewStadt = undefined;
       }
-
       if (this.activeProcessingStadt !== effectiveNewStadt) {
         this.activeProcessingStadt = effectiveNewStadt;
-
         if (effectiveNewStadt) {
           this.processStadtnameFromUrl(effectiveNewStadt);
         } else {
@@ -153,82 +160,54 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   private async processStadtnameFromUrl(stadtname: string): Promise<void> {
     if (!stadtname || stadtname.trim() === '') { return; }
-
     const dataReady = await this.plzDataService.ensureDataReady();
     if (!dataReady) {
       this.updateAndEmitOverallValidationState();
       return;
     }
-
     this.selectionService.clearEntries();
     this.mapZoomToPlzId = null;
     this.mapZoomToPlzIdList = null;
-
     let termToUseForSearchInput = stadtname;
     let plzEntriesToSelect: PlzEntry[] = [];
-
     try {
       const potentialMatches = await firstValueFrom(
         this.plzDataService.fetchTypeaheadSuggestions(stadtname).pipe(take(1))
       );
-
       if (potentialMatches && potentialMatches.length > 0) {
         let targetMatch: EnhancedSearchResultItem | undefined = potentialMatches.find(
           item => item.isGroupHeader && this.plzDataService.normalizeStringForSearch(item.ort) === this.plzDataService.normalizeStringForSearch(stadtname)
         );
-        if (!targetMatch) {
-          targetMatch = potentialMatches.find(item => item.isGroupHeader);
-        }
-        if (!targetMatch) {
-          targetMatch = potentialMatches.find(item => !item.isGroupHeader && this.plzDataService.normalizeStringForSearch(item.ort) === this.plzDataService.normalizeStringForSearch(stadtname));
-        }
+        if (!targetMatch) targetMatch = potentialMatches.find(item => item.isGroupHeader);
+        if (!targetMatch) targetMatch = potentialMatches.find(item => !item.isGroupHeader && this.plzDataService.normalizeStringForSearch(item.ort) === this.plzDataService.normalizeStringForSearch(stadtname));
         if (!targetMatch && potentialMatches.length > 0 && (potentialMatches[0].isGroupHeader || potentialMatches.length === 1)) {
           targetMatch = potentialMatches[0];
         }
-
         if (targetMatch) {
           termToUseForSearchInput = targetMatch.ort || (targetMatch.plz4 ? targetMatch.plz4.toString() : stadtname);
-
           if (targetMatch.isGroupHeader && targetMatch.ort && targetMatch.kt) {
             plzEntriesToSelect = await firstValueFrom(this.plzDataService.getEntriesByOrtAndKanton(targetMatch.ort, targetMatch.kt).pipe(take(1)));
           } else if (!targetMatch.isGroupHeader && targetMatch.id) {
-            const entry: PlzEntry = {
-              id: targetMatch.id,
-              plz6: targetMatch.plz6 || targetMatch.id,
-              plz4: targetMatch.plz4 || (targetMatch.id ? targetMatch.id.substring(0,4) : ''),
-              ort: targetMatch.ort || '',
-              kt: targetMatch.kt || '',
-              all: targetMatch.all || 0,
-              mfh: targetMatch.mfh,
-              efh: targetMatch.efh
-            };
-            plzEntriesToSelect = [entry];
+            plzEntriesToSelect = [{
+              id: targetMatch.id, plz6: targetMatch.plz6 || targetMatch.id, plz4: targetMatch.plz4 || (targetMatch.id ? targetMatch.id.substring(0,4) : ''),
+              ort: targetMatch.ort || '', kt: targetMatch.kt || '', all: targetMatch.all || 0, mfh: targetMatch.mfh, efh: targetMatch.efh
+            }];
           }
         }
       }
-
-      if (this.searchInputComponent) {
-        this.searchInputComponent.setSearchTerm(termToUseForSearchInput, false);
-      } else {
-        this.searchInputInitialTerm = termToUseForSearchInput;
-      }
-
+      if (this.searchInputComponent) this.searchInputComponent.setSearchTerm(termToUseForSearchInput, false);
+      else this.searchInputInitialTerm = termToUseForSearchInput;
       if (plzEntriesToSelect.length > 0) {
-        this.selectionService.addMultipleEntries(plzEntriesToSelect);
+        (this.selectionService as any).addMultipleEntries(plzEntriesToSelect, this.currentZielgruppe);
       }
-
     } catch (error) {
-      if (this.searchInputComponent) {
-        this.searchInputComponent.setSearchTerm(stadtname, false);
-      } else {
-        this.searchInputInitialTerm = stadtname;
-      }
+      if (this.searchInputComponent) this.searchInputComponent.setSearchTerm(stadtname, false);
+      else this.searchInputInitialTerm = stadtname;
     } finally {
-      this.updateAndEmitOverallValidationState();
-      this.cdr.markForCheck();
+      this.updateAndEmitOverallValidationState(); this.cdr.markForCheck();
       if (isPlatformBrowser(this.platformId)) {
         this.ngZone.onStable.pipe(take(1)).subscribe(() => {
-          if (this.searchInputComponent) { this.searchInputComponent.blurInput(); }
+          if (this.searchInputComponent) this.searchInputComponent.blurInput();
           setTimeout(() => this.scrollToMapView(), 250);
         });
       }
@@ -237,77 +216,45 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   public async selectCityAndFetchPlz(stadtName: string): Promise<void> {
     if (!stadtName || stadtName.trim() === '') { return; }
-
     const dataReady = await this.plzDataService.ensureDataReady();
-    if (!dataReady) {
-      this.cdr.markForCheck();
-      return;
-    }
-
+    if (!dataReady) { this.cdr.markForCheck(); return; }
     this.activeProcessingStadt = stadtName;
     this.selectionService.clearEntries();
-    this.mapZoomToPlzId = null;
-    this.mapZoomToPlzIdList = null;
-
+    this.mapZoomToPlzId = null; this.mapZoomToPlzIdList = null;
     let termToUseForSearchInput = stadtName;
     let plzEntriesToSelect: PlzEntry[] = [];
-
     try {
-      const suggestions = await firstValueFrom(
-        this.plzDataService.fetchTypeaheadSuggestions(stadtName).pipe(take(1))
-      );
-
+      const suggestions = await firstValueFrom(this.plzDataService.fetchTypeaheadSuggestions(stadtName).pipe(take(1)));
       if (suggestions && suggestions.length > 0) {
-        let cityGroupHeader = suggestions.find(
-          item => item.isGroupHeader && this.plzDataService.normalizeStringForSearch(item.ort) === this.plzDataService.normalizeStringForSearch(stadtName)
-        );
-        if (!cityGroupHeader) {
-          cityGroupHeader = suggestions.find(item => item.isGroupHeader);
-        }
-
+        let cityGroupHeader = suggestions.find(item => item.isGroupHeader && this.plzDataService.normalizeStringForSearch(item.ort) === this.plzDataService.normalizeStringForSearch(stadtName));
+        if (!cityGroupHeader) cityGroupHeader = suggestions.find(item => item.isGroupHeader);
         if (cityGroupHeader && cityGroupHeader.ort && cityGroupHeader.kt) {
           termToUseForSearchInput = cityGroupHeader.ort;
-          plzEntriesToSelect = await firstValueFrom(
-            this.plzDataService.getEntriesByOrtAndKanton(cityGroupHeader.ort, cityGroupHeader.kt).pipe(take(1))
-          );
+          plzEntriesToSelect = await firstValueFrom(this.plzDataService.getEntriesByOrtAndKanton(cityGroupHeader.ort, cityGroupHeader.kt).pipe(take(1)));
         } else {
           const singlePlzMatch = suggestions.find(item => !item.isGroupHeader && this.plzDataService.normalizeStringForSearch(item.ort) === this.plzDataService.normalizeStringForSearch(stadtName));
           if (singlePlzMatch) {
             termToUseForSearchInput = singlePlzMatch.ort || stadtName;
-            const entry: PlzEntry = {
-              id: singlePlzMatch.id,
-              plz6: singlePlzMatch.plz6 || singlePlzMatch.id,
-              plz4: singlePlzMatch.plz4 || (singlePlzMatch.id ? singlePlzMatch.id.substring(0,4) : ''),
-              ort: singlePlzMatch.ort || '',
-              kt: singlePlzMatch.kt || '',
-              all: singlePlzMatch.all || 0,
-              mfh: singlePlzMatch.mfh,
-              efh: singlePlzMatch.efh
-            };
-            plzEntriesToSelect = [entry];
+            plzEntriesToSelect = [{
+              id: singlePlzMatch.id, plz6: singlePlzMatch.plz6 || singlePlzMatch.id, plz4: singlePlzMatch.plz4 || (singlePlzMatch.id.substring(0,4)),
+              ort: singlePlzMatch.ort || '', kt: singlePlzMatch.kt || '', all: singlePlzMatch.all || 0, mfh: singlePlzMatch.mfh, efh: singlePlzMatch.efh
+            }];
           }
         }
       }
-
-      if (this.searchInputComponent) {
-        this.searchInputComponent.setSearchTerm(termToUseForSearchInput, false);
-      } else {
-        this.searchInputInitialTerm = termToUseForSearchInput;
-      }
-
+      if (this.searchInputComponent) this.searchInputComponent.setSearchTerm(termToUseForSearchInput, false);
+      else this.searchInputInitialTerm = termToUseForSearchInput;
       if (plzEntriesToSelect.length > 0) {
-        this.selectionService.addMultipleEntries(plzEntriesToSelect);
+        (this.selectionService as any).addMultipleEntries(plzEntriesToSelect, this.currentZielgruppe);
       }
-
     } catch (error) {
-      if (this.searchInputComponent) { this.searchInputComponent.setSearchTerm(stadtName, false); }
-      else { this.searchInputInitialTerm = stadtName; }
+      if (this.searchInputComponent) this.searchInputComponent.setSearchTerm(stadtName, false);
+      else this.searchInputInitialTerm = stadtName;
     } finally {
-      this.updateAndEmitOverallValidationState();
-      this.cdr.markForCheck();
+      this.updateAndEmitOverallValidationState(); this.cdr.markForCheck();
       if (isPlatformBrowser(this.platformId)) {
         this.ngZone.onStable.pipe(take(1)).subscribe(() => {
-          if (this.searchInputComponent) { this.searchInputComponent.blurInput(); }
+          if (this.searchInputComponent) this.searchInputComponent.blurInput();
           setTimeout(() => this.scrollToMapView(), 250);
         });
       }
@@ -315,74 +262,59 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private initializeDates(): void {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const minStartDate = new Date(today.getTime());
-    minStartDate.setUTCDate(today.getUTCDate() + 1);
+    const today = new Date(); today.setUTCHours(0,0,0,0);
+    const minStartDate = new Date(today.getTime()); minStartDate.setUTCDate(today.getUTCDate() + 1);
     this.minVerteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
     this.defaultStandardStartDate = this.addWorkingDays(new Date(today.getTime()), 3);
     let initialStartDate = new Date(this.defaultStandardStartDate.getTime());
-    if (initialStartDate.getTime() < minStartDate.getTime()) {
-      initialStartDate = new Date(minStartDate.getTime());
-    }
+    if (initialStartDate.getTime() < minStartDate.getTime()) initialStartDate = new Date(minStartDate.getTime());
     this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialStartDate);
     this.checkExpressSurcharge();
   }
 
   private formatDateToYyyyMmDd(date: Date): string {
-    const year = date.getUTCFullYear();
-    const month = ('0' + (date.getUTCMonth() + 1)).slice(-2);
-    const day = ('0' + date.getUTCDate()).slice(-2);
-    return `${year}-${month}-${day}`;
+    const year = date.getUTCFullYear(); const month = ('0' + (date.getUTCMonth() + 1)).slice(-2);
+    const day = ('0' + date.getUTCDate()).slice(-2); return `${year}-${month}-${day}`;
   }
 
   public getFormattedDefaultStandardDateForDisplay(): string {
     if (!this.defaultStandardStartDate) return '';
     const day = ('0' + this.defaultStandardStartDate.getUTCDate()).slice(-2);
     const month = ('0' + (this.defaultStandardStartDate.getUTCMonth() + 1)).slice(-2);
-    const year = this.defaultStandardStartDate.getUTCFullYear();
-    return `${day}.${month}.${year}`;
+    const year = this.defaultStandardStartDate.getUTCFullYear(); return `${day}.${month}.${year}`;
   }
 
   private parseYyyyMmDdToDate(dateString: string): Date {
     const parts = dateString.split('-');
-    if (parts.length === 3) {
-      return new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
-    }
-    const invalidDate = new Date(0);
-    invalidDate.setTime(NaN);
-    return invalidDate;
+    if (parts.length === 3) return new Date(Date.UTC(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10)));
+    const invalidDate = new Date(0); invalidDate.setTime(NaN); return invalidDate;
   }
 
   private addWorkingDays(baseDate: Date, daysToAdd: number): Date {
-    let currentDate = new Date(baseDate.getTime());
-    let workingDaysAdded = 0;
+    let currentDate = new Date(baseDate.getTime()); let workingDaysAdded = 0;
     while (workingDaysAdded < daysToAdd) {
       currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-      const dayOfWeek = currentDate.getUTCDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        workingDaysAdded++;
-      }
-    }
-    return currentDate;
+      const dayOfWeek = currentDate.getUTCDay(); if (dayOfWeek !== 0 && dayOfWeek !== 6) workingDaysAdded++;
+    } return currentDate;
   }
 
   onStartDateChange(): void {
     this.expressSurchargeConfirmed = false;
     if (!this.verteilungStartdatum) {
       this.showExpressSurcharge = false;
+      this.updateOrderDataServiceExpressStatus();
       this.updateAndEmitOverallValidationState();
       return;
     }
     const selectedStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
     const minStartDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
-
     if (isNaN(selectedStartDate.getTime()) || selectedStartDate.getTime() < minStartDate.getTime()) {
       this.verteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
-      this.onStartDateChange(); // Recursive call to re-validate and update UI
+      this.onStartDateChange();
       return;
     }
     this.checkExpressSurcharge();
+    this.updateOrderDataServiceExpressStatus();
     this.updateAndEmitOverallValidationState();
   }
 
@@ -393,7 +325,6 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     }
     const selectedStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
     const minAllowedStartDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
-
     if (isNaN(selectedStartDate.getTime()) || isNaN(this.defaultStandardStartDate.getTime()) || isNaN(minAllowedStartDate.getTime())) {
       if (this.showExpressSurcharge) { this.showExpressSurcharge = false; this.cdr.markForCheck(); }
       return;
@@ -412,55 +343,47 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
     this.expressSurchargeConfirmed = false;
     if (this.defaultStandardStartDate) {
       this.verteilungStartdatum = this.formatDateToYyyyMmDd(this.defaultStandardStartDate);
-      this.onStartDateChange(); // This will also call checkExpressSurcharge and updateAndEmitOverallValidationState
-    } else { this.cdr.markForCheck(); }
+      this.onStartDateChange();
+    } else {
+      this.cdr.markForCheck();
+    }
   }
 
   public confirmExpressSurcharge(): void {
     this.expressSurchargeConfirmed = true;
     this.showExpressSurcharge = false;
+    this.updateOrderDataServiceExpressStatus();
     this.updateAndEmitOverallValidationState();
     this.cdr.markForCheck();
   }
 
-  ngAfterViewInit(): void {
-    if (this.searchInputComponent && this.searchInputInitialTerm && !this.activeProcessingStadt) {
-      this.searchInputComponent.initiateSearchForTerm(this.searchInputInitialTerm);
-      this.searchInputInitialTerm = '';
-    }
-    // Ensure initial validation status is emitted correctly after view is initialized
-    Promise.resolve().then(() => this.updateAndEmitOverallValidationState());
+  private updateOrderDataServiceExpressStatus(): void {
+    const isEffectivelyExpress = this.expressSurchargeConfirmed || (this.showExpressSurcharge && !this.expressSurchargeConfirmed) ;
+    this.orderDataService.updateExpressConfirmed(isEffectivelyExpress);
   }
 
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
+  ngAfterViewInit(): void {
+    if (this.searchInputComponent && this.searchInputInitialTerm && !this.activeProcessingStadt) {
+      this.searchInputComponent.initiateSearchForTerm(this.searchInputInitialTerm); this.searchInputInitialTerm = '';
+    }
   }
+
+  ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
   onSearchInputEntriesSelected(entries: PlzEntry[]): void {
     if (entries && entries.length > 0) {
-      this.selectionService.addMultipleEntries(entries);
-      if (isPlatformBrowser(this.platformId)) {
-        setTimeout(() => this.scrollToMapView(), 100);
-      }
-    }
-    this.updateAndEmitOverallValidationState();
+      (this.selectionService as any).addMultipleEntries(entries, this.currentZielgruppe);
+      if (isPlatformBrowser(this.platformId)) setTimeout(() => this.scrollToMapView(), 100);
+    } this.updateAndEmitOverallValidationState();
   }
 
-  onSearchInputTermChanged(term: string): void { /* No-op for now, status handled by onSearchInputStatusChanged */ }
-
+  onSearchInputTermChanged(term: string): void { /* No-op */ }
   onSearchInputStatusChanged(status: SimpleValidationStatus): void {
-    if (this.searchInputStatus !== status) {
-      this.searchInputStatus = status;
-      this.updateAndEmitOverallValidationState();
-    }
+    if (this.searchInputStatus !== status) { this.searchInputStatus = status; this.updateAndEmitOverallValidationState(); }
   }
 
   setVerteilungTyp(typ: VerteilungTypOption): void {
-    if (this.currentVerteilungTyp !== typ) {
-      this.currentVerteilungTyp = typ;
-      this.updateUiFlagsAndMapState();
-    }
+    if (this.currentVerteilungTyp !== typ) { this.currentVerteilungTyp = typ; this.updateUiFlagsAndMapState(); }
   }
 
   setZielgruppe(zielgruppe: ZielgruppeOption): void {
@@ -471,82 +394,67 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private updateUiFlagsAndMapState(): void {
-    const oldPlzFlag = this.showPlzUiContainer;
-    const oldPerimeterFlag = this.showPerimeterUiContainer;
+    const oldPlzFlag = this.showPlzUiContainer; const oldPerimeterFlag = this.showPerimeterUiContainer;
     this.showPlzUiContainer = this.currentVerteilungTyp === 'Nach PLZ';
     this.showPerimeterUiContainer = this.currentVerteilungTyp === 'Nach Perimeter';
-
-    if (oldPlzFlag !== this.showPlzUiContainer || oldPerimeterFlag !== this.showPerimeterUiContainer) {
-      this.cdr.markForCheck();
-    }
+    if (oldPlzFlag !== this.showPlzUiContainer || oldPerimeterFlag !== this.showPerimeterUiContainer) this.cdr.markForCheck();
     this.updateAndEmitOverallValidationState();
   }
 
   private onZielgruppeChange(): void {
-    this.highlightFlyerMaxColumn = true;
-    this.cdr.markForCheck();
-    setTimeout(() => {
-      this.highlightFlyerMaxColumn = false;
-      this.cdr.markForCheck();
-    }, COLUMN_HIGHLIGHT_DURATION);
+    this.highlightFlyerMaxColumn = true; this.cdr.markForCheck();
+    if (typeof (this.selectionService as any).updateFlyerCountsForAudience === 'function') {
+      (this.selectionService as any).updateFlyerCountsForAudience(this.currentZielgruppe);
+    } else {
+      console.warn('[DistributionStepComponent] SelectionService.updateFlyerCountsForAudience() method not found.');
+    }
+    setTimeout(() => { this.highlightFlyerMaxColumn = false; this.cdr.markForCheck(); }, COLUMN_HIGHLIGHT_DURATION);
     this.updateAndEmitOverallValidationState();
   }
 
   onPlzClickedOnMap(event: { id: string; name?: string }): void {
-    const entryIdFromMap = event.id;
-    if (!entryIdFromMap) return;
-
+    const entryIdFromMap = event.id; if (!entryIdFromMap) return;
     const isCurrentlySelected = this.selectionService.getSelectedEntries().some(e => e.id === entryIdFromMap);
-
-    if (isCurrentlySelected) {
-      this.selectionService.removeEntry(entryIdFromMap);
-    } else {
+    if (isCurrentlySelected) this.selectionService.removeEntry(entryIdFromMap);
+    else {
       firstValueFrom(this.plzDataService.getEntryById(entryIdFromMap))
         .then(entry => {
           if (entry && this.selectionService.validateEntry(entry)) {
-            this.selectionService.addEntry(entry);
+            (this.selectionService as any).addEntry(entry, this.currentZielgruppe);
           } else {
-            const plz6 = entryIdFromMap;
-            const plz4 = plz6.length >= 4 ? plz6.substring(0, 4) : plz6;
+            const plz6 = entryIdFromMap; const plz4 = plz6.length >= 4 ? plz6.substring(0,4) : plz6;
             const pseudoOrt = event.name || 'Unbekannt';
             const pseudoEntry: PlzEntry = { id: entryIdFromMap, plz6, plz4, ort: pseudoOrt, kt: 'N/A', all: 0 };
             if (this.selectionService.validateEntry(pseudoEntry)) {
-              this.selectionService.addEntry(pseudoEntry);
+              (this.selectionService as any).addEntry(pseudoEntry, this.currentZielgruppe);
             }
           }
-        })
-        .catch(error => { console.error(`Error adding PLZ ${entryIdFromMap} from map click:`, error); });
-    }
-    this.updateAndEmitOverallValidationState();
+        }).catch(error => console.error(`Error adding PLZ ${entryIdFromMap} from map click:`, error));
+    } this.updateAndEmitOverallValidationState();
   }
+
+  onManualFlyerCountUpdatedFromTable(event: { entryId: string, newCount: number | null }): void {
+    if (typeof (this.selectionService as any).updateManualFlyerCountForEntry === 'function') {
+      (this.selectionService as any).updateManualFlyerCountForEntry(event.entryId, event.newCount);
+    } else {
+      console.warn('[DistributionStepComponent] SelectionService.updateManualFlyerCountForEntry() method not found.');
+    }
+  }
+
 
   onMapLoadingStatusChanged(isLoading: boolean): void {
-    if (this.mapIsLoading !== isLoading) {
-      this.mapIsLoading = isLoading;
-      this.updateAndEmitOverallValidationState();
-    }
+    if (this.mapIsLoading !== isLoading) { this.mapIsLoading = isLoading; this.updateAndEmitOverallValidationState(); }
   }
 
-  public quickSearch(term: string): void {
-    this.selectCityAndFetchPlz(term);
-  }
+  public quickSearch(term: string): void { this.selectCityAndFetchPlz(term); }
 
   public clearPlzTable(): void {
     this.selectionService.clearEntries();
-    this.mapZoomToPlzId = null;
-    this.mapZoomToPlzIdList = null;
-    this.activeProcessingStadt = undefined;
-
-    if (this.searchInputComponent && typeof this.searchInputComponent.clearInput === 'function') {
-      this.searchInputComponent.clearInput();
-    } else {
-      this.searchInputInitialTerm = '';
-    }
-    this.router.navigate(['/']); // Reset route if city was in URL
-
-    if (isPlatformBrowser(this.platformId)) {
-      setTimeout(() => this.scrollToMapView(), 100);
-    }
+    this.mapZoomToPlzId = null; this.mapZoomToPlzIdList = null; this.activeProcessingStadt = undefined;
+    if (this.searchInputComponent && typeof this.searchInputComponent.clearInput === 'function') this.searchInputComponent.clearInput();
+    else this.searchInputInitialTerm = '';
+    this.router.navigate(['/']);
+    if (isPlatformBrowser(this.platformId)) setTimeout(() => this.scrollToMapView(), 100);
     this.updateAndEmitOverallValidationState();
   }
 
@@ -556,28 +464,17 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   zoomToTableEntryOnMap(entry: PlzEntry): void {
-    this.mapZoomToPlzId = entry.id;
-    this.mapZoomToPlzIdList = null;
-    this.cdr.markForCheck();
-    if (isPlatformBrowser(this.platformId)) {
-      setTimeout(() => this.scrollToMapView(), 100);
-    }
+    this.mapZoomToPlzId = entry.id; this.mapZoomToPlzIdList = null; this.cdr.markForCheck();
+    if (isPlatformBrowser(this.platformId)) setTimeout(() => this.scrollToMapView(), 100);
     setTimeout(() => { this.mapZoomToPlzId = null; this.cdr.markForCheck(); }, 250);
   }
 
   highlightPlacemarkOnMapFromTable(event: TableHighlightEvent): void {
     const newHoverId = (event.highlight && event.plzId) ? event.plzId : null;
-    if (this.mapTableHoverPlzId !== newHoverId) {
-      this.mapTableHoverPlzId = newHoverId;
-      this.cdr.markForCheck();
-    }
+    if (this.mapTableHoverPlzId !== newHoverId) { this.mapTableHoverPlzId = newHoverId; this.cdr.markForCheck(); }
   }
 
-  triggerKmlUpload(): void {
-    console.log('KML Upload triggered (Not implemented)');
-    // Implement KML upload logic here
-    // After KML is processed, call updateAndEmitOverallValidationState()
-  }
+  triggerKmlUpload(): void { console.log('KML Upload triggered (Not implemented)'); }
 
   getFlyerMaxForEntry(entry: PlzEntry): number {
     if (!entry) return 0;
@@ -590,30 +487,18 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
 
   private updateAndEmitOverallValidationState(): void {
     const newStatus = this.calculateOverallValidationStatus();
-    this.validationChange.emit(newStatus);
-    this.cdr.markForCheck();
+    this.validationChange.emit(newStatus); this.cdr.markForCheck();
   }
 
   private calculateOverallValidationStatus(): OverallValidationStatusOfferProcess {
     const hasSelectedPlz = this.selectionService.getSelectedEntries().length > 0;
     const isDateValid = !!this.verteilungStartdatum && !isNaN(this.parseYyyyMmDdToDate(this.verteilungStartdatum).getTime());
     const isExpressValidOrConfirmed = !this.isExpressSurchargeRelevant() || this.expressSurchargeConfirmed;
-
     if (this.currentVerteilungTyp === 'Nach PLZ') {
-      const isSearchInputStateAcceptable = this.searchInputStatus === 'valid' ||
-        this.searchInputStatus === 'empty' ||
+      const isSearchInputStateAcceptable = this.searchInputStatus === 'valid' || this.searchInputStatus === 'empty' ||
         (this.activeProcessingStadt && this.searchInputStatus !== 'invalid');
-
-      if (hasSelectedPlz && isDateValid && isExpressValidOrConfirmed && isSearchInputStateAcceptable) {
-        return 'valid';
-      }
-    } else { // Nach Perimeter
-      // For now, KML upload is not implemented, so this path cannot be 'valid'
-      // if (kmlFileUploadedAndValid && isDateValid && isExpressValidOrConfirmed) {
-      //   return 'valid';
-      // }
-      return 'invalid'; // Or 'pending' if KML upload is in progress
-    }
+      if (hasSelectedPlz && isDateValid && isExpressValidOrConfirmed && isSearchInputStateAcceptable) return 'valid';
+    } else return 'invalid';
     return 'invalid';
   }
 
@@ -626,15 +511,8 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   public triggerValidationDisplay(): void {
-    // This method can be called by the parent to force UI updates for validation.
-    // For example, if using reactive forms, mark controls as touched.
-    // For template-driven forms or custom validation, ensure errors are displayed.
-    console.log('[DistributionStepComponent] Triggering validation display (if implemented).');
-    // For now, we just re-check and emit. The UI relies on component state for error display.
-    this.updateAndEmitOverallValidationState();
-    this.cdr.markForCheck();
+    this.updateAndEmitOverallValidationState(); this.cdr.markForCheck();
   }
-
 
   private scrollToMapView(): void {
     if (!isPlatformBrowser(this.platformId)) { return; }
@@ -642,11 +520,9 @@ export class DistributionStepComponent implements OnInit, AfterViewInit, OnDestr
       if (!this.mapViewRef?.nativeElement) return;
       const element = this.mapViewRef.nativeElement;
       if (element.offsetParent === null || element.offsetWidth === 0 || element.offsetHeight === 0) {
-        console.warn('[DistributionStepComponent] scrollToMapView: mapViewRef not ready or visible when scroll attempted.');
         return;
       }
-      const offset = 90;
-      const elementScrollY = window.pageYOffset + element.getBoundingClientRect().top;
+      const offset = 90; const elementScrollY = window.pageYOffset + element.getBoundingClientRect().top;
       const targetScrollPosition = elementScrollY - offset;
       window.scrollTo({ top: targetScrollPosition, behavior: 'smooth' });
     });

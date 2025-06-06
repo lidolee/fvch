@@ -13,9 +13,15 @@ export interface PlzEntry {
   plz4: string;
   ort: string;
   kt: string;
-  all: number;
+  all: number; // This is the total households count from your fvdb.json
   mfh?: number;
   efh?: number;
+
+  // Properties for selection state and display by components
+  isSelected?: boolean;
+  isHighlighted?: boolean;
+  selected_display_flyer_count?: number; // The definitive flyer count to be used everywhere
+  is_manual_count?: boolean;
 }
 
 export interface EnhancedSearchResultItem extends PlzEntry {
@@ -31,14 +37,13 @@ export class PlzDataService {
   private rawEntriesCache: PlzEntry[] = [];
   private dataLoadedSuccessfully = false;
   private dataLoadingPromise: Promise<PlzEntry[]> | null = null;
-  private copilotLogPrefix = () => `${new Date().toISOString()} [PlzDataService]`;
-
+  private logPrefix = () => `${new Date().toISOString()} [PlzDataService]`;
 
   constructor(
     private http: HttpClient,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
-    console.log(`${this.copilotLogPrefix()} Constructor. Platform: ${isPlatformBrowser(this.platformId) ? 'Browser' : 'Server'}`);
+    // console.log(`${this.logPrefix()} Constructor. Platform: ${isPlatformBrowser(this.platformId) ? 'Browser' : 'Server'}`);
   }
 
   public normalizeStringForSearch(str: string): string {
@@ -51,34 +56,27 @@ export class PlzDataService {
   }
 
   private loadPlzData(): Observable<PlzEntry[]> {
-    console.log(`${this.copilotLogPrefix()} loadPlzData: CALLED.`);
     if (!isPlatformBrowser(this.platformId)) {
-      console.log(`${this.copilotLogPrefix()} loadPlzData: Not in browser platform. Returning empty, dataLoadedSuccessfully = false.`);
       this.dataLoadedSuccessfully = false;
       return of([]);
     }
     if (this.dataLoadedSuccessfully && this.rawEntriesCache.length > 0 && this.plzData$) {
-      console.log(`${this.copilotLogPrefix()} loadPlzData: Returning from cache (dataLoadedSuccessfully=true, rawEntriesCache has data).`);
       return of(this.rawEntriesCache);
     }
     if (this.plzData$) {
-      console.log(`${this.copilotLogPrefix()} loadPlzData: plzData$ observable already exists. Returning it.`);
       return this.plzData$;
     }
 
-    console.log(`${this.copilotLogPrefix()} loadPlzData: Initiating new HTTP GET for ${FVDB_JSON_PATH}.`);
     this.plzData$ = this.http.get<any[]>(FVDB_JSON_PATH).pipe(
       map(rawDataArray => {
-        console.log(`${this.copilotLogPrefix()} loadPlzData (map): Received rawDataArray. Length: ${rawDataArray?.length}`);
         if (!Array.isArray(rawDataArray)) {
-          console.error(`${this.copilotLogPrefix()} loadPlzData (map): rawDataArray is not an array!`);
+          console.error(`${this.logPrefix()} loadPlzData (map): rawDataArray is not an array!`);
           this.dataLoadedSuccessfully = false;
           this.rawEntriesCache = [];
           return [];
         }
-
         const processedEntries: PlzEntry[] = rawDataArray
-          .map((rawEntry, index) => {
+          .map((rawEntry) => {
             if (!rawEntry || typeof rawEntry.plz === 'undefined' || typeof rawEntry.name === 'undefined') {
               return null;
             }
@@ -87,7 +85,6 @@ export class PlzDataService {
             const ktFromInput = String(rawEntry.ct || 'N/A').trim();
 
             if (!plz6FromInput || !ortFromInput) {
-              // console.log(`${this.copilotLogPrefix()} loadPlzData (map-item ${index}): Missing plz6 or ort.`, rawEntry);
               return null;
             }
             const plz4 = plz6FromInput.substring(0, 4);
@@ -101,46 +98,21 @@ export class PlzDataService {
               all: Number(rawEntry.all) || 0,
               mfh: rawEntry.mfh !== undefined && rawEntry.mfh !== null ? Number(rawEntry.mfh) : undefined,
               efh: rawEntry.efh !== undefined && rawEntry.efh !== null ? Number(rawEntry.efh) : undefined,
+              // selected_display_flyer_count and is_manual_count are initialized by SelectionService
             };
           })
           .filter(entry => entry !== null) as PlzEntry[];
 
-        console.log(`${this.copilotLogPrefix()} loadPlzData (map): Processed ${processedEntries.length} valid entries.`);
         this.rawEntriesCache = processedEntries;
-        this.dataLoadedSuccessfully = processedEntries.length > 0; // Critical: Set based on actual processed data
-        console.log(`${this.copilotLogPrefix()} loadPlzData (map): Set dataLoadedSuccessfully to ${this.dataLoadedSuccessfully} based on processedEntries.`);
-
-        if (!this.dataLoadedSuccessfully && rawDataArray.length > 0) {
-          console.warn(`${this.copilotLogPrefix()} loadPlzData (map): Raw data had items, but processedEntries is empty. Review mapping logic or data quality.`);
-        }
-        return this.rawEntriesCache; // Return processed entries
-      }),
-      tap({
-        next: (entries) => {
-          // This tap should primarily react or log. dataLoadedSuccessfully is now set reliably by map.
-          console.log(`${this.copilotLogPrefix()} loadPlzData (tap next): Stream emitted ${entries?.length} entries. Current dataLoadedSuccessfully state: ${this.dataLoadedSuccessfully}.`);
-          // If entries.length > 0 but dataLoadedSuccessfully is false, or vice-versa, it indicates a logic flaw upstream (likely in map).
-          if (entries && entries.length > 0 && !this.dataLoadedSuccessfully) {
-            console.warn(`${this.copilotLogPrefix()} loadPlzData (tap next): WARNING - Stream has entries, but dataLoadedSuccessfully is false.`);
-          }
-          if (entries && entries.length === 0 && this.dataLoadedSuccessfully) {
-            console.warn(`${this.copilotLogPrefix()} loadPlzData (tap next): WARNING - Stream has NO entries, but dataLoadedSuccessfully is true.`);
-            // Potentially reset if this state is considered invalid:
-            // this.dataLoadedSuccessfully = false;
-            // console.log(`${this.copilotLogPrefix()} loadPlzData (tap next): Corrected dataLoadedSuccessfully to false due to empty entries.`);
-          }
-        },
-        error: (err) => {
-          console.error(`${this.copilotLogPrefix()} loadPlzData (tap error): Stream errored. Setting dataLoadedSuccessfully to false. Error:`, err);
-          this.dataLoadedSuccessfully = false; // Correct for error case
-        }
+        this.dataLoadedSuccessfully = processedEntries.length > 0;
+        return this.rawEntriesCache;
       }),
       shareReplay(1),
       catchError(err => {
-        console.error(`${this.copilotLogPrefix()} loadPlzData (catchError): HTTP or mapping error. Resetting state. Error:`, err);
+        console.error(`${this.logPrefix()} loadPlzData (catchError): HTTP or mapping error. Resetting state. Error:`, err);
         this.rawEntriesCache = [];
         this.dataLoadedSuccessfully = false;
-        this.plzData$ = null; // Reset observable so next call to loadPlzData re-fetches
+        this.plzData$ = null;
         return throwError(() => new Error(`Failed to load PLZ data. Error: ${err.message || err}`));
       })
     );
@@ -148,72 +120,51 @@ export class PlzDataService {
   }
 
   public getPlzData(): Observable<PlzEntry[]> {
-    console.log(`${this.copilotLogPrefix()} getPlzData: CALLED. plzData$ exists: ${!!this.plzData$}`);
     if (!this.plzData$) {
-      console.log(`${this.copilotLogPrefix()} getPlzData: No existing plzData$, calling loadPlzData().`);
       return this.loadPlzData();
     }
     return this.plzData$;
   }
 
   public async ensureDataReady(): Promise<boolean> {
-    console.log(`${this.copilotLogPrefix()} ensureDataReady: CALLED. Current dataLoadedSuccessfully: ${this.dataLoadedSuccessfully}, rawEntriesCache length: ${this.rawEntriesCache.length}`);
     if (this.dataLoadedSuccessfully && this.rawEntriesCache.length > 0) {
-      console.log(`${this.copilotLogPrefix()} ensureDataReady: Data already loaded and cache populated. Returning true.`);
       return true;
     }
     if (!isPlatformBrowser(this.platformId)) {
-      console.log(`${this.copilotLogPrefix()} ensureDataReady: Not in browser platform. Returning false.`);
       return false;
     }
 
     if (this.dataLoadingPromise) {
-      console.log(`${this.copilotLogPrefix()} ensureDataReady: dataLoadingPromise already exists. Awaiting its completion.`);
       try {
         await this.dataLoadingPromise;
-        console.log(`${this.copilotLogPrefix()} ensureDataReady: Awaited existing promise. Returning dataLoadedSuccessfully: ${this.dataLoadedSuccessfully}`);
         return this.dataLoadedSuccessfully;
       } catch(e) {
-        console.error(`${this.copilotLogPrefix()} ensureDataReady: Error awaiting existing dataLoadingPromise.`, e);
-        return false; // dataLoadedSuccessfully should be false if promise rejected
+        console.error(`${this.logPrefix()} ensureDataReady: Error awaiting existing dataLoadingPromise.`, e);
+        return false;
       }
     }
 
-    console.log(`${this.copilotLogPrefix()} ensureDataReady: No active loading promise. Creating new one by calling getPlzData().`);
     this.dataLoadingPromise = firstValueFrom(
-      this.getPlzData().pipe( // getPlzData will call loadPlzData if needed
-        tap(entries => { // Added tap here to see what firstValueFrom receives
-          console.log(`${this.copilotLogPrefix()} ensureDataReady (firstValueFrom tap): Received ${entries?.length} entries. dataLoadedSuccessfully is ${this.dataLoadedSuccessfully}`);
-        }),
-        map(entries => { // map here is fine, just passes through
-          return entries;
-        }),
+      this.getPlzData().pipe(
         catchError(err => {
-          console.error(`${this.copilotLogPrefix()} ensureDataReady (firstValueFrom catchError): Error from getPlzData stream. Error:`, err);
-          this.dataLoadedSuccessfully = false; // Ensure flag is false on error
-          return of([]); // Resolve with empty array to prevent unhandled promise rejection
+          console.error(`${this.logPrefix()} ensureDataReady (firstValueFrom catchError): Error from getPlzData stream. Error:`, err);
+          this.dataLoadedSuccessfully = false;
+          return of([]);
         })
       )
     );
 
     try {
-      console.log(`${this.copilotLogPrefix()} ensureDataReady: Awaiting new dataLoadingPromise.`);
       await this.dataLoadingPromise;
-      console.log(`${this.copilotLogPrefix()} ensureDataReady: New dataLoadingPromise resolved. Final dataLoadedSuccessfully: ${this.dataLoadedSuccessfully}`);
       return this.dataLoadedSuccessfully;
     } catch (error) {
-      // This catch should ideally not be hit if the inner catchError returns of([])
-      console.error(`${this.copilotLogPrefix()} ensureDataReady: Outer catch for dataLoadingPromise. This should be rare. Error:`, error);
       this.dataLoadedSuccessfully = false;
       return false;
     } finally {
-      console.log(`${this.copilotLogPrefix()} ensureDataReady: Resetting dataLoadingPromise to null.`);
       this.dataLoadingPromise = null;
     }
   }
 
-  // ... (rest of your service methods: getEntriesByOrtAndKanton, getEntriesByPlzRange, getEntryById, fetchTypeaheadSuggestions) ...
-  // Diese Methoden bleiben unverändert, da das Logging sich auf den Ladeprozess konzentriert.
   public getEntriesByOrtAndKanton(ort: string, kanton: string): Observable<PlzEntry[]> {
     const normalizedSearchOrt = this.normalizeStringForSearch(ort);
     const normalizedSearchKanton = this.normalizeStringForSearch(kanton);
@@ -244,7 +195,7 @@ export class PlzDataService {
       map(entries => {
         return entries.find(entry => entry.id === id);
       }),
-      catchError((err) => {
+      catchError((_err) => {
         return of(undefined);
       })
     );
@@ -259,14 +210,11 @@ export class PlzDataService {
     return this.getPlzData().pipe(
       map((allEntries): EnhancedSearchResultItem[] => {
         if (!allEntries || allEntries.length === 0) return [];
-
         const plzRangeRegex = /^\s*(\d{4,6})\s*-\s*(\d{4,6})\s*$/;
         if (plzRangeRegex.test(term.trim())) {
           return [];
         }
-
         let results: EnhancedSearchResultItem[] = [];
-
         if (/^\d+$/.test(term.trim())) {
           const originalTrimmedTerm = term.trim();
           results = allEntries
@@ -286,7 +234,6 @@ export class PlzDataService {
               ortMap.get(groupKey)!.push(entry);
             }
           });
-
           const groupedOrtSuggestions: EnhancedSearchResultItem[] = [];
           ortMap.forEach((entriesInGroup, _groupKey) => {
             const firstEntry = entriesInGroup[0];
@@ -301,7 +248,6 @@ export class PlzDataService {
               groupedOrtSuggestions.push({ ...firstEntry });
             }
           });
-
           groupedOrtSuggestions.sort((a, b) => {
             const aIsGroup = a.isGroupHeader ?? false;
             const bIsGroup = b.isGroupHeader ?? false;
@@ -318,7 +264,7 @@ export class PlzDataService {
         }
         return results.slice(0, MAX_SUGGESTION_RESULTS);
       }),
-      catchError((err) => {
+      catchError((_err) => {
         return of([]);
       })
     );

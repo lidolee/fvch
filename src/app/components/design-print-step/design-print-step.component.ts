@@ -4,17 +4,18 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ValidationStatus } from '../offer-process/offer-process.component';
-import { OrderDataService } from '../../services/order-data.service';
+import { OrderDataService, VerteilzuschlagFormatKey } from '../../services/order-data.service';
 
+// Typdefinitionen
+// 'export' hinzugefügt
 export type DesignPackage = 'basis' | 'plus' | 'premium' | 'eigenes' | '';
 export type PrintOption = 'anliefern' | 'service' | '';
 export type DruckFormat = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN-Lang' | 'anderes' | '';
 export type DruckGrammatur = '90' | '115' | '130' | '170' | '250' | '300' | '';
 export type DruckArt = 'einseitig' | 'zweiseitig' | '';
 export type DruckAusfuehrung = 'glaenzend' | 'matt' | '';
-
 export type AnlieferungOption = 'selbst' | 'abholung' | '';
-export type FormatOption = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN-Lang' | 'anderes' | '';
+export type AnlieferungFormatOption = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN-Lang' | 'anderes' | '';
 
 @Component({
   selector: 'app-design-print-step',
@@ -24,6 +25,7 @@ export type FormatOption = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN-Lang' | 'anderes' | 
   styleUrls: ['./design-print-step.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
+// 'export' hinzugefügt
 export class DesignPrintStepComponent implements OnInit, OnDestroy {
   @Output() validationChange = new EventEmitter<ValidationStatus>();
 
@@ -35,10 +37,10 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
   druckArt: DruckArt = '';
   druckAusfuehrung: DruckAusfuehrung = '';
   druckAuflage: number = 0;
-  druckReserve: number = 1000;
+  druckReserve: number = 0;
 
+  currentFormat: AnlieferungFormatOption = '';
   currentAnlieferung: AnlieferungOption = '';
-  currentFormat: FormatOption = '';
 
   public currentStatus: ValidationStatus = 'pending';
   private destroy$ = new Subject<void>();
@@ -68,20 +70,44 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  public setFormat(format: AnlieferungFormatOption): void {
+    if (this.currentFormat !== format) {
+      this.currentFormat = format;
+      this.onAnlieferungDetailChange();
+    }
+  }
+
+  public setAnlieferung(anlieferung: AnlieferungOption): void {
+    if (this.currentAnlieferung !== anlieferung) {
+      this.currentAnlieferung = anlieferung;
+      this.onAnlieferungDetailChange();
+    }
+  }
+
   onSelectionChange(): void {
-    if (this.selectedPrintOption === 'service') {
+    if (this.selectedPrintOption === 'anliefern') {
+      this.druckFormat = ''; this.druckGrammatur = ''; this.druckArt = '';
+      this.druckAusfuehrung = ''; this.isDruckAuflageManuallySet = false; this.druckAuflage = 0;
+    } else if (this.selectedPrintOption === 'service') {
+      this.currentAnlieferung = ''; this.currentFormat = '';
       if (!this.isDruckAuflageManuallySet) {
-        const currentTotalFlyers = this.orderDataService.getCurrentTotalFlyersCount();
-        if (this.druckAuflage !== currentTotalFlyers) {
-          this.druckAuflage = currentTotalFlyers;
-        }
+        this.druckAuflage = this.orderDataService.getCurrentTotalFlyersCount();
       }
     }
+
+    this.updateOrderDataService();
     this.determineAndEmitValidationStatus();
     this.cdr.markForCheck();
   }
 
   onPrintServiceDetailChange(): void {
+    this.updateOrderDataService();
+    this.determineAndEmitValidationStatus();
+    this.cdr.markForCheck();
+  }
+
+  private onAnlieferungDetailChange(): void {
+    this.updateOrderDataService();
     this.determineAndEmitValidationStatus();
     this.cdr.markForCheck();
   }
@@ -90,21 +116,32 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
     if (this.selectedPrintOption === 'service') {
       this.isDruckAuflageManuallySet = true;
     }
+    this.updateOrderDataService();
     this.determineAndEmitValidationStatus();
     this.cdr.markForCheck();
   }
 
-  setAnlieferung(anlieferung: AnlieferungOption): void {
-    if (this.currentAnlieferung !== anlieferung) {
-      this.currentAnlieferung = anlieferung;
-      this.onSelectionChange();
-    }
-  }
+  private updateOrderDataService(): void {
+    this.orderDataService.updateDesignPackage(this.selectedDesignPackage);
 
-  setFormat(format: FormatOption): void {
-    if (this.currentFormat !== format) {
-      this.currentFormat = format;
-      this.onSelectionChange();
+    let finalFormatForSurchargeKey: VerteilzuschlagFormatKey = '';
+    if (this.selectedPrintOption === 'service' && this.druckFormat) {
+      if (this.druckFormat === 'DIN-Lang') finalFormatForSurchargeKey = 'Lang';
+      else if (this.druckFormat === 'A3' || this.druckFormat === 'A4') {
+        finalFormatForSurchargeKey = this.druckFormat;
+      }
+    } else if (this.selectedPrintOption === 'anliefern' && this.currentFormat) {
+      if (this.currentFormat === 'DIN-Lang') finalFormatForSurchargeKey = 'Lang';
+      else if (this.currentFormat === 'A3' || this.currentFormat === 'A4') {
+        finalFormatForSurchargeKey = this.currentFormat;
+      }
+    }
+    this.orderDataService.updateFinalFlyerFormat(finalFormatForSurchargeKey);
+
+    if (this.selectedPrintOption === 'anliefern') {
+      this.orderDataService.updateAnlieferungOption(this.currentAnlieferung);
+    } else {
+      this.orderDataService.updateAnlieferungOption('');
     }
   }
 
@@ -119,43 +156,27 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
     }
 
     if (this.selectedPrintOption === 'anliefern') {
-      if (!this.currentAnlieferung) {
-        isValid = false;
-      }
-      if (!this.currentFormat) {
+      if (!this.currentAnlieferung || !this.currentFormat) {
         isValid = false;
       }
     } else if (this.selectedPrintOption === 'service') {
       if (!this.druckFormat || !this.druckGrammatur || !this.druckArt || !this.druckAusfuehrung) {
         isValid = false;
       }
-      if (this.druckAuflage <= 0) { // Auflage muss größer 0 sein
+      if (this.druckAuflage <= 0) {
         isValid = false;
       }
     }
 
-    const newStatus = isValid ? 'valid' : 'pending'; // Or 'invalid' if you want immediate red
+    const newStatus = isValid ? 'valid' : 'pending';
     if (this.currentStatus !== newStatus) {
       this.currentStatus = newStatus;
       this.validationChange.emit(this.currentStatus);
     }
-    this.cdr.markForCheck();
   }
 
-  // This method can be called by the parent to force UI updates for validation
   public triggerValidationDisplay(): void {
-    // For template-driven forms, re-emitting the status might be enough
-    // if the UI relies on `currentStatus` for error messages.
-    // If using reactive forms, you might mark controls as touched here.
-    this.determineAndEmitValidationStatus(); // Re-check and emit
-    this.cdr.markForCheck();
-  }
-
-
-  // Example method for testing, can be removed
-  setExampleStatus(status: ValidationStatus): void {
-    this.currentStatus = status;
-    this.validationChange.emit(this.currentStatus);
+    this.determineAndEmitValidationStatus();
     this.cdr.markForCheck();
   }
 }

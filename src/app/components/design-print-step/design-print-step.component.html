@@ -106,288 +106,217 @@
   </div>
 </div>
 
-<h3 class="section-title"><span>2. Flyer Druck</span></h3>
+<h3 class="section-title mt-4"><span>2. Flyer Druck & Anlieferung</span></h3>
 
-<div class="row align-items-center">
-  <div class="col-12">
-    <div class="choice-card-group">
-      <button type="button" class="choice-card" [class.active]="selectedPrintOption === 'anliefern'" (click)="selectedPrintOption = 'anliefern'; onSelectionChange()">
-        <i class="mdi mdi-truck-delivery card-icon"></i>
-        <span class="card-content">
+<div class="choice-card-group">
+  <button type="button" class="choice-card" [class.active]="selectedPrintOption === 'anliefern'" (click)="selectedPrintOption = 'anliefern'; onSelectionChange()">
+    <i class="mdi mdi-truck-delivery card-icon"></i>
+    <span class="card-content">
       <span class="card-title">Eigene Flyer anliefern</span>
       <span class="card-description">Kostenlos</span>
     </span>
-        <span class="card-indicator"></span>
-      </button>
+    <span class="card-indicator"></span>
+  </button>
 
-      <button type="button" class="choice-card" [class.active]="selectedPrintOption === 'service'" (click)="selectedPrintOption = 'service'; onSelectionChange()">
-        <i class="mdi mdi-printer card-icon"></i>
-        <span class="card-content">
+  <button type="button" class="choice-card" [class.active]="selectedPrintOption === 'service'" (click)="selectedPrintOption = 'service'; onSelectionChange()">
+    <i class="mdi mdi-printer card-icon"></i>
+    <span class="card-content">
       <span class="card-title">Druck Service nutzen</span>
       <span class="card-description">Wir drucken ihre Flyer</span>
     </span>
+    <span class="card-indicator"></span>
+  </button>
+</div>
+
+<div *ngIf="selectedPrintOption === 'anliefern'" class="mt-4">
+
+  <div class="alert alert-light mt-0" role="alert">
+    <div class="d-flex align-items-center mb-2"><span class="alert-title"><i class="mdi mdi-alert-box me-2 fs-5"></i>Hinweis</span></div>
+    <ul>
+      <li>Grosse Formate verursachen bei der Verteilung zusätzlichen Aufwand in der Logistik.<br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Deshalb erheben wir für die Verteilung einen <strong>pauschalen Zuschlag pro 1'000 Flyer.</strong></li>
+      <li>Berechnungsgrundlage ist das <strong>Endformat im aufgeklappten/ungefalteten Zustand</strong><br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Beispiel: Ein gefalteter A5-Flyer <strong>wird als A4 berechnet.</strong></li>
+    </ul>
+  </div>
+
+  <fieldset class="mt-3">
+    <legend><span>Flyer Format (Anlieferung)</span></legend>
+    <div class="choice-card-group">
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'A6'"
+              (click)="setFormat('A6')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content"><span class="card-title">A6</span><span class="card-description">Kein Zuschlag</span></span>
+        <span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'A5'"
+              (click)="setFormat('A5')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content"><span class="card-title">A5</span><span class="card-description">Kein Zuschlag</span></span>
+        <span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'A4'"
+              (click)="setFormat('A4')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content"><span class="card-title">A4</span><span class="card-description">+ CHF 30 / 1'000 Flyer</span></span>
+        <span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'A3'"
+              (click)="setFormat('A3')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content"><span class="card-title">A3</span><span class="card-description">+ CHF 50 / 1'000 Flyer</span></span>
+        <span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'DIN-Lang'"
+              (click)="setFormat('DIN-Lang')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content"><span class="card-title">DIN Lang</span><span class="card-description">+ CHF 20 / 1'000 Flyer</span></span>
+        <span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card"
+              [class.active]="currentFormat === 'anderes'" (click)="setFormat('anderes')">
+        <i class="mdi mdi-invoice-text card-icon"></i>
+        <span class="card-content"><span class="card-title">Anderes Format</span><span class="card-description">Wird separat offeriert</span></span>
         <span class="card-indicator"></span>
       </button>
     </div>
-  </div>
-</div>
+  </fieldset>
 
-<div *ngIf="selectedPrintOption === 'anliefern'" class="print-service-details">
-
-  <div class="row align-items-center">
-    <div class="col-12">
-
-      <div class="alert alert-light mt-4" role="alert">
-        <div class="d-flex align-items-center mb-2"><span class="alert-title"><i class="mdi mdi-alert-box me-2 fs-5"></i>Hinweis</span></div>
-        <ul>
-          <li>Grosse Formate verursachen bei der Verteilung zusätzlichen Aufwand in der Logistik.<br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Deshalb erheben wir für die Verteilung einen <strong>pauschalen Zuschlag pro 1'000 Flyer.</strong></li>
-          <li>Berechnungsgrundlage ist das <strong>Endformat im aufgeklappten/ungefalteten Zustand</strong><br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Beispiel: Ein gefalteter A5-Flyer <strong>wird als A4 berechnet.</strong></li>
-        </ul>
-      </div>
-
-      <fieldset>
-        <legend><span>Flyer Format</span></legend>
-        <div class="choice-card-group">
-          <button type="button" class="choice-card"
-                  [class.active]="currentFormat === 'A6'"
-                  (click)="setFormat('A6')">
-            <i class="mdi mdi-invoice-text card-icon"></i>
-            <span class="card-content"><span class="card-title">A6</span><span class="card-description">Kein Zuschlag</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="currentFormat === 'A5'"
-                  (click)="setFormat('A5')">
-            <i class="mdi mdi-invoice-text card-icon"></i>
-            <span class="card-content"><span class="card-title">A5</span><span class="card-description">Kein Zuschlag</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="currentFormat === 'A4'"
-                  (click)="setFormat('A4')">
-            <i class="mdi mdi-invoice-text card-icon"></i>
-            <span class="card-content"><span class="card-title">A4</span><span class="card-description">+ CHF 30 / 1'000 Flyer</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="currentFormat === 'A3'"
-                  (click)="setFormat('A3')">
-            <i class="mdi mdi-invoice-text card-icon"></i>
-            <span class="card-content"><span class="card-title">A3</span><span class="card-description">+ CHF 50 / 1'000 Flyer</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="currentFormat === 'DIN-Lang'"
-                  (click)="setFormat('DIN-Lang')">
-            <i class="mdi mdi-invoice-text card-icon"></i>
-            <span class="card-content"><span class="card-title">DIN Lang</span><span class="card-description">+ CHF 20 / 1'000 Flyer</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="currentFormat === 'anderes'" (click)="setFormat('anderes')">
-            <i class="mdi mdi-invoice-text card-icon"></i>
-            <span class="card-content"><span class="card-title">Anderes Format</span><span class="card-description">Wird separat offeriert</span></span>
-            <span class="card-indicator"></span>
-          </button>
-        </div>
-      </fieldset>
-    </div>
-  </div>
-
-  <div class="row align-items-center">
-    <div class="col-12">
-      <fieldset>
-        <legend><span>Anlieferung der Flyer</span></legend>
-        <div class="choice-card-group">
-          <button type="button" class="choice-card"
-                  [class.active]="currentAnlieferung === 'selbst'"
-                  (click)="setAnlieferung('selbst')">
-            <i class="mdi mdi-package-check card-icon"></i>
-            <span class="card-content">
+  <fieldset class="mt-3">
+    <legend><span>Anlieferung der Flyer</span></legend>
+    <div class="choice-card-group">
+      <button type="button" class="choice-card"
+              [class.active]="currentAnlieferung === 'selbst'"
+              (click)="setAnlieferung('selbst')">
+        <i class="mdi mdi-package-check card-icon"></i>
+        <span class="card-content">
           <span class="card-title">Sie liefern</span>
           <span class="card-description">kostenlos</span>
         </span>
-            <span class="card-indicator"></span>
-          </button>
+        <span class="card-indicator"></span>
+      </button>
 
-          <button type="button" class="choice-card"
-                  [class.active]="currentAnlieferung === 'abholung'"
-                  (click)="setAnlieferung('abholung')">
-            <i class="mdi mdi-truck-fast card-icon"></i>
-            <span class="card-content">
+      <button type="button" class="choice-card"
+              [class.active]="currentAnlieferung === 'abholung'"
+              (click)="setAnlieferung('abholung')">
+        <i class="mdi mdi-truck-fast card-icon"></i>
+        <span class="card-content">
           <span class="card-title">Wir holen ab</span>
           <span class="card-description">+ CHF 50</span>
         </span>
-            <span class="card-indicator"></span>
-          </button>
-        </div>
-      </fieldset>
+        <span class="card-indicator"></span>
+      </button>
     </div>
-  </div>
-
+  </fieldset>
 </div>
 
-<div *ngIf="selectedPrintOption === 'service'" class="print-service-details mb-4">
+<!-- Details für DRUCKSERVICE -->
+<div *ngIf="selectedPrintOption === 'service'" class="mt-4">
 
-  <div class="row align-items-center">
-    <div class="col-12">
-
-      <div class="alert alert-light mt-4" role="alert">
-        <div class="d-flex align-items-center mb-2"><span class="alert-title"><i class="mdi mdi-alert-box me-2 fs-5"></i>Hinweise</span></div>
-        <ul>
-          <li>Grosse Formate verursachen bei der Verteilung zusätzlichen Aufwand in der Logistik.<br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Deshalb erheben wir für die Verteilung einen <strong>pauschalen Zuschlag pro 1'000 Flyer.</strong></li>
-          <li>Flyer Druck wird separat offeriert und wird in dieser Berechnung nicht berücksichtigt.
-            <br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Die aufgeführten Zuschläge gelten <strong>nur für die Verteilung - nicht für den Druck.</strong>
-            <br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Sie erhalten für den Druck eine <strong>separate Offerte per Mail.</strong>
-          </li>
-        </ul>
-      </div>
-
-      <fieldset>
-        <legend><span>Flyer Format</span></legend>
-        <div class="choice-card-group">
-          <button type="button" class="choice-card"
-                  [class.active]="druckFormat === 'A6'" (click)="druckFormat = 'A6'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-invoice-text card-icon"></i>
-            <span class="card-content"><span class="card-title">A6</span><span class="card-description">Kein Zuschlag</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="druckFormat === 'A5'" (click)="druckFormat = 'A5'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-invoice-text card-icon"></i>
-            <span class="card-content"><span class="card-title">A5</span><span class="card-description">Kein Zuschlag</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="druckFormat === 'A4'" (click)="druckFormat = 'A4'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-invoice-text card-icon"></i>
-            <span class="card-content"><span class="card-title">A4</span><span class="card-description">+ CHF 30 / 1'000 Flyer</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="druckFormat === 'A3'" (click)="druckFormat = 'A3'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-invoice-text card-icon"></i>
-            <span class="card-content"><span class="card-title">A3</span><span class="card-description">+ CHF 50 / 1'000 Flyer</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="druckFormat === 'DIN-Lang'" (click)="druckFormat = 'DIN-Lang'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-invoice-text card-icon"></i>
-            <span class="card-content"><span class="card-title">DIN Lang</span><span class="card-description">+ CHF 20 / 1'000 Flyer</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="druckFormat === 'anderes'" (click)="druckFormat = 'anderes'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-invoice-text card-icon"></i>
-            <span class="card-content"><span class="card-title">Anderes Format</span><span class="card-description">Wird separat offeriert</span></span>
-            <span class="card-indicator"></span>
-          </button>
-        </div>
-      </fieldset>
-    </div>
-
-    <div class="col-12">
-      <fieldset>
-        <legend><span>Grammatur</span></legend>
-        <div class="choice-card-group">
-          <button type="button" class="choice-card"
-                  [class.active]="druckGrammatur === '90'" (click)="druckGrammatur = '90'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-format-line-weight card-icon"></i>
-            <span class="card-content"><span class="card-title">90g/m²</span><span class="card-description">Budget Flyer</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="druckGrammatur === '115'" (click)="druckGrammatur = '115'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-format-line-weight card-icon"></i>
-            <span class="card-content"><span class="card-title">115g/m²</span><span class="card-description">Standard Flyer</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="druckGrammatur === '130'" (click)="druckGrammatur = '130'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-format-line-weight card-icon"></i>
-            <span class="card-content"><span class="card-title">130g/m²</span><span class="card-description">Werbeflyer mit Anspruch</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="druckGrammatur === '170'" (click)="druckGrammatur = '170'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-format-line-weight card-icon"></i>
-            <span class="card-content"><span class="card-title">170g/m²</span><span class="card-description">Für längere Haltbarkeit</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="druckGrammatur === '250'" (click)="druckGrammatur = '250'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-format-line-weight card-icon"></i>
-            <span class="card-content"><span class="card-title">250g/m²</span><span class="card-description">Stabil & hochwertig</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="druckGrammatur === '300'" (click)="druckGrammatur = '300'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-format-line-weight card-icon"></i>
-            <span class="card-content"><span class="card-title">300g/m²</span><span class="card-description">Exklusive premium Karten</span></span>
-            <span class="card-indicator"></span>
-          </button>
-        </div>
-      </fieldset>
-    </div>
-
-
-    <div class="col-12">
-      <fieldset>
-        <legend><span>Druckart</span></legend>
-        <div class="choice-card-group">
-          <button type="button" class="choice-card"
-                  [class.active]="druckArt === 'einseitig'" (click)="druckArt = 'einseitig'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-book-open-blank-variant card-icon"></i>
-            <span class="card-content"><span class="card-title">Einseitig</span><span class="card-description">Vorne bedruckt</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="druckArt === 'zweiseitig'" (click)="druckArt = 'zweiseitig'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-book-open-blank-variant-outline card-icon"></i>
-            <span class="card-content"><span class="card-title">Zweiseitig</span><span class="card-description">Vorne und Hinten bedruckt</span></span>
-            <span class="card-indicator"></span>
-          </button>
-        </div>
-      </fieldset>
-    </div>
-
-    <div class="col-12">
-      <fieldset>
-        <legend><span>Ausführung</span></legend>
-        <div class="choice-card-group">
-          <button type="button" class="choice-card"
-                  [class.active]="druckAusfuehrung === 'glaenzend'" (click)="druckAusfuehrung = 'glaenzend'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-creation card-icon"></i>
-            <span class="card-content"><span class="card-title">Glänzend gestrichen</span><span class="card-description">Farbstark mit Glanz</span></span>
-            <span class="card-indicator"></span>
-          </button>
-          <button type="button" class="choice-card"
-                  [class.active]="druckAusfuehrung === 'matt'" (click)="druckAusfuehrung = 'matt'; onPrintServiceDetailChange()">
-            <i class="mdi mdi-star-four-points card-icon"></i>
-            <span class="card-content"><span class="card-title">Matt gestrichen</span><span class="card-description">Matt & edel</span></span>
-            <span class="card-indicator"></span>
-          </button>
-        </div>
-      </fieldset>
-    </div>
-
-    <div class="row">
-      <div class="col-12">
-        <fieldset>
-          <legend><span>Auflage & Reserve</span></legend>
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label for="druckAuflage" class="form-label">Auflage</label>
-              <input type="number" class="form-control" id="druckAuflage" name="druckAuflage" [(ngModel)]="druckAuflage" (ngModelChange)="onDruckAuflageChange()" placeholder="z.B. 5000" min="1">
-              <small class="form-text text-muted">Wird automatisch aus Verteilgebiet berechnet.</small>
-            </div>
-            <div class="col-md-6 mb-3">
-              <label for="druckReserve" class="form-label">Zusätzliche Flyer Reserve</label>
-              <input type="number" class="form-control" id="druckReserve" name="druckReserve" [(ngModel)]="druckReserve" (ngModelChange)="onSelectionChange()" step="100" min="0">
-            </div>
-          </div>
-        </fieldset>
-      </div>
-    </div>
+  <div class="alert alert-light mt-0" role="alert">
+    <div class="d-flex align-items-center mb-2"><span class="alert-title"><i class="mdi mdi-alert-box me-2 fs-5"></i>Hinweise</span></div>
+    <ul>
+      <li>Grosse Formate verursachen bei der Verteilung zusätzlichen Aufwand in der Logistik.<br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Deshalb erheben wir für die Verteilung einen <strong>pauschalen Zuschlag pro 1'000 Flyer.</strong></li>
+      <li>Flyer Druck wird separat offeriert und wird in dieser Berechnung nicht berücksichtigt.
+        <br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Die aufgeführten Zuschläge gelten <strong>nur für die Verteilung - nicht für den Druck.</strong>
+        <br><i class="mdi mdi-arrow-right-thin"></i>&nbsp;Sie erhalten für den Druck eine <strong>separate Offerte per Mail.</strong>
+      </li>
+    </ul>
   </div>
+
+  <fieldset class="mt-3">
+    <legend><span>Flyer Format (Druckservice)</span></legend>
+    <div class="choice-card-group">
+      <button type="button" class="choice-card" [class.active]="druckFormat === 'A6'" (click)="druckFormat = 'A6'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-invoice-text card-icon"></i><span class="card-content"><span class="card-title">A6</span><span class="card-description">Kein Zuschlag</span></span><span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckFormat === 'A5'" (click)="druckFormat = 'A5'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-invoice-text card-icon"></i><span class="card-content"><span class="card-title">A5</span><span class="card-description">Kein Zuschlag</span></span><span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckFormat === 'A4'" (click)="druckFormat = 'A4'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-invoice-text card-icon"></i><span class="card-content"><span class="card-title">A4</span><span class="card-description">+ CHF 30 / 1'000 Flyer</span></span><span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckFormat === 'A3'" (click)="druckFormat = 'A3'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-invoice-text card-icon"></i><span class="card-content"><span class="card-title">A3</span><span class="card-description">+ CHF 50 / 1'000 Flyer</span></span><span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckFormat === 'DIN-Lang'" (click)="druckFormat = 'DIN-Lang'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-invoice-text card-icon"></i><span class="card-content"><span class="card-title">DIN Lang</span><span class="card-description">+ CHF 20 / 1'000 Flyer</span></span><span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckFormat === 'anderes'" (click)="druckFormat = 'anderes'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-invoice-text card-icon"></i><span class="card-content"><span class="card-title">Anderes Format</span><span class="card-description">Wird separat offeriert</span></span><span class="card-indicator"></span>
+      </button>
+    </div>
+  </fieldset>
+
+  <fieldset class="mt-3">
+    <legend><span>Grammatur</span></legend>
+    <div class="choice-card-group">
+      <button type="button" class="choice-card" [class.active]="druckGrammatur === '90'" (click)="druckGrammatur = '90'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-format-line-weight card-icon"></i><span class="card-content"><span class="card-title">90g/m²</span><span class="card-description">Budget Flyer</span></span><span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckGrammatur === '115'" (click)="druckGrammatur = '115'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-format-line-weight card-icon"></i><span class="card-content"><span class="card-title">115g/m²</span><span class="card-description">Standard Flyer</span></span><span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckGrammatur === '130'" (click)="druckGrammatur = '130'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-format-line-weight card-icon"></i><span class="card-content"><span class="card-title">130g/m²</span><span class="card-description">Werbeflyer mit Anspruch</span></span><span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckGrammatur === '170'" (click)="druckGrammatur = '170'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-format-line-weight card-icon"></i><span class="card-content"><span class="card-title">170g/m²</span><span class="card-description">Für längere Haltbarkeit</span></span><span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckGrammatur === '250'" (click)="druckGrammatur = '250'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-format-line-weight card-icon"></i><span class="card-content"><span class="card-title">250g/m²</span><span class="card-description">Stabil & hochwertig</span></span><span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckGrammatur === '300'" (click)="druckGrammatur = '300'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-format-line-weight card-icon"></i><span class="card-content"><span class="card-title">300g/m²</span><span class="card-description">Exklusive premium Karten</span></span><span class="card-indicator"></span>
+      </button>
+    </div>
+  </fieldset>
+
+  <fieldset class="mt-3">
+    <legend><span>Druckart</span></legend>
+    <div class="choice-card-group">
+      <button type="button" class="choice-card" [class.active]="druckArt === 'einseitig'" (click)="druckArt = 'einseitig'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-book-open-blank-variant card-icon"></i><span class="card-content"><span class="card-title">Einseitig</span><span class="card-description">Vorne bedruckt</span></span><span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckArt === 'zweiseitig'" (click)="druckArt = 'zweiseitig'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-book-open-blank-variant-outline card-icon"></i><span class="card-content"><span class="card-title">Zweiseitig</span><span class="card-description">Vorne und Hinten bedruckt</span></span><span class="card-indicator"></span>
+      </button>
+    </div>
+  </fieldset>
+
+  <fieldset class="mt-3">
+    <legend><span>Ausführung</span></legend>
+    <div class="choice-card-group">
+      <button type="button" class="choice-card" [class.active]="druckAusfuehrung === 'glaenzend'" (click)="druckAusfuehrung = 'glaenzend'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-creation card-icon"></i><span class="card-content"><span class="card-title">Glänzend gestrichen</span><span class="card-description">Farbstark mit Glanz</span></span><span class="card-indicator"></span>
+      </button>
+      <button type="button" class="choice-card" [class.active]="druckAusfuehrung === 'matt'" (click)="druckAusfuehrung = 'matt'; onPrintServiceDetailChange()">
+        <i class="mdi mdi-star-four-points card-icon"></i><span class="card-content"><span class="card-title">Matt gestrichen</span><span class="card-description">Matt & edel</span></span><span class="card-indicator"></span>
+      </button>
+    </div>
+  </fieldset>
+
+  <fieldset class="mt-3">
+    <legend><span>Auflage & Reserve</span></legend>
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <label for="druckAuflage" class="form-label">Auflage</label>
+        <input type="number" class="form-control" id="druckAuflage" name="druckAuflage" [(ngModel)]="druckAuflage" (ngModelChange)="onDruckAuflageChange()" placeholder="z.B. 5000" min="1">
+        <small class="form-text text-muted">Wird automatisch aus Verteilgebiet berechnet.</small>
+      </div>
+      <div class="col-md-6 mb-3">
+        <label for="druckReserve" class="form-label">Zusätzliche Flyer Reserve</label>
+        <input type="number" class="form-control" id="druckReserve" name="druckReserve" [(ngModel)]="druckReserve" (ngModelChange)="onSelectionChange()" step="100" min="0">
+      </div>
+    </div>
+  </fieldset>
+</div>
+
+
+<!-- Validierungs-Feedback (Beispiel) -->
+<div *ngIf="currentStatus === 'pending' && (selectedDesignPackage && selectedPrintOption)" class="alert alert-warning mt-3 small">
+  Bitte füllen Sie alle erforderlichen Felder für die gewählte Druck/Anlieferoption aus.
 </div>
