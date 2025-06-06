@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnInit, OnDestroy, ChangeDetectorRef, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule, DecimalPipe, CurrencyPipe } from '@angular/common';
 import { ValidationStatus } from '../offer-process/offer-process.component';
 import { SelectionService } from '../../services/selection.service';
@@ -25,8 +25,8 @@ export interface DisplayCostItem {
   styleUrls: ['./calculator.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CalculatorComponent implements OnInit, OnDestroy {
-  @Input() zielgruppe: ZielgruppeOption = 'Alle Haushalte'; // <- DAS MUSS DEKLARIERT SEIN!
+export class CalculatorComponent implements OnInit, OnDestroy, OnChanges {
+  @Input() zielgruppe: ZielgruppeOption = 'Alle Haushalte';
   @Input() activeStep: number = 1;
   @Input() currentStepValidationStatus: ValidationStatus = 'pending';
 
@@ -60,6 +60,15 @@ export class CalculatorComponent implements OnInit, OnDestroy {
 
   public fahrzeugGpsApplicable: boolean = false;
   public fahrzeugGpsPrice: number = 0;
+
+  // MWST/Total
+  public mwstProzent = 8.1;
+  public get mwstBetrag(): number {
+    return Math.round((this.overallTotalPrice * this.mwstProzent) ) / 100;
+  }
+  public get gesamtTotal(): number {
+    return this.overallTotalPrice + this.mwstBetrag;
+  }
 
   private destroy$ = new Subject<void>();
   private prices: AppPrices | null = null;
@@ -132,8 +141,11 @@ export class CalculatorComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  ngOnChanges(): void {
-    this.triggerRecalculation(); // Zielgruppe-Änderung
+  ngOnChanges(changes: SimpleChanges): void {
+    // Wenn zielgruppe sich ändert, neu berechnen!
+    if (changes['zielgruppe']) {
+      this.triggerRecalculation();
+    }
   }
 
   private triggerRecalculation(): void {
@@ -179,6 +191,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
 
     let aktuelleZwischensummeVerteilung = summeGrundverteilung;
 
+    // GPS Zuschlag
     this.fahrzeugGpsPrice = 0;
     this.fahrzeugGpsApplicable = false;
     if (this.selectedPlzEntries.length > 0) {
@@ -189,6 +202,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Format-Zuschlag
     this.zuschlagFormatAnzeige = null;
     this.zuschlagFormatPrice = 0;
     this.isAnderesFormatSelected = false;
@@ -207,6 +221,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Flyer Abholung
     this.flyerAbholungPrice = 0;
     this.flyerAbholungApplicable = false;
     if (this.currentAnlieferungOption === 'abholung') {
@@ -217,6 +232,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Express Zuschlag
     this.expressZuschlagPrice = 0;
     this.expressZuschlagApplicable = false;
     if (this.isExpressConfirmed) {
@@ -231,6 +247,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Mindestabnahme-Pauschale
     this.mindestAbnahmePauschalePrice = 0;
     this.mindestAbnahmePauschaleApplicable = false;
     if (aktuelleZwischensummeVerteilung > 0) {
@@ -249,6 +266,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
   }
 
   private recalculateOverallTotalPrice(): void {
+    // Design kommt immer dazu!
     this.overallTotalPrice = this.zwischensummeVerteilung + this.designPackagePrice;
     this.cdr.markForCheck();
   }

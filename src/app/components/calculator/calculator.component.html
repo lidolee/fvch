@@ -2,7 +2,7 @@
   <h3 class="calculator-title">Kostenübersicht</h3>
 
   <div class="cost-summary">
-
+    <!-- VERTEILUNG -->
     <div class="cost-group">
       <h4 class="cost-group-title"><span>Flyer Verteilung</span></h4>
       <div class="table-responsive" *ngIf="selectedPlzEntries.length > 0">
@@ -18,67 +18,65 @@
           <ng-container *ngFor="let item of distributionCostItems">
             <tr *ngIf="!item.isSurcharge">
               <td class="item-label">{{ item.label }}</td>
-              <td class="item-quantity text-end">{{ item.flyers | number:'1.0-0' }}</td>
-              <td class="item-subtotal text-end">{{ item.price | currency:' ':'symbol':'1.2-2' }}</td>
+              <td class="item-quantity text-end">{{ item.flyers | number:'1.0-0':'de-CH' }}</td>
+              <td class="item-subtotal text-end">{{ item.price | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
             </tr>
           </ng-container>
-
-          <tr *ngIf="fahrzeugGpsApplicable">
-            <td class="item-label">Fahrtkosten, Planung und GPS-Tracking</td>
+          <tr *ngIf="expressZuschlagApplicable">
+            <td class="item-label">Express Zuschlag 50%</td>
             <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">{{ fahrzeugGpsPrice | currency:' ':'symbol':'1.2-2' }}</td>
+            <td class="item-subtotal text-end">{{ expressZuschlagPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
-
+          <tr *ngIf="fahrzeugGpsApplicable">
+            <td class="item-label">Servicepauschale<sup>1</sup></td>
+            <td class="item-quantity text-end"></td>
+            <td class="item-subtotal text-end">{{ fahrzeugGpsPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+          </tr>
           <tr *ngIf="zuschlagFormatAnzeige">
             <td class="item-label">
-              <span *ngIf="isAnderesFormatSelected">Zuschlag Anderes Format: Individuelle Berechnung<sup>1</sup></span>
+              <span *ngIf="isAnderesFormatSelected">Zuschlag Anderes Format<sup>2</sup></span>
               <span *ngIf="!isAnderesFormatSelected && zuschlagFormatAnzeige">Zuschlag Format {{ zuschlagFormatAnzeige === 'Lang' ? 'DIN Lang' : 'DIN ' + zuschlagFormatAnzeige }}</span>
             </td>
             <td class="item-quantity text-end">
-              <span *ngIf="!isAnderesFormatSelected">{{ totalFlyersForDistribution | number:'1.0-0' }}</span>
+              <span *ngIf="!isAnderesFormatSelected">{{ totalFlyersForDistribution | number:'1.0-0':'de-CH' }}</span>
             </td>
             <td class="item-subtotal text-end">
               <span *ngIf="isAnderesFormatSelected">—</span>
-              <span *ngIf="!isAnderesFormatSelected">{{ zuschlagFormatPrice | currency:' ':'symbol':'1.2-2' }}</span>
+              <span *ngIf="!isAnderesFormatSelected">{{ zuschlagFormatPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</span>
             </td>
           </tr>
           <tr *ngIf="flyerAbholungApplicable">
             <td class="item-label">Flyer Abholung</td>
             <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">{{ flyerAbholungPrice | currency:' ':'symbol':'1.2-2' }}</td>
-          </tr>
-          <tr *ngIf="expressZuschlagApplicable">
-            <td class="item-label">Express Zuschlag 50%</td>
-            <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">{{ expressZuschlagPrice | currency:' ':'symbol':'1.2-2' }}</td>
+            <td class="item-subtotal text-end">{{ flyerAbholungPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
           <tr *ngIf="mindestAbnahmePauschaleApplicable">
-            <td class="item-label">Mindestabnahme Pauschale</td>
+            <td class="item-label">Ausgleich Kleinauftrag<sup>3</sup></td>
             <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">{{ mindestAbnahmePauschalePrice | currency:' ':'symbol':'1.2-2' }}</td>
+            <td class="item-subtotal text-end">{{ mindestAbnahmePauschalePrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
           </tbody>
           <tfoot>
           <tr class="table-light">
             <td colspan="2" class="fw-bold">Zwischensumme Verteilung</td>
-            <td class="text-end fw-bold">{{ zwischensummeVerteilung | currency:' ':'symbol':'1.2-2' }}</td>
+            <td class="text-end fw-bold">{{ zwischensummeVerteilung | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
           </tfoot>
         </table>
       </div>
-
       <div class="" *ngIf="selectedPlzEntries.length === 0">
         Noch keine Verteilgebiete oder Optionen ausgewählt.
       </div>
     </div>
 
+    <!-- DRUCK -->
     <div class="cost-group" *ngIf="selectedPrintOption === 'service'">
       <h4 class="cost-group-title"><span>Flyer Druck</span></h4>
       <div class="table-responsive">
         <table class="table calculation-table">
           <tbody>
           <tr>
-            <td>Wird separat offeriert - Individuelle Berechnung<sup>1</sup></td>
+            <td>Wird separat offeriert<sup>2</sup></td>
             <td class="text-end">—</td>
           </tr>
           </tbody>
@@ -86,6 +84,7 @@
       </div>
     </div>
 
+    <!-- DESIGN -->
     <div class="cost-group" *ngIf="selectedDesignPackageKey">
       <h4 class="cost-group-title"><span>Flyer Design</span></h4>
       <div class="table-responsive">
@@ -93,28 +92,40 @@
           <tbody>
           <tr>
             <td class="item-label">{{ selectedDesignPackageName }}</td>
-            <td class="item-subtotal text-end">{{ designPackagePrice | currency:' ':'symbol':'1.2-2' }}</td>
+            <td class="item-subtotal text-end">{{ designPackagePrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
           </tbody>
         </table>
       </div>
     </div>
-    <div class="cost-group text-muted small" *ngIf="!selectedDesignPackageKey">
-      Kein Designpaket ausgewählt oder eigenes Design wird angeliefert.
-    </div>
 
+    <!-- GESAMT -->
     <div class="cost-group total-summary mt-3 pt-3 border-top">
       <table class="table calculation-table">
         <tbody>
         <tr class="fs-5 fw-bold">
           <td>Total (provisorisch exkl. MWST)</td>
-          <td class="text-end">{{ overallTotalPrice | currency:' ':'symbol':'1.2-2' }}</td>
+          <td class="text-end">{{ overallTotalPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+        </tr>
+        <tr>
+          <td>MWST ({{ mwstProzent }}%)</td>
+          <td class="text-end">{{ mwstBetrag | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+        </tr>
+        <tr class="fs-5 fw-bold">
+          <td>Total inkl. MWST</td>
+          <td class="text-end">{{ gesamtTotal | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
         </tr>
         </tbody>
       </table>
     </div>
-    <div class="text-muted small mt-1">
-      1. Spezielle Formate und Druckaufträge erfordern eine manuelle Prüfung. Der genaue Preis wird Ihnen anschliessend per E-Mail mitgeteilt.
+
+    <div class="text-muted small my-4 hinweise-calculator">
+      <strong>Hinweise</strong><br>
+      <ol>
+        <li>Servicepauschale deckt Fahrtkosten, detaillierte Routenplanung und GPS-Tracking für Ihre Verteilung ab.</li>
+        <li>Spezielle Formate und Druckaufträge erfordern eine manuelle Prüfung. Der genaue Preis wird Ihnen anschliessend per E-Mail mitgeteilt</li>
+        <li>Der Ausgleich zum Mindestbestellwert von 400 CHF dient der Abdeckung von Fixkosten wie Planung, Logistik und Fahrkosten.</li>
+      </ol>
     </div>
 
   </div>
@@ -123,17 +134,14 @@
     <div *ngIf="activeStep === 1" class="d-grid">
       <button type="button" class="btn btn-lg btn-primary w-100" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>
     </div>
-
     <div *ngIf="activeStep === 2" class="d-flex justify-content-between">
       <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2" (click)="onRequestPrevious()">Zurück</button>
       <button type="button" class="btn btn-lg btn-primary w-50 ms-2" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>
     </div>
-
     <div *ngIf="activeStep === 3" class="d-flex justify-content-between">
       <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2" (click)="onRequestPrevious()">Zurück</button>
       <button type="button" class="btn btn-lg btn-success w-50 ms-2" (click)="onRequestSubmit()" [disabled]="currentStepValidationStatus !== 'valid'">Absenden</button>
     </div>
     <div *ngIf="activeStep === 3" class="secure-box text-center"><i class="mdi mdi-lock-check fs-4">&nbsp;</i>256-Bit TLS Verschlüsselte Übertragung</div>
   </div>
-
 </div>

@@ -32,6 +32,32 @@
       border-bottom: 1px solid $border-color;
     }
 
+    sup {
+      font-weight: normal;
+    }
+
+    .hinweise-calculator {
+      strong {
+        font-size: 14px;
+        @include font-headline();
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        font-weight: 900;
+        color: $gray-600;
+        padding-bottom: 8px;
+        display: inline-block;
+      }
+    }
+
+    ol {
+      padding-left: 16px;
+
+      li {
+        padding-left: 4px;
+        padding-bottom: 4px;
+      }
+    }
+
     .cost-summary {
       .cost-group {
         .cost-group-title {
