@@ -1,266 +1,99 @@
-import { Component, OnInit, Input, Output, EventEmitter, OnChanges, SimpleChanges, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy } from '@angular/core';
-import { CommonModule, CurrencyPipe, DecimalPipe } from '@angular/common';
-import { Subject } from 'rxjs';
-import { takeUntil, distinctUntilChanged } from 'rxjs/operators';
+import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ChangeDetectorRef } from '@angular/core';
+import { Subject, Observable } from 'rxjs';
+import { takeUntil, map, distinctUntilChanged } from 'rxjs/operators';
 import { OrderDataService } from '../../services/order-data.service';
-import {
-  ZielgruppeOption,
-  PlzSelectionDetail,
-  AllOrderDataState,
-  ProduktionDataState,
-  DesignPackageType,
-  FlyerFormatType,
-  PrintOptionType,
-  DesignPackageService,
-  VerteilzuschlagFormatKey,
-  AnlieferungOptionService
-} from '../../services/order-data.types';
-import { CalculatorService, AppPrices } from '../../services/calculator.service';
-import { ValidationStatus } from '../offer-process/offer-process.component';
-import { PlzEntry } from '../../services/plz-data.service';
-
-export interface CostItem {
-  label: string;
-  price: number;
-  flyers: number;
-  details?: string;
-}
-
-const deepCompare = (obj1: any, obj2: any): boolean => {
-  return JSON.stringify(obj1) === JSON.stringify(obj2);
-};
+import { KostenState, ZielgruppeOption } from '../../services/order-data.types';
+import { CommonModule } from '@angular/common';
+import { CalculatorService } from '../../services/calculator.service';
 
 @Component({
   selector: 'app-calculator',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, DecimalPipe],
+  imports: [CommonModule],
   templateUrl: './calculator.component.html',
-  styleUrls: ['./calculator.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [CurrencyPipe, DecimalPipe]
+  styleUrls: ['./calculator.component.scss']
 })
-export class CalculatorComponent implements OnInit, OnChanges, OnDestroy {
-  @Input() public zielgruppe: ZielgruppeOption = 'Alle Haushalte';
-  @Input() public activeStep: number = 1;
-  @Input() public currentStepValidationStatus: ValidationStatus = 'unchecked';
+export class CalculatorComponent implements OnInit, OnDestroy {
+  @Input() activeStep: number = 1;
 
-  @Output() public requestPreviousStep = new EventEmitter<void>();
-  @Output() public requestNextStep = new EventEmitter<void>();
-  @Output() public requestSubmit = new EventEmitter<void>();
+  private _currentStepIsValid: boolean = false;
+  @Input()
+  set currentStepIsValid(value: boolean) {
+    this._currentStepIsValid = value;
+    this.currentStepValidationStatus = value ? 'valid' : 'invalid';
+  }
+  get currentStepIsValid(): boolean {
+    return this._currentStepIsValid;
+  }
+  public currentStepValidationStatus: 'valid' | 'invalid' = 'invalid';
 
-  public selectedPlzEntries: PlzSelectionDetail[] = [];
-  public distributionCostItems: CostItem[] = [];
-  public expressZuschlagApplicable: boolean = false;
-  public expressZuschlagPrice: number = 0;
-  public fahrzeugGpsApplicable: boolean = false;
-  public fahrzeugGpsPrice: number = 0;
-  public zuschlagFormatAnzeige: string | null = null;
-  public isAnderesFormatSelected: boolean = false;
-  public totalFlyersForDistribution: number = 0;
-  public zuschlagFormatPrice: number = 0;
-  public flyerAbholungApplicable: boolean = false;
-  public flyerAbholungPrice: number = 0;
-  public mindestAbnahmePauschaleApplicable: boolean = false;
-  public mindestAbnahmePauschalePrice: number = 0;
-  public zwischensummeVerteilung: number = 0;
-  public selectedPrintOption: PrintOptionType | null = null;
-  public selectedDesignPackageKey: DesignPackageType | null = null;
-  public selectedDesignPackageName: string | null = null;
-  public designPackagePrice: number = 0;
-  public overallTotalPrice: number = 0;
-  public mwstProzent: number = 0;
-  public mwstBetrag: number = 0;
-  public gesamtTotal: number = 0;
+  @Input() zielgruppe: ZielgruppeOption | undefined;
+
+  @Output() requestNextStep = new EventEmitter<void>();
+  @Output() requestPreviousStep = new EventEmitter<void>();
+  @Output() requestSubmit = new EventEmitter<void>();
 
   private destroy$ = new Subject<void>();
-  private currentOrderData: AllOrderDataState | null = null;
-  private appPrices: AppPrices | null = null;
+
+  public kosten$: Observable<KostenState>;
+  public mindestAbnahmePauschalePrice: number = 0;
+
+  public zuschlagFormatAnzeige$: Observable<boolean>;
+  public mindestAbnahmePauschaleApplicable$: Observable<boolean>;
+
 
   constructor(
-    private orderDataService: OrderDataService,
-    private calculatorService: CalculatorService,
-    private cdr: ChangeDetectorRef
-  ) {}
+    public orderDataService: OrderDataService,
+    private cdr: ChangeDetectorRef,
+    private calculatorServiceInstance: CalculatorService
+  ) {
+    this.kosten$ = this.orderDataService.kosten$;
+
+    this.zuschlagFormatAnzeige$ = this.kosten$.pipe(
+      map(kosten => !!(kosten.zuschlagFormatAnzeigeText && kosten.zuschlagFormatAnzeigeText.length > 0)),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$)
+    );
+    this.mindestAbnahmePauschaleApplicable$ = this.kosten$.pipe(
+      map(kosten => !!(kosten.mindestbestellwertHinweis && kosten.mindestbestellwertHinweis.length > 0)),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$)
+    );
+  }
 
   ngOnInit(): void {
-    this.calculatorService.prices$.pipe(
-      takeUntil(this.destroy$)
-    ).subscribe(loadedPrices => {
-      if (loadedPrices) {
-        this.appPrices = loadedPrices;
-        this.mwstProzent = (this.appPrices.tax["vat-ch"] || 0) * 100;
-        if (this.currentOrderData) {
-          this.calculateAllCosts();
-          this.cdr.markForCheck();
+    this.kosten$.pipe(takeUntil(this.destroy$)).subscribe(kosten => {
+      if (kosten.mindestbestellwertHinweis && kosten.mindestbestellwert > 0) {
+        if (kosten.grandTotalCalculated < kosten.mindestbestellwert) {
+          const bruttoDifferenz = kosten.mindestbestellwert - kosten.grandTotalCalculated;
+          this.mindestAbnahmePauschalePrice = this.calculatorServiceInstance.roundCurrency(bruttoDifferenz);
+        } else {
+          this.mindestAbnahmePauschalePrice = 0;
         }
+      } else {
+        this.mindestAbnahmePauschalePrice = 0;
       }
-    });
-
-    this.orderDataService.getAllOrderDataObservable().pipe(
-      distinctUntilChanged(deepCompare),
-      takeUntil(this.destroy$)
-    ).subscribe(orderData => {
-      this.currentOrderData = orderData;
-      this.updatePropertiesFromOrderData(orderData);
-      if (this.appPrices) {
-        this.calculateAllCosts();
-        this.cdr.markForCheck();
-      }
+      this.cdr.markForCheck();
     });
   }
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (this.appPrices && this.currentOrderData) {
-      if (changes['zielgruppe'] || changes['activeStep'] || changes['currentStepValidationStatus']) {
-        this.updatePropertiesFromOrderData(this.currentOrderData);
-        this.calculateAllCosts();
-      }
+  public onRequestPrevious(): void {
+    this.requestPreviousStep.emit();
+  }
+
+  public onRequestNext(): void {
+    if (this.activeStep === 3) {
+      this.requestSubmit.emit();
+    } else {
+      this.requestNextStep.emit();
     }
+  }
+  public onRequestSubmit(): void {
+    this.requestSubmit.emit();
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
   }
-
-  private updatePropertiesFromOrderData(orderData: AllOrderDataState): void {
-    if (orderData.verteilgebiet) {
-      this.selectedPlzEntries = orderData.verteilgebiet.selectedPlzEntries || [];
-      this.totalFlyersForDistribution = orderData.verteilgebiet.totalFlyersCount || 0;
-      this.expressZuschlagApplicable = orderData.verteilgebiet.expressConfirmed;
-    } else {
-      this.selectedPlzEntries = [];
-      this.totalFlyersForDistribution = 0;
-      this.expressZuschlagApplicable = false;
-    }
-
-    const produktionState: ProduktionDataState | null = orderData.produktion;
-    if (produktionState) {
-      this.selectedPrintOption = produktionState.printOption;
-      this.selectedDesignPackageKey = produktionState.designPackage;
-    } else {
-      this.selectedPrintOption = null;
-      this.selectedDesignPackageKey = null;
-    }
-  }
-
-  private getDesignPackageName(packageKey: DesignPackageType | null): string | null {
-    if (!packageKey) return null;
-    switch (packageKey as DesignPackageService) {
-      case 'basis': return 'Basis Paket';
-      case 'plus': return 'Plus Paket';
-      case 'premium': return 'Premium Paket';
-      case 'eigenes': return 'Eigenes Design';
-      default: return null;
-    }
-  }
-
-  public calculateAllCosts(): void {
-    if (!this.appPrices || !this.currentOrderData) {
-      return;
-    }
-
-    this.distributionCostItems = [];
-    let grundkostenVerteilung = 0;
-
-    this.selectedPlzEntries.forEach(entry => {
-      const preisKategorie = entry.preisKategorie || 'A';
-      const efhPreisProTausend = this.appPrices!.distribution.efh[preisKategorie] || 0;
-      const mfhPreisProTausend = this.appPrices!.distribution.mfh[preisKategorie] || 0;
-      let flyersForCostItem = 0;
-      let costForThisEntry = 0;
-
-      if (this.zielgruppe === 'Alle Haushalte') {
-        flyersForCostItem = entry.anzahl;
-        const efhFlyers = entry.efh || 0;
-        const mfhFlyers = entry.mfh || 0;
-        costForThisEntry = (efhFlyers / 1000 * efhPreisProTausend) + (mfhFlyers / 1000 * mfhPreisProTausend);
-      } else if (this.zielgruppe === 'Ein- und Zweifamilienhäuser') {
-        flyersForCostItem = entry.selected_display_flyer_count;
-        costForThisEntry = (flyersForCostItem / 1000) * efhPreisProTausend;
-      } else if (this.zielgruppe === 'Mehrfamilienhäuser') {
-        flyersForCostItem = entry.selected_display_flyer_count;
-        costForThisEntry = (flyersForCostItem / 1000) * mfhPreisProTausend;
-      }
-      costForThisEntry = this.calculatorService.roundCurrency(costForThisEntry);
-      if (flyersForCostItem > 0) {
-        this.distributionCostItems.push({ label: `PLZ ${entry.plz4} ${entry.ort}`, price: costForThisEntry, flyers: flyersForCostItem });
-        grundkostenVerteilung += costForThisEntry;
-      }
-    });
-    grundkostenVerteilung = this.calculatorService.roundCurrency(grundkostenVerteilung);
-
-    const produktionState = this.currentOrderData.produktion;
-    let finalFlyerFormatForSurcharge: VerteilzuschlagFormatKey | null = null;
-    let rawFlyerFormat: FlyerFormatType | null = null;
-
-    if (produktionState.printOption === 'anliefern' && produktionState.anlieferDetails?.format) {
-      rawFlyerFormat = produktionState.anlieferDetails.format;
-    } else if (produktionState.printOption === 'service' && produktionState.printServiceDetails?.format) {
-      rawFlyerFormat = produktionState.printServiceDetails.format;
-    }
-
-    if (rawFlyerFormat === 'DIN-Lang') finalFlyerFormatForSurcharge = 'Lang';
-    else if (rawFlyerFormat === 'A4') finalFlyerFormatForSurcharge = 'A4';
-    else if (rawFlyerFormat === 'A3') finalFlyerFormatForSurcharge = 'A3';
-    else if (rawFlyerFormat === 'anderes') finalFlyerFormatForSurcharge = 'anderes';
-
-    const anlieferOption = produktionState.anlieferDetails?.anlieferung as AnlieferungOptionService | null;
-    const plzEntriesForService = this.selectedPlzEntries as PlzEntry[];
-
-    const surchargeResults = this.calculatorService.recalculateAllCostsLogic(
-      grundkostenVerteilung, this.totalFlyersForDistribution, finalFlyerFormatForSurcharge,
-      anlieferOption, this.expressZuschlagApplicable, plzEntriesForService, this.appPrices
-    );
-
-    this.fahrzeugGpsPrice = surchargeResults.gps;
-    this.zuschlagFormatPrice = surchargeResults.format;
-    this.flyerAbholungPrice = surchargeResults.abhol;
-    this.expressZuschlagPrice = surchargeResults.express;
-    let currentCalculatedDistributionTotal: number;
-    const basisMindestwert = this.appPrices.distribution.surcharges.mindestbestellwert;
-    const gpsKostenFuerMindestwert = this.appPrices.distribution.surcharges.fahrzeugGPS;
-    const effektiverMindestZielwert = (this.fahrzeugGpsPrice > 0) ? basisMindestwert + gpsKostenFuerMindestwert : basisMindestwert;
-    const summeOhneMindestzuschlag = grundkostenVerteilung + this.fahrzeugGpsPrice + this.zuschlagFormatPrice + this.flyerAbholungPrice + this.expressZuschlagPrice;
-
-    if (summeOhneMindestzuschlag < effektiverMindestZielwert) {
-      this.mindestAbnahmePauschalePrice = this.calculatorService.roundCurrency(effektiverMindestZielwert - summeOhneMindestzuschlag);
-      currentCalculatedDistributionTotal = effektiverMindestZielwert;
-    } else {
-      this.mindestAbnahmePauschalePrice = 0;
-      currentCalculatedDistributionTotal = summeOhneMindestzuschlag;
-    }
-    this.zwischensummeVerteilung = currentCalculatedDistributionTotal;
-    this.fahrzeugGpsApplicable = this.fahrzeugGpsPrice > 0;
-    this.flyerAbholungApplicable = this.flyerAbholungPrice > 0;
-    this.mindestAbnahmePauschaleApplicable = this.mindestAbnahmePauschalePrice > 0;
-
-    if (finalFlyerFormatForSurcharge && finalFlyerFormatForSurcharge !== 'anderes' && this.zuschlagFormatPrice > 0) {
-      this.zuschlagFormatAnzeige = finalFlyerFormatForSurcharge;
-      this.isAnderesFormatSelected = false;
-    } else if (finalFlyerFormatForSurcharge === 'anderes') {
-      this.zuschlagFormatAnzeige = 'Anderes';
-      this.isAnderesFormatSelected = true;
-    } else {
-      this.zuschlagFormatAnzeige = rawFlyerFormat;
-      this.isAnderesFormatSelected = false;
-    }
-
-    this.selectedDesignPackageName = this.getDesignPackageName(this.selectedDesignPackageKey);
-    if (this.selectedDesignPackageKey && this.appPrices.design) {
-      const designKey = this.selectedDesignPackageKey as keyof typeof this.appPrices.design;
-      this.designPackagePrice = this.appPrices.design[designKey] || 0;
-    } else {
-      this.designPackagePrice = 0;
-    }
-
-    this.overallTotalPrice = this.calculatorService.roundCurrency(this.zwischensummeVerteilung + this.designPackagePrice);
-    this.mwstBetrag = this.calculatorService.roundCurrency(this.overallTotalPrice * this.appPrices.tax["vat-ch"]);
-    this.gesamtTotal = this.calculatorService.roundCurrency(this.overallTotalPrice + this.mwstBetrag);
-    this.cdr.markForCheck();
-  }
-
-  public onRequestPrevious(): void { this.requestPreviousStep.emit(); }
-  public onRequestNext(): void { this.requestNextStep.emit(); }
-  public onRequestSubmit(): void { this.requestSubmit.emit(); }
 }

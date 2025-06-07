@@ -1,23 +1,23 @@
 import { Component, OnInit, OnDestroy, ViewChild, Output, EventEmitter, Inject, PLATFORM_ID, NgZone, ChangeDetectorRef, Input, OnChanges, SimpleChanges, ElementRef, ChangeDetectionStrategy, AfterViewInit } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Observable, Subject, firstValueFrom } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { Subject, firstValueFrom } from 'rxjs';
+import { takeUntil, map } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import { PlzDataService, PlzEntry } from '../../services/plz-data.service';
 import { SelectionService } from '../../services/selection.service';
 import { OrderDataService } from '../../services/order-data.service';
-import { ZielgruppeOption, PlzSelectionDetail } from '../../services/order-data.types';
+import { ZielgruppeOption, PlzSelectionDetail, VerteilgebietDataState } from '../../services/order-data.types';
 import { MapComponent, MapOptions } from '../map/map.component';
-import { SearchInputComponent, SimpleValidationStatus } from '../search-input/search-input.component';
+import { SearchInputComponent, SimpleValidationStatus as SearchInputValidationStatus } from '../search-input/search-input.component';
 import { PlzSelectionTableComponent } from '../plz-selection-table/plz-selection-table.component';
-import { ValidationStatus as OverallValidationStatusOfferProcess } from '../offer-process/offer-process.component';
 
 export interface TableHighlightEvent {
   plzId: string | null;
   highlight: boolean;
 }
 export type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
+export type DistributionStepValidationState = 'valid' | 'invalid' | 'pending';
 
 const COLUMN_HIGHLIGHT_DURATION = 1500;
 const DEFAULT_MAP_CENTER = { lat: 46.8182, lng: 8.2275 };
@@ -32,9 +32,11 @@ const DEFAULT_MAP_ZOOM = 8;
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, AfterViewInit {
-  @Input() public initialStadt: string | undefined;
-  @Input() public currentZielgruppe: ZielgruppeOption = 'Alle Haushalte';
-  @Output() public validationChange = new EventEmitter<OverallValidationStatusOfferProcess>();
+
+  @Input({transform: (value: string | null | undefined): string | undefined => (value === null ? undefined : value)})
+  public initialStadt: string | undefined;
+
+  @Output() public validationChange = new EventEmitter<DistributionStepValidationState>();
   @Output() public zielgruppeChange = new EventEmitter<ZielgruppeOption>();
 
   @ViewChild('searchInputComponent') public searchInputComponentRef!: SearchInputComponent;
@@ -43,12 +45,10 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
 
   private destroy$ = new Subject<void>();
   private activeProcessingStadt: string | undefined = undefined;
-
   public searchInputInitialTerm: string = '';
-  public searchInputStatus: SimpleValidationStatus = 'empty';
-  public selectedEntries: PlzSelectionDetail[] = [];
-  private selectedEntriesFromService$: Observable<PlzEntry[]>;
-
+  public searchInputStatus: SearchInputValidationStatus = 'empty';
+  public selectedEntriesForTable: PlzSelectionDetail[] = [];
+  public currentZielgruppeState: ZielgruppeOption = 'Alle Haushalte';
   public currentVerteilungTyp: VerteilungTypOption = 'Nach PLZ';
   public showPlzUiContainer: boolean = true;
   public showPerimeterUiContainer: boolean = false;
@@ -77,45 +77,67 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     private cdr: ChangeDetectorRef,
     private router: Router
   ) {
-    this.selectedEntriesFromService$ = this.selectionService.selectedEntries$;
     this.apiKeyConstant = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc';
     this.kmlPathConstant = 'assets/ch_plz.kml';
     this.mapConfig = {
-      initialCenter: DEFAULT_MAP_CENTER, initialZoom: DEFAULT_MAP_ZOOM,
+      initialCenter: DEFAULT_MAP_CENTER,
+      initialZoom: DEFAULT_MAP_ZOOM,
       defaultPolygonOptions: { strokeColor: "#0063D6", strokeOpacity: 0.1, strokeWeight: 1.5, fillColor: "#0063D6", fillOpacity: 0.05 },
       highlightedPolygonOptions: { strokeColor: "#0063D6", strokeOpacity: 0.6, strokeWeight: 2, fillColor: "#0063D6", fillOpacity: 0.3 },
       selectedPolygonOptions: { strokeColor: "#D60096", strokeOpacity: 0.8, strokeWeight: 2, fillColor: "#D60096", fillOpacity: 0.4 },
       selectedHighlightedPolygonOptions: { strokeColor: "#D60096", strokeOpacity: 0.9, strokeWeight: 2.5, fillColor: "#D60096", fillOpacity: 0.6 },
       typeaheadHoverPolygonOptions: { strokeColor: "#0063D6", strokeOpacity: 0.7, strokeWeight: 2, fillColor: "#0063D6", fillOpacity: 0.25 }
     };
+    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] Constructor - User: ${"lidolee"}`);
   }
 
   ngOnInit(): void {
-    this.expressSurchargeConfirmed = this.orderDataService.getCurrentExpressConfirmed();
-    const orderStartDate = this.orderDataService.getCurrentVerteilungStartdatum();
-    if (orderStartDate) this.verteilungStartdatum = orderStartDate;
-    this.initializeDates();
+    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] ngOnInit - User: ${"lidolee"}`);
+    this.orderDataService.verteilgebiet$.pipe(
+      takeUntil(this.destroy$),
+    ).subscribe(
+      (verteilgebiet: VerteilgebietDataState) => {
+        console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] orderDataService.verteilgebiet$ emitted:`, JSON.parse(JSON.stringify(verteilgebiet)));
+        this.expressSurchargeConfirmed = verteilgebiet.expressConfirmed;
 
-    this.selectedEntriesFromService$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((serviceEntries: PlzEntry[]) => {
-        this.mapSelectedPlzIds = serviceEntries.map(e => e.id);
-        this.transformServiceEntriesToLocalFormat(serviceEntries);
+        if (verteilgebiet.verteilungStartdatum) {
+          const orderStartDate = verteilgebiet.verteilungStartdatum;
+          if (orderStartDate && !isNaN(orderStartDate.getTime())) {
+            this.verteilungStartdatum = this.formatDateToYyyyMmDd(orderStartDate);
+          }
+        } else if (this.defaultStandardStartDate) {
+          this.verteilungStartdatum = this.formatDateToYyyyMmDd(this.defaultStandardStartDate);
+          this.orderDataService.updateVerteilungStartdatum(this.defaultStandardStartDate);
+        }
+
+        if (this.currentZielgruppeState !== verteilgebiet.zielgruppe) {
+          console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] Zielgruppe changed via OrderDataService from ${this.currentZielgruppeState} to ${verteilgebiet.zielgruppe}. Updating SelectionService.`);
+          this.currentZielgruppeState = verteilgebiet.zielgruppe;
+          this.selectionService.updateFlyerCountsForAudience(this.currentZielgruppeState);
+        }
+
+        this.selectedEntriesForTable = [...verteilgebiet.selectedPlzEntries];
+        this.mapSelectedPlzIds = this.selectedEntriesForTable.map(e => e.id);
+
         if (!this.mapZoomToPlzId && (!this.mapZoomToPlzIdList || this.mapZoomToPlzIdList.length === 0)) {
           this.mapZoomToPlzIdList = this.mapSelectedPlzIds.length > 0 ? [...this.mapSelectedPlzIds] : null;
         }
+
+        this.checkExpressSurcharge();
         this.updateAndEmitOverallValidationState();
         this.cdr.markForCheck();
-      });
+      }
+    );
 
-    if (this.initialStadt) {
-      this.processStadtnameFromUrl(this.initialStadt);
-    } else {
-      this.transformServiceEntriesToLocalFormat(this.selectionService.getSelectedEntries());
+    this.initializeDates();
+
+
+    if (this.initialStadt && !this.activeProcessingStadt) {
+      console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] initialStadt provided on init: ${this.initialStadt}. Processing...`);
+      this.processStadtnameFromInput(this.initialStadt);
     }
 
     Promise.resolve().then(() => {
-      this.selectionService.updateFlyerCountsForAudience(this.currentZielgruppe);
       this.updateOrderDataServiceExpressStatus();
       this.updateAndEmitOverallValidationState();
     });
@@ -123,65 +145,206 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
 
   ngOnDestroy(): void {
     this.destroy$.next(); this.destroy$.complete();
+    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] ngOnDestroy - User: ${"lidolee"}`);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['initialStadt']) {
-      const newStadt = changes['initialStadt'].currentValue;
-      const effectiveNewStadt = (newStadt && typeof newStadt === 'string' && newStadt.trim() !== '' && newStadt.toLowerCase() !== 'undefined') ? decodeURIComponent(newStadt.trim()) : undefined;
-      if (this.activeProcessingStadt !== effectiveNewStadt) {
-        this.activeProcessingStadt = effectiveNewStadt;
-        if (effectiveNewStadt) {
-          this._processAndSelectLocation(effectiveNewStadt, true);
-        } else {
-          this.selectionService.clearEntries(); this.mapZoomToPlzId = null; this.mapZoomToPlzIdList = null;
-          this.searchInputInitialTerm = ''; this.updateAndEmitOverallValidationState();
+    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] ngOnChanges called:`, changes);
+    if (changes['initialStadt'] && changes['initialStadt'].currentValue !== changes['initialStadt'].previousValue) {
+      const newStadt = changes['initialStadt'].currentValue as string | undefined;
+      console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] initialStadt changed to: ${newStadt}. Previous: ${changes['initialStadt'].previousValue}`);
+      this.processStadtnameFromInput(newStadt);
+    }
+  }
+
+  private processStadtnameFromInput(stadtName: string | undefined): void {
+    const effectiveStadt = (stadtName && stadtName.trim() !== '' && stadtName.toLowerCase() !== 'undefined')
+      ? decodeURIComponent(stadtName.trim())
+      : undefined;
+
+
+    if (this.activeProcessingStadt === effectiveStadt) {
+      console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] processStadtnameFromInput: Stadt ${effectiveStadt} is already being processed or is the same. Skipping.`);
+      return;
+    }
+    this.activeProcessingStadt = effectiveStadt;
+
+    if (effectiveStadt) {
+      console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] Processing stadt from input: ${effectiveStadt}`);
+      this._processAndSelectLocation(effectiveStadt, true).then(() => {});
+    } else {
+      console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] initialStadt is effectively empty. Clearing selection.`);
+      this.selectionService.clearEntries();
+      this.mapZoomToPlzId = null; this.mapZoomToPlzIdList = null;
+      this.searchInputInitialTerm = '';
+      this.updateAndEmitOverallValidationState();
+    }
+  }
+
+  ngAfterViewInit(): void {
+    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] ngAfterViewInit - User: ${"lidolee"}`);
+  }
+
+  private initializeDates(): void {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const minStartDate = new Date(today);
+    minStartDate.setUTCDate(today.getUTCDate() + 1);
+    this.minVerteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
+    this.defaultStandardStartDate = this.addWorkingDays(new Date(today), 3);
+    let initialDateToSet: Date | null = null;
+    const currentServiceDate$ = this.orderDataService.state$.pipe(map(s => s.verteilgebiet.verteilungStartdatum));
+
+    firstValueFrom(currentServiceDate$).then(serviceDate => {
+      if (serviceDate && !isNaN(serviceDate.getTime())) {
+        if (serviceDate >= minStartDate) {
+          initialDateToSet = serviceDate;
+        }
+      }
+
+      if (!initialDateToSet) {
+        initialDateToSet = new Date(this.defaultStandardStartDate);
+      }
+      if (initialDateToSet < minStartDate) {
+        initialDateToSet = new Date(minStartDate);
+      }
+      this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialDateToSet);
+      if (!serviceDate || serviceDate.getTime() !== initialDateToSet.getTime()) {
+        this.orderDataService.updateVerteilungStartdatum(initialDateToSet);
+      }
+      this.checkExpressSurcharge();
+      this.cdr.markForCheck();
+    });
+  }
+
+  private formatDateToYyyyMmDd(d: Date): string {
+    if (!d || isNaN(d.getTime())) return '';
+    return `${d.getUTCFullYear()}-${('0' + (d.getUTCMonth() + 1)).slice(-2)}-${('0' + d.getUTCDate()).slice(-2)}`;
+  }
+
+  public getFormattedDefaultStandardDateForDisplay(): string {
+    if (!this.defaultStandardStartDate || isNaN(this.defaultStandardStartDate.getTime())) return '';
+    return `${('0' + this.defaultStandardStartDate.getUTCDate()).slice(-2)}.${('0' + (this.defaultStandardStartDate.getUTCMonth() + 1)).slice(-2)}.${this.defaultStandardStartDate.getUTCFullYear()}`;
+  }
+
+  private parseYyyyMmDdToDate(s: string): Date | null {
+    if (!s) return null;
+    const p = s.split('-');
+    if (p.length === 3) {
+      const y = parseInt(p[0], 10);
+      const m = parseInt(p[1], 10) - 1;
+      const d = parseInt(p[2], 10);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        const dt = new Date(Date.UTC(y, m, d));
+        if (dt.getUTCFullYear() === y && dt.getUTCMonth() === m && dt.getUTCDate() === d) {
+          return dt;
         }
       }
     }
-    if (changes['currentZielgruppe'] && !changes['currentZielgruppe'].firstChange) {
-      this.selectionService.updateFlyerCountsForAudience(this.currentZielgruppe);
-      this.transformServiceEntriesToLocalFormat(this.selectionService.getSelectedEntries());
-      this.highlightFlyerMaxColumnAndEmitValidation();
-    }
+    return null;
   }
 
-  ngAfterViewInit(): void {}
-
-  private transformServiceEntriesToLocalFormat(serviceEntries: PlzEntry[]): void {
-    let gesamtAnzahlFlyer = 0;
-    this.selectedEntries = serviceEntries.map(entry => {
-      let anzahlFuerDiesePlz: number;
-      switch (this.currentZielgruppe) {
-        case 'Alle Haushalte': anzahlFuerDiesePlz = entry.all || 0; break;
-        case 'Ein- und Zweifamilienhäuser': anzahlFuerDiesePlz = entry.efh || 0; break;
-        case 'Mehrfamilienhäuser': anzahlFuerDiesePlz = entry.mfh || 0; break;
-        default: anzahlFuerDiesePlz = entry.all || 0;
+  private addWorkingDays(baseDate: Date, daysToAdd: number): Date {
+    let currentDate = new Date(baseDate.getTime());
+    let addedDays = 0;
+    while (addedDays < daysToAdd) {
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+      const dayOfWeek = currentDate.getUTCDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        addedDays++;
       }
-      gesamtAnzahlFlyer += anzahlFuerDiesePlz;
-      const existingDetail = this.selectedEntries.find(se => se.id === entry.id);
+    }
+    return currentDate;
+  }
 
-      return {
-        id: entry.id, plz6: entry.plz6, plz4: entry.plz4, ort: entry.ort, kt: entry.kt,
-        preisKategorie: entry.preisKategorie, all: entry.all, efh: entry.efh, mfh: entry.mfh,
-        anzahl: anzahlFuerDiesePlz,
-        selected_display_flyer_count: existingDetail?.is_manual_count ? (existingDetail.selected_display_flyer_count) : anzahlFuerDiesePlz,
-        is_manual_count: existingDetail?.is_manual_count || false,
-        zielgruppe: this.currentZielgruppe
-      };
-    });
-    this.orderDataService.updateSelectedPlzDetails(this.selectedEntries);
-    this.orderDataService.updateTotalFlyersCount(gesamtAnzahlFlyer);
+  public onStartDateChange(): void {
+    this.expressSurchargeConfirmed = false;
+    let selectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
+    const minDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
+
+    if (!minDate) {
+      console.error(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] minVerteilungStartdatum is not set!`);
+      this.showExpressSurcharge = false;
+      this.updateOrderDataServiceExpressStatus();
+      this.updateAndEmitOverallValidationState();
+      this.cdr.markForCheck();
+      return;
+    }
+
+    if (!selectedDate || selectedDate < minDate) {
+      selectedDate = new Date(minDate);
+      this.verteilungStartdatum = this.formatDateToYyyyMmDd(selectedDate);
+    }
+
+    this.orderDataService.updateVerteilungStartdatum(selectedDate);
+    this.checkExpressSurcharge();
+    this.updateOrderDataServiceExpressStatus();
+    this.updateAndEmitOverallValidationState();
     this.cdr.markForCheck();
   }
 
-  public async _processAndSelectLocation(locationName: string, isFromUrl: boolean): Promise<void> {
-    if (!locationName || locationName.trim() === '') return;
+  private checkExpressSurcharge(): void {
+    if (!this.verteilungStartdatum || !this.defaultStandardStartDate) {
+      if (this.showExpressSurcharge) { this.showExpressSurcharge = false; this.cdr.markForCheck(); }
+      return;
+    }
+    const selectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
+    const minAllowedDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
+
+    if (!selectedDate || isNaN(selectedDate.getTime()) ||
+      !minAllowedDate || isNaN(minAllowedDate.getTime()) ||
+      isNaN(this.defaultStandardStartDate.getTime())) {
+      if (this.showExpressSurcharge) { this.showExpressSurcharge = false; this.cdr.markForCheck(); }
+      return;
+    }
+
+    const needsExpress = selectedDate < this.defaultStandardStartDate && selectedDate >= minAllowedDate;
+    const newShowExpressFlag = needsExpress && !this.expressSurchargeConfirmed;
+
+    if (this.showExpressSurcharge !== newShowExpressFlag) {
+      this.showExpressSurcharge = newShowExpressFlag;
+      this.cdr.markForCheck();
+    }
+  }
+
+  public avoidExpressSurcharge(): void {
+    this.expressSurchargeConfirmed = false;
+    if (this.defaultStandardStartDate) {
+      this.verteilungStartdatum = this.formatDateToYyyyMmDd(this.defaultStandardStartDate);
+      this.onStartDateChange();
+    } else {
+      console.error(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] defaultStandardStartDate not set for avoidExpressSurcharge`);
+      this.cdr.markForCheck();
+    }
+  }
+
+  public confirmExpressSurcharge(): void {
+    this.expressSurchargeConfirmed = true;
+    this.showExpressSurcharge = false;
+    this.updateOrderDataServiceExpressStatus();
+    this.updateAndEmitOverallValidationState();
+    this.cdr.markForCheck();
+  }
+
+  private updateOrderDataServiceExpressStatus(): void {
+    this.orderDataService.updateExpressConfirmed(this.expressSurchargeConfirmed);
+  }
+
+  public async _processAndSelectLocation(locationName: string, isFromUrlOrInitial: boolean): Promise<void> {
+    if (!locationName || locationName.trim() === '') {
+      this.activeProcessingStadt = undefined;
+      return;
+    }
     this.mapIsLoading = true; this.cdr.markForCheck();
     const dataReady = await this.plzDataService.ensureDataReady();
-    if (!dataReady) { this.mapIsLoading = false; this.updateAndEmitOverallValidationState(); this.cdr.markForCheck(); return; }
-    if (isFromUrl || this.activeProcessingStadt !== locationName) { this.selectionService.clearEntries(); this.mapZoomToPlzId = null; this.mapZoomToPlzIdList = null; }
-    this.activeProcessingStadt = locationName;
+    if (!dataReady) { this.mapIsLoading = false; this.updateAndEmitOverallValidationState(); this.cdr.markForCheck(); this.activeProcessingStadt = undefined; return; }
+
+    if (isFromUrlOrInitial) {
+      this.selectionService.clearEntries();
+      this.mapZoomToPlzId = null;
+      this.mapZoomToPlzIdList = null;
+    }
+
     let termToUse = locationName; let plzToSelect: PlzEntry[] = [];
     try {
       const matches = await firstValueFrom(this.plzDataService.fetchTypeaheadSuggestions(locationName).pipe(takeUntil(this.destroy$)));
@@ -190,120 +353,227 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
         if (!target) target = matches.find(m => m.isGroupHeader);
         if (!target) target = matches.find(m => !m.isGroupHeader && this.plzDataService.normalizeStringForSearch(m.ort) === this.plzDataService.normalizeStringForSearch(locationName));
         if (!target && (matches[0].isGroupHeader || matches.length === 1)) target = matches[0];
+
         if (target) {
           termToUse = target.ort || (target.plz4 ? target.plz4.toString() : locationName);
-          if (target.isGroupHeader && target.ort && target.kt) plzToSelect = await firstValueFrom(this.plzDataService.getEntriesByOrtAndKanton(target.ort, target.kt).pipe(takeUntil(this.destroy$)));
-          else if (!target.isGroupHeader && target.id) { const single = await firstValueFrom(this.plzDataService.getEntryById(target.id).pipe(takeUntil(this.destroy$))); if (single) plzToSelect = [single]; else plzToSelect = [{ ...target } as PlzEntry]; }
+          if (target.isGroupHeader && target.ort && target.kt) {
+            plzToSelect = await firstValueFrom(this.plzDataService.getEntriesByOrtAndKanton(target.ort, target.kt).pipe(takeUntil(this.destroy$)));
+          } else if (!target.isGroupHeader && target.id) {
+            const single = await firstValueFrom(this.plzDataService.getEntryById(target.id).pipe(takeUntil(this.destroy$)));
+            if (single) plzToSelect = [single];
+            else plzToSelect = [{ ...target } as PlzEntry];
+          }
         }
       }
       this.searchInputInitialTerm = termToUse;
-      if (plzToSelect.length > 0) this.selectionService.addMultipleEntries(plzToSelect, this.currentZielgruppe);
-    } catch (e) { this.searchInputInitialTerm = locationName; }
+      if (plzToSelect.length > 0) this.selectionService.addMultipleEntries(plzToSelect, this.currentZielgruppeState);
+    } catch (e) { console.error(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] Error in _processAndSelectLocation: `, e); this.searchInputInitialTerm = locationName; }
     finally {
       this.mapIsLoading = false;
       this.updateAndEmitOverallValidationState();
       if (isPlatformBrowser(this.platformId)) {
-        this.ngZone.onStable.pipe(takeUntil(this.destroy$)).subscribe(() => {
+        firstValueFrom(this.ngZone.onStable.pipe(takeUntil(this.destroy$))).then(() => {
           if (this.searchInputComponentRef?.blurInput) this.searchInputComponentRef.blurInput();
-          if (isFromUrl || plzToSelect.length > 0) setTimeout(() => this.scrollToMapView(), 250);
+          if (isFromUrlOrInitial || plzToSelect.length > 0) setTimeout(() => this.scrollToMapView(), 250);
         });
       }
       this.cdr.markForCheck();
     }
   }
-  private processStadtnameFromUrl(s: string): void { this._processAndSelectLocation(s, true); }
-  public selectCityAndFetchPlz(s: string): void { this._processAndSelectLocation(s, false); }
-  private initializeDates(): void {
-    const today = new Date(); today.setUTCHours(0,0,0,0); const minStart = new Date(today); minStart.setUTCDate(today.getUTCDate() + 1);
-    this.minVerteilungStartdatum = this.formatDateToYyyyMmDd(minStart);
-    this.defaultStandardStartDate = this.addWorkingDays(new Date(today), 3);
-    let initial = new Date(this.defaultStandardStartDate);
-    if (this.verteilungStartdatum) { const preselected = this.parseYyyyMmDdToDate(this.verteilungStartdatum); if (preselected && preselected >= minStart) initial = preselected; }
-    if (initial < minStart) initial = new Date(minStart);
-    this.verteilungStartdatum = this.formatDateToYyyyMmDd(initial);
-    this.orderDataService.updateVerteilungStartdatum(this.verteilungStartdatum); this.checkExpressSurcharge();
+
+  public selectCityAndFetchPlz(s: string): void {
+    this.activeProcessingStadt = s;
+    this._processAndSelectLocation(s, false);
   }
-  private formatDateToYyyyMmDd(d: Date): string { return `${d.getUTCFullYear()}-${('0'+(d.getUTCMonth()+1)).slice(-2)}-${('0'+d.getUTCDate()).slice(-2)}`; }
-  public getFormattedDefaultStandardDateForDisplay(): string { if (!this.defaultStandardStartDate) return ''; return `${('0'+this.defaultStandardStartDate.getUTCDate()).slice(-2)}.${('0'+(this.defaultStandardStartDate.getUTCMonth()+1)).slice(-2)}.${this.defaultStandardStartDate.getUTCFullYear()}`; }
-  private parseYyyyMmDdToDate(s: string): Date|null { if(!s) return null; const p=s.split('-'); if(p.length===3){const y=parseInt(p[0]),m=parseInt(p[1])-1,d=parseInt(p[2]);if(!isNaN(y)&&!isNaN(m)&&!isNaN(d)){const dt=new Date(Date.UTC(y,m,d));if(dt.getUTCFullYear()===y&&dt.getUTCMonth()===m&&dt.getUTCDate()===d)return dt;}} return null;}
-  private addWorkingDays(base:Date,days:number):Date{let curr=new Date(base);let added=0;while(added<days){curr.setUTCDate(curr.getUTCDate()+1);const day=curr.getUTCDay();if(day!==0&&day!==6)added++;}return curr;}
-  public onStartDateChange(): void {
-    this.expressSurchargeConfirmed = false;
-    if (!this.verteilungStartdatum) { this.showExpressSurcharge = false; this.updateOrderDataServiceExpressStatus(); this.updateAndEmitOverallValidationState(); return; }
-    let selDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
-    const minDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
-    if (!minDate) { this.showExpressSurcharge = false; this.updateOrderDataServiceExpressStatus(); this.updateAndEmitOverallValidationState(); return; }
-    if (!selDate || selDate < minDate) this.verteilungStartdatum = this.formatDateToYyyyMmDd(minDate);
-    this.orderDataService.updateVerteilungStartdatum(this.verteilungStartdatum);
-    this.checkExpressSurcharge(); this.updateOrderDataServiceExpressStatus(); this.updateAndEmitOverallValidationState();
+
+  public onSearchInputEntriesSelected(e: PlzEntry[]): void {
+    if(e && e.length > 0) {
+      this.selectionService.addMultipleEntries(e, this.currentZielgruppeState);
+      if(isPlatformBrowser(this.platformId)) setTimeout(()=>this.scrollToMapView(),100);
+    }
   }
-  private checkExpressSurcharge(): void {
-    if (!this.verteilungStartdatum||!this.defaultStandardStartDate){if(this.showExpressSurcharge){this.showExpressSurcharge=false;this.cdr.markForCheck();}return;}
-    const sel=this.parseYyyyMmDdToDate(this.verteilungStartdatum); const minAllowed=this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
-    if(!sel||isNaN(sel.getTime())||!minAllowed||isNaN(minAllowed.getTime())||isNaN(this.defaultStandardStartDate.getTime())){if(this.showExpressSurcharge){this.showExpressSurcharge=false;this.cdr.markForCheck();}return;}
-    const needs=sel<this.defaultStandardStartDate&&sel>=minAllowed; const newShow=needs&&!this.expressSurchargeConfirmed;
-    if(this.showExpressSurcharge!==newShow){this.showExpressSurcharge=newShow;this.cdr.markForCheck();}
+  public onSearchInputTermChanged(term: string): void { }
+  public onSearchInputStatusChanged(s: SearchInputValidationStatus): void {
+    if(this.searchInputStatus !== s) {
+      this.searchInputStatus = s;
+      this.updateAndEmitOverallValidationState();
+    }
   }
-  public avoidExpressSurcharge(): void { this.expressSurchargeConfirmed=false; if(this.defaultStandardStartDate){this.verteilungStartdatum=this.formatDateToYyyyMmDd(this.defaultStandardStartDate);this.onStartDateChange();}else this.cdr.markForCheck(); }
-  public confirmExpressSurcharge(): void { this.expressSurchargeConfirmed=true;this.showExpressSurcharge=false;this.updateOrderDataServiceExpressStatus();this.updateAndEmitOverallValidationState(); }
-  private updateOrderDataServiceExpressStatus(): void { this.orderDataService.updateExpressConfirmed(this.expressSurchargeConfirmed); }
-  public onSearchInputEntriesSelected(e: PlzEntry[]): void { if(e&&e.length>0){this.selectionService.addMultipleEntries(e,this.currentZielgruppe);if(isPlatformBrowser(this.platformId))setTimeout(()=>this.scrollToMapView(),100);}}
-  public onSearchInputTermChanged(term: string): void {}
-  public onSearchInputStatusChanged(s: SimpleValidationStatus): void { if(this.searchInputStatus!==s){this.searchInputStatus=s;this.updateAndEmitOverallValidationState();}}
-  public setVerteilungTyp(typ: VerteilungTypOption): void { if(this.currentVerteilungTyp!==typ){this.currentVerteilungTyp=typ;this.updateUiFlagsAndMapState();this.updateAndEmitOverallValidationState();}}
-  private updateUiFlagsAndMapState(): void { const op=this.showPlzUiContainer,opc=this.showPerimeterUiContainer;this.showPlzUiContainer=this.currentVerteilungTyp==='Nach PLZ';this.showPerimeterUiContainer=this.currentVerteilungTyp==='Nach Perimeter';if(op!==this.showPlzUiContainer||opc!==this.showPerimeterUiContainer)this.cdr.markForCheck();}
-  public setZielgruppe(zg: ZielgruppeOption): void { if (this.currentZielgruppe !== zg) { this.zielgruppeChange.emit(zg); }}
-  private highlightFlyerMaxColumnAndEmitValidation(): void { this.highlightFlyerMaxColumn=true;this.cdr.markForCheck();setTimeout(()=>{this.highlightFlyerMaxColumn=false;this.cdr.markForCheck();},COLUMN_HIGHLIGHT_DURATION);this.updateAndEmitOverallValidationState();}
-  public onPlzClickedOnMap(evt: {id:string;name?:string}): void { const id=evt.id;if(!id)return;const sel=this.selectionService.getSelectedEntries().some(e=>e.id===id);if(sel)this.selectionService.removeEntry(id);else{firstValueFrom(this.plzDataService.getEntryById(id).pipe(takeUntil(this.destroy$))).then(e=>{if(e&&this.selectionService.validateEntry(e))this.selectionService.addEntry(e,this.currentZielgruppe);else{const p6=id,p4=p6.substring(0,4),o=evt.name||'Unbekannt';const pe:PlzEntry={id,plz6:p6,plz4:p4,ort:o,kt:'N/A',preisKategorie:'A',all:0};if(this.selectionService.validateEntry(pe))this.selectionService.addEntry(pe,this.currentZielgruppe);}}).catch(err=>{});}}
-  public onMapLoadingStatusChanged(l: boolean): void { if(this.mapIsLoading!==l){this.mapIsLoading=l;this.updateAndEmitOverallValidationState();}}
-  public onMapReady(event: any): void {}
-  public clearPlzTable(): void { this.selectionService.clearEntries();this.mapZoomToPlzId=null;this.mapZoomToPlzIdList=null;this.activeProcessingStadt=undefined;this.searchInputInitialTerm='';this.router.navigate(['/']);if(isPlatformBrowser(this.platformId))setTimeout(()=>this.scrollToMapView(),100);}
-  public removePlzFromTable(entry: PlzSelectionDetail): void { this.selectionService.removeEntry(entry.id); }
-  public zoomToTableEntryOnMap(entry: PlzSelectionDetail): void { this.mapZoomToPlzId=entry.id;this.mapZoomToPlzIdList=null;this.cdr.markForCheck();if(isPlatformBrowser(this.platformId))setTimeout(()=>this.scrollToMapView(),100);setTimeout(()=>{this.mapZoomToPlzId=null;this.cdr.markForCheck();},250);}
-  public highlightPlacemarkOnMapFromTable(event: TableHighlightEvent): void { const nid=(event.highlight&&event.plzId)?event.plzId:null;if(this.mapTableHoverPlzId!==nid){this.mapTableHoverPlzId=nid;this.cdr.markForCheck();}}
-  public onPlzFlyerCountChanged(event: {entryId: string, newCount: number}): void { this.selectionService.updateFlyerCountForEntry(event.entryId, event.newCount, this.currentZielgruppe); }
-  public triggerKmlUpload(): void {this.kmlFileName='test.kml';this.updateAndEmitOverallValidationState();}
+
+  public setVerteilungTyp(typ: VerteilungTypOption): void {
+    if(this.currentVerteilungTyp !== typ) {
+      this.currentVerteilungTyp = typ;
+      this.updateUiFlagsAndMapState();
+      this.updateAndEmitOverallValidationState();
+    }
+  }
+  private updateUiFlagsAndMapState(): void {
+    const oldPlzUi = this.showPlzUiContainer;
+    const oldPerimeterUi = this.showPerimeterUiContainer;
+    this.showPlzUiContainer = this.currentVerteilungTyp === 'Nach PLZ';
+    this.showPerimeterUiContainer = this.currentVerteilungTyp === 'Nach Perimeter';
+    if(oldPlzUi !== this.showPlzUiContainer || oldPerimeterUi !== this.showPerimeterUiContainer) {
+      this.cdr.markForCheck();
+    }
+  }
+
+  public setZielgruppe(neueZielgruppe: ZielgruppeOption): void {
+    if (this.currentZielgruppeState !== neueZielgruppe) {
+      console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] User changed Zielgruppe in UI to: ${neueZielgruppe}`);
+      this.orderDataService.updateZielgruppe(neueZielgruppe);
+      this.zielgruppeChange.emit(neueZielgruppe);
+      this.highlightFlyerMaxColumnAndEmitValidation();
+    }
+  }
+
+  private highlightFlyerMaxColumnAndEmitValidation(): void {
+    this.highlightFlyerMaxColumn = true;
+    this.cdr.markForCheck();
+    setTimeout(() => {
+      this.highlightFlyerMaxColumn = false;
+      this.cdr.markForCheck();
+    }, COLUMN_HIGHLIGHT_DURATION);
+    this.updateAndEmitOverallValidationState();
+  }
+
+  public onPlzClickedOnMap(evt: {id: string; name?: string}): void {
+    const id = evt.id;
+    if(!id) return;
+    const isSelected = this.selectionService.getSelectedEntriesSnapshot().some(e => e.id === id);
+    if(isSelected) {
+      this.selectionService.removeEntry(id);
+    } else {
+      firstValueFrom(this.plzDataService.getEntryById(id).pipe(takeUntil(this.destroy$)))
+        .then(entry => {
+          if(entry && this.selectionService.validateEntry(entry)) {
+            this.selectionService.addEntry(entry, this.currentZielgruppeState);
+          } else {
+
+            const plz6 = id;
+            const plz4 = plz6.substring(0, 4);
+            const ort = evt.name || 'Unbekannt';
+            const fallbackEntry: PlzEntry = { id, plz6, plz4, ort, kt: 'N/A', preisKategorie: 'A', all: 0, efh: 0, mfh: 0 };
+            if(this.selectionService.validateEntry(fallbackEntry)) {
+              this.selectionService.addEntry(fallbackEntry, this.currentZielgruppeState);
+            }
+          }
+        }).catch(err => {
+        console.error(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] Error fetching PLZ by ID for map click:`, err);
+      });
+    }
+  }
+
+  public onMapLoadingStatusChanged(isLoading: boolean): void {
+    if(this.mapIsLoading !== isLoading) {
+      this.mapIsLoading = isLoading;
+      this.updateAndEmitOverallValidationState();
+    }
+  }
+  public onMapReady(event: any): void { }
+
+  public clearPlzTable(): void {
+    this.selectionService.clearEntries();
+    this.mapZoomToPlzId = null;
+    this.mapZoomToPlzIdList = null;
+    this.activeProcessingStadt = undefined;
+    this.searchInputInitialTerm = '';
+    if (isPlatformBrowser(this.platformId)) {
+
+      this.router.navigate(['/']);
+      setTimeout(()=>this.scrollToMapView(),100);
+    }
+    this.updateAndEmitOverallValidationState();
+  }
+
+  public removePlzFromTable(entry: PlzSelectionDetail): void {
+    this.selectionService.removeEntry(entry.id);
+  }
+  public zoomToTableEntryOnMap(entry: PlzSelectionDetail): void {
+    this.mapZoomToPlzId = entry.id;
+    this.mapZoomToPlzIdList = null;
+    this.cdr.markForCheck();
+    if(isPlatformBrowser(this.platformId)) setTimeout(()=>this.scrollToMapView(),100);
+    setTimeout(() => {
+      this.mapZoomToPlzId = null;
+      this.cdr.markForCheck();
+    }, 250);
+  }
+  public highlightPlacemarkOnMapFromTable(event: TableHighlightEvent): void {
+    const newHoverId = (event.highlight && event.plzId) ? event.plzId : null;
+    if(this.mapTableHoverPlzId !== newHoverId) {
+      this.mapTableHoverPlzId = newHoverId;
+      this.cdr.markForCheck();
+    }
+  }
+
+  public onPlzFlyerCountChanged(event: {entryId: string, newCount: number}): void {
+    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] onPlzFlyerCountChanged event received:`, event, "Current Zielgruppe for call:", this.currentZielgruppeState);
+    this.selectionService.updateFlyerCountForEntry(event.entryId, event.newCount, this.currentZielgruppeState);
+  }
+
+  public triggerKmlUpload(): void {
+    this.kmlFileName = 'test.kml';
+    this.updateAndEmitOverallValidationState();
+  }
 
   private updateAndEmitOverallValidationState(): void {
     const currentStatus = this.calculateOverallValidationStatus();
+
     this.ngZone.runOutsideAngular(() => {
       setTimeout(() => {
         this.ngZone.run(() => {
           this.validationChange.emit(currentStatus);
+          this.cdr.markForCheck();
         });
       }, 0);
     });
-    this.cdr.markForCheck();
   }
 
-  private calculateOverallValidationStatus():OverallValidationStatusOfferProcess{
-    const selE=this.selectionService.getSelectedEntries();
-    const hasSel=selE&&selE.length>0;
-    const pDate=this.parseYyyyMmDdToDate(this.verteilungStartdatum);
-    const dateOk=!!pDate&&!isNaN(pDate.getTime());
-    const expressOk=!this.isExpressSurchargeRelevant()||this.expressSurchargeConfirmed;
+  private calculateOverallValidationStatus(): DistributionStepValidationState {
+    const selectedServiceEntries = this.selectionService.getSelectedEntriesSnapshot();
+    const hasSelectedEntries = selectedServiceEntries && selectedServiceEntries.length > 0;
+    const parsedVerteilungStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
+    const isDateOk = !!parsedVerteilungStartDate && !isNaN(parsedVerteilungStartDate.getTime());
+    const isExpressOk = !this.isExpressSurchargeRelevant() || this.expressSurchargeConfirmed;
 
-    if(this.currentVerteilungTyp==='Nach PLZ'){
-      const searchOk=this.searchInputStatus==='valid'||this.searchInputStatus==='empty'||(!!this.activeProcessingStadt&&this.searchInputStatus!=='invalid');
-      if(hasSel&&dateOk&&expressOk&&searchOk)return'valid';
+    if (this.currentVerteilungTyp === 'Nach PLZ') {
+      const isSearchOk = this.searchInputStatus === 'valid' || this.searchInputStatus === 'empty' || (!!this.activeProcessingStadt && this.searchInputStatus !== 'invalid');
+      if (hasSelectedEntries && isDateOk && isExpressOk && isSearchOk) return 'valid';
     } else {
-      if(this.kmlFileName&&dateOk&&expressOk)return'valid';
-      return'invalid';
+      if (this.kmlFileName && isDateOk && isExpressOk) return 'valid';
+      return 'invalid';
     }
-    return'invalid';
+    return 'invalid';
   }
 
-  private isExpressSurchargeRelevant():boolean{
-    if(!this.verteilungStartdatum||!this.defaultStandardStartDate)return false;
-    const s=this.parseYyyyMmDdToDate(this.verteilungStartdatum);
-    const m=this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
-    if(!s||isNaN(s.getTime())||!m||isNaN(m.getTime())||isNaN(this.defaultStandardStartDate.getTime()))return false;
-    return s<this.defaultStandardStartDate&&s>=m;
+  private isExpressSurchargeRelevant(): boolean {
+    if (!this.verteilungStartdatum || !this.defaultStandardStartDate) return false;
+    const selectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
+    const minAllowedDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
+
+    if (!selectedDate || isNaN(selectedDate.getTime()) ||
+      !minAllowedDate || isNaN(minAllowedDate.getTime()) ||
+      isNaN(this.defaultStandardStartDate.getTime())) {
+      return false;
+    }
+    return selectedDate < this.defaultStandardStartDate && selectedDate >= minAllowedDate;
   }
 
   public triggerValidationDisplay(): void {
     this.updateAndEmitOverallValidationState();
   }
 
-  private scrollToMapView(): void { if(!isPlatformBrowser(this.platformId))return;this.ngZone.onStable.pipe(takeUntil(this.destroy$)).subscribe(()=>{if(!this.mapViewRef?.nativeElement)return;const el=this.mapViewRef.nativeElement;if(el.offsetParent===null||el.offsetWidth===0||el.offsetHeight===0)return;const off=90;const sy=window.pageYOffset+el.getBoundingClientRect().top;const tsp=sy-off;window.scrollTo({top:tsp,behavior:'smooth'});});}
+  private scrollToMapView(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    firstValueFrom(this.ngZone.onStable.pipe(takeUntil(this.destroy$))).then(() => {
+      if (!this.mapViewRef?.nativeElement) return;
+      const element = this.mapViewRef.nativeElement;
+
+      if (element.offsetParent === null || element.offsetWidth === 0 || element.offsetHeight === 0) return;
+      const headerOffset = 90;
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - headerOffset;
+      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+    });
+  }
 }

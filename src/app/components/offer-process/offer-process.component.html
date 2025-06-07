@@ -9,37 +9,44 @@
   <div class="row sheet-container">
     <main class="col-xl-7">
       <ul ngbNav #nav="ngbNav" [(activeId)]="activeStepId" (navChange)="onNavChange($event)" class="nav-tabs nav-fill nav-justified" role="tablist">
-        <li [ngbNavItem]="1" #step1NavItem>
-          <button ngbNavLink class="d-flex align-items-center justify-content-center"><span>1. Verteilung</span><i class="validation-icon mdi" [ngClass]="getValidationIconClass(1)"></i></button>
+        <li [ngbNavItem]="1">
+          <button ngbNavLink class="d-flex align-items-center justify-content-center">
+            <span>1. Verteilung</span>
+            <i class="validation-icon mdi" [ngClass]="getValidationIconClass(1)"></i>
+          </button>
           <ng-template ngbNavContent>
             <div>
               <app-distribution-step
-                [initialStadt]="initialStadtnameForDistribution"
-                (validationChange)="updateValidationStatus(1, $event)"
-                (zielgruppeChange)="onZielgruppeChange($event)"
-                [currentZielgruppe]="zielgruppe">
+                [initialStadt]="initialStadtUrlParam$ | async"
+              (validationChange)="onStepValidationChange('verteilgebiet', $event)"
+              (zielgruppeChange)="onZielgruppeUpdateFromStep($event)">
               </app-distribution-step>
             </div>
           </ng-template>
         </li>
-        <li [ngbNavItem]="2" #step2NavItem>
-          <button ngbNavLink class="d-flex align-items-center justify-content-center"><span>2. Produktion</span><i class="validation-icon mdi" [ngClass]="getValidationIconClass(2)"></i></button>
+        <li [ngbNavItem]="2">
+          <button ngbNavLink class="d-flex align-items-center justify-content-center">
+            <span>2. Produktion</span>
+            <i class="validation-icon mdi" [ngClass]="getValidationIconClass(2)"></i>
+          </button>
           <ng-template ngbNavContent>
             <div>
               <app-design-print-step
-                (validationChange)="updateValidationStatus(2, $event)">
+                (validationChange)="onStepValidationChange(2, $event)">
               </app-design-print-step>
             </div>
           </ng-template>
         </li>
-        <li [ngbNavItem]="3" #step3NavItem>
-          <button ngbNavLink class="d-flex align-items-center justify-content-center"><span>3. Absenden</span><i class="validation-icon mdi" [ngClass]="getValidationIconClass(3)"></i></button>
+        <li [ngbNavItem]="3">
+          <button ngbNavLink class="d-flex align-items-center justify-content-center">
+            <span>3. Absenden</span>
+            <i class="validation-icon mdi" [ngClass]="getValidationIconClass(3)"></i>
+          </button>
           <ng-template ngbNavContent>
             <div>
-              <app-summary-step
-                (validationChange)="updateValidationStatus(3, $event)"
-                (nextStepRequest)="navigateToStep(4)">
-              </app-summary-step>
+              <app-contact-data
+                (validationChange)="onStepValidationChange(3, $event)">
+              </app-contact-data>
             </div>
           </ng-template>
         </li>
@@ -50,7 +57,7 @@
       <app-calculator
         [zielgruppe]="zielgruppe"
         [activeStep]="activeStepId"
-        [currentStepValidationStatus]="stepValidationStatus[activeStepId]"
+        [currentStepIsValid]="calculatorCurrentStepIsValid"
         (requestPreviousStep)="onCalculatorPrevious()"
         (requestNextStep)="onCalculatorNext()"
         (requestSubmit)="onCalculatorSubmit()"

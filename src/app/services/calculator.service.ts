@@ -1,45 +1,33 @@
 import {Injectable} from '@angular/core';
 import {HttpClient, HttpErrorResponse} from '@angular/common/http';
 import {BehaviorSubject, Observable, of} from 'rxjs';
-import {catchError, filter, map, take, tap} from 'rxjs/operators';
-import {PlzEntry} from './plz-data.service';
-import {AnlieferungOptionService, DesignPackageService, VerteilzuschlagFormatKey} from './order-data.types';
+import {catchError, map, shareReplay} from 'rxjs/operators';
+import {
+  DesignPackageType, DesignPrices, VerteilzuschlagFormatKey, FlyerFormatType,
+  PlzSelectionDetail, ZielgruppeOption, PrintServiceDetails, DistributionCostItem
+} from './order-data.types'; // PlzEntry hier nicht mehr direkt benötigt
 
 const PRICES_JSON_PATH = 'assets/prices.json';
 
+export interface DistributionPriceCategory {
+  [category: string]: number; // Preis pro 1000
+}
 export interface DistributionPrices {
-  mfh: { [category: string]: number };
-  efh: { [category: string]: number };
-  perimeter?: { base: number };
-  verteilungZuschlagFormat: {
-    Lang?: number;
-    A4?: number;
-    A3?: number;
-    anderes?: string;
-  };
+  mfh: DistributionPriceCategory;
+  efh: DistributionPriceCategory;
+  verteilungZuschlagFormat: { [key in VerteilzuschlagFormatKey]?: number }; // Annahme: auch Preis pro 1000
   surcharges: {
     fahrzeugGPS: number;
     abholungFlyer: number;
-    express: number;
+    express: number; // Faktor
     mindestbestellwert: number;
   };
-}
-
-export interface DesignPrices {
-  basis: number;
-  plus: number;
-  premium: number;
-  eigenes: number;
-}
-
-export interface TaxSettings {
-  "vat-ch": number;
 }
 
 export interface AppPrices {
   distribution: DistributionPrices;
   design: DesignPrices;
-  tax: TaxSettings;
+  tax: { "vat-ch": number };
 }
 
 @Injectable({
@@ -47,196 +35,198 @@ export interface AppPrices {
 })
 export class CalculatorService {
   private pricesSubject = new BehaviorSubject<AppPrices | null>(null);
-  public prices$: Observable<AppPrices | null> = this.pricesSubject.asObservable();
-  private pricesLoadingAttempted = false;
+  public prices$: Observable<AppPrices | null> = this.pricesSubject.asObservable().pipe(
+    shareReplay(1)
+  );
 
   constructor(private http: HttpClient) {
-    this.loadPrices();
+    this.loadPrices().subscribe();
   }
 
-  public loadPrices(): void {
-    if (this.pricesLoadingAttempted && this.pricesSubject.getValue() !== null) {
-      return;
-    }
-    if (this.pricesLoadingAttempted && this.pricesSubject.getValue() === null) {
-      // Potenziell wichtig für Debugging, wenn Preise nicht geladen werden konnten
-      console.warn('[CalculatorService] loadPrices: Previous attempt to load prices failed. Retrying might be needed or error should be handled.');
-    }
-
-    this.pricesLoadingAttempted = true;
-
-    this.http.get<AppPrices>(PRICES_JSON_PATH).pipe(
-      tap(prices => {
+  private loadPrices(): Observable<AppPrices | null> {
+    return this.http.get<AppPrices>(PRICES_JSON_PATH).pipe(
+      map(prices => {
         this.pricesSubject.next(prices);
+        return prices;
       }),
       catchError((error: HttpErrorResponse) => {
-        console.error('[CalculatorService] loadPrices HTTP GET FAILED. Error:', error.message, 'Status:', error.status, 'URL:', error.url); // Gekürzt für Produktion, aber Error bleibt
+        console.error("Failed to load prices.json", error);
         this.pricesSubject.next(null);
-        return of(null); // Weiterhin null emittieren, um die App nicht zu brechen
+        return of(null);
       })
-    ).subscribe({
-      next: (prices) => {
-        if (!prices) {
-          console.warn('[CalculatorService] loadPrices: Subscription next handler. Prices are null (likely due to load failure).');
-        }
-      },
-      error: (err) => {
-        // Dieser Fehler sollte durch catchError abgefangen werden, aber falls nicht:
-        console.error('[CalculatorService] loadPrices: Subscription error handler.', err);
-      }
-      // complete-Handler kann entfernt werden, da er keine kritische Info liefert
-    });
+    );
   }
 
-  public getPricesObservable(): Observable<AppPrices | null> {
-    return this.prices$;
+  public getAppPrices(): Observable<AppPrices | null> {
+    return this.pricesSubject.getValue() ? of(this.pricesSubject.getValue()) : this.prices$;
   }
 
   public roundCurrency(value: number): number {
     return Math.round(value * 100) / 100;
   }
 
-  public getSurchargeValue(
-    surchargeName: keyof DistributionPrices['surcharges'],
-    prices: AppPrices | null
-  ): number {
-    if (!prices?.distribution?.surcharges) return 0;
-    return prices.distribution.surcharges[surchargeName];
+  public calculateDesignPackagePrice(packageType: DesignPackageType | null, designPrices: DesignPrices | null): number {
+    if (!packageType || !designPrices || !(packageType in designPrices)) {
+      return 0;
+    }
+    return designPrices[packageType as keyof DesignPrices] || 0;
   }
 
-  public getGpsSurcharge(prices: AppPrices): number {
-    return this.getSurchargeValue('fahrzeugGPS', prices);
+  public getDesignPackageName(packageType: DesignPackageType | null, designPrice: number): string {
+    if (!packageType) return 'Kein Designpaket';
+    switch(packageType) {
+      case 'basis': return 'Designpaket Basis';
+      case 'plus': return 'Designpaket Plus';
+      case 'premium': return 'Designpaket Premium';
+      case 'eigenes': return designPrice > 0 ? 'Eigenes Design (Prüfpauschale)' : 'Eigenes Design';
+      default: return 'Kein Designpaket';
+    }
   }
 
-  public getVerteilungZuschlagFormatPro1000(
-    format: VerteilzuschlagFormatKey,
-    prices: AppPrices
-  ): number {
-    if (!prices?.distribution?.verteilungZuschlagFormat || format === 'anderes') return 0;
-    const zuschlag = prices.distribution.verteilungZuschlagFormat[format as 'Lang' | 'A4' | 'A3'];
-    return typeof zuschlag === 'number' ? zuschlag : 0;
+  public calculatePrintServiceCost(printDetails: PrintServiceDetails | null): { name: string, cost: number } {
+    if (printDetails && printDetails.auflage > 0) {
+      return {
+        name: `Druckservice (${printDetails.format || 'N/A'}, ${printDetails.auflage} Stk.)`,
+        cost: 0
+      };
+    }
+    return { name: 'Kein Druckservice', cost: 0 };
   }
 
-  public getExpressSurchargeFactor(prices: AppPrices): number {
-    return prices.distribution?.surcharges?.express ?? 0;
-  }
+  public calculateVerteilzuschlag(format: FlyerFormatType | null, totalFlyers: number, appPrices: AppPrices | null): { price: number, key: VerteilzuschlagFormatKey | null, isAnderes: boolean, anzeigeText: string } {
+    const result = { price: 0, key: null as VerteilzuschlagFormatKey | null, isAnderes: false, anzeigeText: '' };
+    result.isAnderes = format === 'Anderes_Format' || format === 'anderes';
 
-  public getMinimumOrderValue(prices: AppPrices): number {
-    return prices.distribution?.surcharges?.mindestbestellwert ?? 0;
-  }
-
-  public getDesignPrice(
-    designPackage: DesignPackageService | null,
-    prices: AppPrices | null
-  ): Observable<number> {
-    if (prices && prices.design) {
-      if (designPackage === null || designPackage === 'eigenes') {
-        return of(0);
+    if (result.isAnderes || !format || !appPrices || !appPrices.distribution?.verteilungZuschlagFormat || totalFlyers <= 0) {
+      if (result.isAnderes) {
+        result.anzeigeText = "Formatzuschlag für Sonderformat (auf Anfrage)";
       }
-      const validPackageKey = designPackage as keyof DesignPrices;
-      if (prices.design.hasOwnProperty(validPackageKey)) {
-        return of(prices.design[validPackageKey] || 0);
-      }
-      // console.warn(`[CalculatorService] getDesignPrice: designPackage '${String(designPackage)}' not found in provided prices. Returning 0.`);
-      return of(0);
+      return result;
     }
 
-    return this.prices$.pipe(
-      filter((p): p is AppPrices => p !== null && p.design !== null),
-      map(loadedPrices => {
-        if (designPackage === null || designPackage === 'eigenes') {
-          return 0;
+    if (format === 'DIN-Lang' || format === 'DIN_Lang') result.key = 'Lang';
+    else if (format === 'A4') result.key = 'A4';
+    else if (format === 'A3') result.key = 'A3';
+
+    if (!result.key) return result;
+
+    const pricePer1000FlyersAddon = appPrices.distribution.verteilungZuschlagFormat[result.key] || 0;
+    result.price = this.roundCurrency((totalFlyers / 1000) * pricePer1000FlyersAddon);
+
+
+    if (result.price > 0) {
+      if (result.key === 'Lang') result.anzeigeText = 'Formatzuschlag DIN Lang';
+      else if (result.key === 'A4') result.anzeigeText = 'Formatzuschlag A4';
+      else if (result.key === 'A3') result.anzeigeText = 'Formatzuschlag A3';
+    } else if (result.isAnderes) {
+      result.anzeigeText = "Formatzuschlag für Sonderformat (auf Anfrage)";
+    }
+    return result;
+  }
+
+  public calculateDistributionCost(
+    selectedPlzEntries: PlzSelectionDetail[],
+    zielgruppe: ZielgruppeOption,
+    appPrices: AppPrices | null
+  ): { items: DistributionCostItem[], total: number } {
+    const distributionCostItems: DistributionCostItem[] = [];
+    let subTotalDistribution = 0;
+
+    if (!appPrices || !appPrices.distribution || !appPrices.distribution.mfh || !appPrices.distribution.efh || selectedPlzEntries.length === 0) {
+      return { items: [], total: 0 };
+    }
+
+    if (zielgruppe === 'Alle Haushalte') {
+      for (const entry of selectedPlzEntries) {
+        // Bei "Alle Haushalte" ist selected_display_flyer_count der Wert aus "all" und nicht editierbar.
+        // Dieser Wert muss proportional auf EFH und MFH Kosten aufgeteilt werden.
+        const totalFlyersForPlz = entry.selected_display_flyer_count || entry.anzahl || 0;
+        if (totalFlyersForPlz === 0) continue;
+
+        // Wichtig: entry.efh und entry.mfh sind hier die *Anzahl der Haushalte* aus den Stammdaten
+        const haushalteEFH = entry.efh || 0;
+        const haushalteMFH = entry.mfh || 0;
+        const haushalteGesamtOriginal = haushalteEFH + haushalteMFH; // Summe der ursprünglichen Haushaltszahlen
+
+        let kostenPlz = 0;
+        const preisKategorie = entry.preisKategorie || 'default'; // Fallback für Preiskategorie
+
+        if (haushalteGesamtOriginal > 0) {
+          // EFH-Anteil berechnen und Kosten dafür
+          if (haushalteEFH > 0 && appPrices.distribution.efh && appPrices.distribution.efh[preisKategorie]) {
+            const flyersAnteilEFH = totalFlyersForPlz * (haushalteEFH / haushalteGesamtOriginal);
+            const preisPro1000EFH = appPrices.distribution.efh[preisKategorie];
+            kostenPlz += this.roundCurrency((flyersAnteilEFH / 1000) * preisPro1000EFH);
+          }
+          // MFH-Anteil berechnen und Kosten dafür
+          if (haushalteMFH > 0 && appPrices.distribution.mfh && appPrices.distribution.mfh[preisKategorie]) {
+            const flyersAnteilMFH = totalFlyersForPlz * (haushalteMFH / haushalteGesamtOriginal);
+            const preisPro1000MFH = appPrices.distribution.mfh[preisKategorie];
+            kostenPlz += this.roundCurrency((flyersAnteilMFH / 1000) * preisPro1000MFH);
+          }
+        } else if (totalFlyersForPlz > 0) {
+          // Fallback, falls keine EFH/MFH Haushaltszahlen vorhanden sind (sollte nicht passieren bei "Alle Haushalte")
+          // Hier könnte man einen Durchschnittspreis nehmen oder den EFH-Preis als Default.
+          // Für jetzt nehmen wir den EFH-Preis als Notfall-Fallback.
+          const fallbackPreisPro1000 = appPrices.distribution.efh[preisKategorie] || 0;
+          kostenPlz = this.roundCurrency((totalFlyersForPlz / 1000) * fallbackPreisPro1000);
+          console.warn(`PLZ ${entry.plz4}: Zielgruppe "Alle Haushalte" aber keine EFH/MFH-Haushaltszahlen zur Aufteilung. Fallback-Preis (EFH) angewendet.`);
         }
-        const validPackageKey = designPackage as keyof DesignPrices;
-        if (loadedPrices.design.hasOwnProperty(validPackageKey)) {
-          return loadedPrices.design[validPackageKey] || 0;
+
+        if (totalFlyersForPlz > 0) {
+          distributionCostItems.push({
+            label: `Verteilung Alle (Kat. ${preisKategorie})`, // Angepasstes Label
+            plzCount: 1, // Pro Eintrag ist es 1 PLZ
+            flyers: totalFlyersForPlz,
+            pricePerFlyer: totalFlyersForPlz > 0 ? kostenPlz / totalFlyersForPlz : 0,
+            price: kostenPlz,
+            category: preisKategorie
+          });
+          subTotalDistribution += kostenPlz;
         }
-        // console.warn(`[CalculatorService] getDesignPrice: designPackage '${String(designPackage)}' not found in loaded prices. Returning 0.`);
-        return 0;
-      }),
-      catchError((err) => {
-        console.error('[CalculatorService] getDesignPrice: Error while getting design price from observable.', err);
-        return of(0);
-      }),
-      take(1)
-    );
-  }
+      }
+    } else { // Zielgruppe ist 'Mehrfamilienhäuser' oder 'Ein- und Zweifamilienhäuser'
+      const pricesConfig = zielgruppe === 'Mehrfamilienhäuser' ? appPrices.distribution.mfh : appPrices.distribution.efh;
+      if (!pricesConfig) {
+        console.error(`Keine Preiskonfiguration für Zielgruppe ${zielgruppe} gefunden.`);
+        return { items: [], total: 0 };
+      }
 
-  public calculateMinimumOrderSurcharge(currentDistributionTotal: number, prices: AppPrices): number {
-    const minimumValue = this.getMinimumOrderValue(prices);
-    if (minimumValue > 0 && currentDistributionTotal < minimumValue) {
-      return this.roundCurrency(minimumValue - currentDistributionTotal);
-    }
-    return 0;
-  }
+      const groupedByPreisKategorie = selectedPlzEntries.reduce((acc, entry) => {
+        const key = entry.preisKategorie || 'default';
+        if (!acc[key]) acc[key] = { flyers: 0, plzCount: 0, entries: [] };
+        // Hier ist selected_display_flyer_count der (ggf. manuell angepasste) Wert
+        acc[key].flyers += (entry.selected_display_flyer_count || entry.anzahl || 0);
+        acc[key].plzCount += 1;
+        acc[key].entries.push(entry);
+        return acc;
+      }, {} as { [key: string]: { flyers: number, plzCount: number, entries: PlzSelectionDetail[] } });
 
-  public recalculateAllCostsLogic(
-    grundkostenVerteilung: number,
-    totalFlyers: number,
-    finalFlyerFormat: VerteilzuschlagFormatKey | null,
-    anlieferOption: AnlieferungOptionService | null,
-    isExpress: boolean,
-    plzEntries: PlzEntry[],
-    prices: AppPrices
-  ): { total: number; gps: number; format: number; abhol: number; express: number; mind: number } {
-    let aktuelleZwischensummeVerteilung = grundkostenVerteilung;
-    let gpsPreis = 0;
-    let formatPreis = 0;
-    let abholPreis = 0;
-    let expressPreis = 0;
-    let mindestPreis = 0;
+      for (const kategorie in groupedByPreisKategorie) {
+        if (pricesConfig.hasOwnProperty(kategorie)) {
+          const data = groupedByPreisKategorie[kategorie];
+          const flyersInKategorie = data.flyers;
+          const pricePer1000Flyers = pricesConfig[kategorie];
+          const costForKategorie = this.roundCurrency((flyersInKategorie / 1000) * pricePer1000Flyers);
 
-    if (!prices) {
-      console.error("[CalculatorService] recalculateAllCostsLogic: AppPrices are null. Cannot perform calculations.");
-      return { total: 0, gps: 0, format: 0, abhol: 0, express: 0, mind: 0 };
-    }
-
-    if (plzEntries && plzEntries.length > 0) {
-      gpsPreis = this.getGpsSurcharge(prices);
-      aktuelleZwischensummeVerteilung += gpsPreis;
-    }
-
-    if (finalFlyerFormat && finalFlyerFormat !== 'anderes' && totalFlyers > 0) {
-      const zuschlagPro1000 = this.getVerteilungZuschlagFormatPro1000(finalFlyerFormat, prices);
-      if (zuschlagPro1000 > 0) {
-        formatPreis = this.roundCurrency((totalFlyers / 1000) * zuschlagPro1000);
-        aktuelleZwischensummeVerteilung += formatPreis;
+          if (flyersInKategorie > 0) {
+            distributionCostItems.push({
+              label: `Verteilung Kat. ${kategorie}`,
+              plzCount: data.plzCount,
+              flyers: flyersInKategorie,
+              pricePerFlyer: pricePer1000Flyers / 1000,
+              price: costForKategorie,
+              category: kategorie
+            });
+            subTotalDistribution += costForKategorie;
+          }
+        }
       }
     }
+    return { items: distributionCostItems, total: this.roundCurrency(subTotalDistribution) };
+  }
 
-    if (anlieferOption === 'abholung') {
-      abholPreis = this.getSurchargeValue('abholungFlyer', prices);
-      aktuelleZwischensummeVerteilung += abholPreis;
-    }
-
-    aktuelleZwischensummeVerteilung = this.roundCurrency(aktuelleZwischensummeVerteilung);
-
-    const basisFuerExpress = this.roundCurrency(grundkostenVerteilung + formatPreis);
-    if (isExpress && basisFuerExpress > 0) {
-      const expressFactor = this.getExpressSurchargeFactor(prices);
-      if (expressFactor > 0) {
-        expressPreis = this.roundCurrency(basisFuerExpress * expressFactor);
-        aktuelleZwischensummeVerteilung = this.roundCurrency(aktuelleZwischensummeVerteilung + expressPreis);
-      }
-    }
-
-    const summeVorMindestwert = aktuelleZwischensummeVerteilung;
-    const mindestbestellwert = this.getMinimumOrderValue(prices);
-
-    if (summeVorMindestwert < mindestbestellwert) {
-      mindestPreis = this.roundCurrency(mindestbestellwert - summeVorMindestwert);
-      aktuelleZwischensummeVerteilung = mindestbestellwert;
-    } else {
-      mindestPreis = 0;
-    }
-
-    return {
-      total: this.roundCurrency(aktuelleZwischensummeVerteilung),
-      gps: gpsPreis,
-      format: formatPreis,
-      abhol: abholPreis,
-      express: expressPreis,
-      mind: mindestPreis
-    };
+  public getSurcharge(surchargeKey: keyof DistributionPrices['surcharges'], appPrices: AppPrices | null): number {
+    return appPrices?.distribution?.surcharges?.[surchargeKey] || 0;
   }
 }

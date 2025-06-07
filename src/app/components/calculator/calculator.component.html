@@ -1,11 +1,11 @@
-<div class="calculator-wrapper">
+<div class="calculator-wrapper" *ngIf="kosten$ | async as kosten">
   <h3 class="calculator-title">Kostenübersicht</h3>
 
   <div class="cost-summary">
     <!-- VERTEILUNG -->
     <div class="cost-group">
       <h4 class="cost-group-title"><span>Flyer Verteilung</span></h4>
-      <div class="table-responsive" *ngIf="selectedPlzEntries.length > 0">
+      <div class="table-responsive" *ngIf="kosten.selectedPlzEntriesLength > 0">
         <table class="table calculation-table">
           <thead>
           <tr>
@@ -15,42 +15,42 @@
           </tr>
           </thead>
           <tbody>
-          <ng-container *ngFor="let item of distributionCostItems">
+          <ng-container *ngFor="let item of kosten.distributionCostItems">
             <tr>
               <td class="item-label">{{ item.label }}</td>
               <td class="item-quantity text-end">{{ item.flyers | number:'1.0-0':'de-CH' }}</td>
               <td class="item-subtotal text-end">{{ item.price | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
             </tr>
           </ng-container>
-          <tr *ngIf="expressZuschlagApplicable">
+          <tr *ngIf="kosten.expressZuschlagApplicable">
             <td class="item-label">Express Zuschlag 50%</td>
             <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">{{ expressZuschlagPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+            <td class="item-subtotal text-end">{{ kosten.expressZuschlagPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
-          <tr *ngIf="fahrzeugGpsApplicable">
+          <tr *ngIf="kosten.fahrzeugGpsApplicable">
             <td class="item-label">Servicepauschale<sup>1</sup></td>
             <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">{{ fahrzeugGpsPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+            <td class="item-subtotal text-end">{{ kosten.fahrzeugGpsPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
-          <tr *ngIf="zuschlagFormatAnzeige">
+          <tr *ngIf="zuschlagFormatAnzeige$ | async">
             <td class="item-label">
-              <span *ngIf="isAnderesFormatSelected">Zuschlag Anderes Format<sup>2</sup></span>
-              <span *ngIf="!isAnderesFormatSelected && zuschlagFormatAnzeige">Zuschlag Format {{ zuschlagFormatAnzeige === 'Lang' ? 'DIN Lang' : 'DIN ' + zuschlagFormatAnzeige }}</span>
+              <span *ngIf="kosten.isAnderesFormatSelected">Zuschlag Anderes Format<sup>2</sup></span>
+              <span *ngIf="!kosten.isAnderesFormatSelected && kosten.zuschlagFormatAnzeigeText">{{ kosten.zuschlagFormatAnzeigeText }}</span>
             </td>
             <td class="item-quantity text-end">
-              <span *ngIf="!isAnderesFormatSelected">{{ totalFlyersForDistribution | number:'1.0-0':'de-CH' }}</span>
+              <span *ngIf="!kosten.isAnderesFormatSelected">{{ kosten.totalFlyersForDistribution | number:'1.0-0':'de-CH' }}</span>
             </td>
             <td class="item-subtotal text-end">
-              <span *ngIf="isAnderesFormatSelected">—</span>
-              <span *ngIf="!isAnderesFormatSelected">{{ zuschlagFormatPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</span>
+              <span *ngIf="kosten.isAnderesFormatSelected">—</span>
+              <span *ngIf="!kosten.isAnderesFormatSelected">{{ kosten.zuschlagFormatPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</span>
             </td>
           </tr>
-          <tr *ngIf="flyerAbholungApplicable">
+          <tr *ngIf="kosten.flyerAbholungApplicable">
             <td class="item-label">Flyer Abholung</td>
             <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">{{ flyerAbholungPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+            <td class="item-subtotal text-end">{{ kosten.flyerAbholungPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
-          <tr *ngIf="mindestAbnahmePauschaleApplicable">
+          <tr *ngIf="mindestAbnahmePauschaleApplicable$ | async">
             <td class="item-label">Ausgleich Kleinauftrag<sup>3</sup></td>
             <td class="item-quantity text-end"></td>
             <td class="item-subtotal text-end">{{ mindestAbnahmePauschalePrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
@@ -59,25 +59,28 @@
           <tfoot>
           <tr class="table-light">
             <td colspan="2" class="fw-bold">Zwischensumme Verteilung</td>
-            <td class="text-end fw-bold">{{ zwischensummeVerteilung | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+            <td class="text-end fw-bold">{{ kosten.subTotalDistribution | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
           </tfoot>
         </table>
       </div>
-      <div class="" *ngIf="selectedPlzEntries.length === 0">
+      <div *ngIf="kosten.selectedPlzEntriesLength === 0">
         Noch keine Verteilgebiete oder Optionen ausgewählt.
       </div>
     </div>
 
     <!-- DRUCK -->
-    <div class="cost-group" *ngIf="selectedPrintOption === 'service'">
+    <div class="cost-group" *ngIf="kosten.selectedPrintOption === 'service'">
       <h4 class="cost-group-title"><span>Flyer Druck</span></h4>
       <div class="table-responsive">
         <table class="table calculation-table">
           <tbody>
           <tr>
-            <td>Wird separat offeriert<sup>2</sup></td>
-            <td class="text-end">—</td>
+            <td>{{ kosten.printServiceName }}</td>
+            <td class="text-end">
+              <span *ngIf="kosten.printServiceCost > 0">{{ kosten.printServiceCost | currency:' ':'symbol':'1.2-2':'de-CH' }}</span>
+              <span *ngIf="kosten.printServiceCost === 0">Wird separat offeriert<sup>2</sup></span>
+            </td>
           </tr>
           </tbody>
         </table>
@@ -85,14 +88,14 @@
     </div>
 
     <!-- DESIGN -->
-    <div class="cost-group" *ngIf="selectedDesignPackageKey">
+    <div class="cost-group" *ngIf="kosten.selectedDesignPackageName && kosten.selectedDesignPackageName !== 'Kein Designpaket'">
       <h4 class="cost-group-title"><span>Flyer Design</span></h4>
       <div class="table-responsive">
         <table class="table calculation-table">
           <tbody>
           <tr>
-            <td class="item-label">{{ selectedDesignPackageName }}</td>
-            <td class="item-subtotal text-end">{{ designPackagePrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+            <td class="item-label">{{ kosten.selectedDesignPackageName }}</td>
+            <td class="item-subtotal text-end">{{ kosten.designPackageCost | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
           </tbody>
         </table>
@@ -101,22 +104,25 @@
 
     <!-- GESAMT -->
     <div class="cost-group total-summary mt-3 pt-3 border-top">
-      <table class="table calculation-table">
-        <tbody>
-        <tr class="fs-5 fw-bold">
-          <td>Total (provisorisch exkl. MWST)</td>
-          <td class="text-end">{{ overallTotalPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
-        </tr>
-        <tr>
-          <td>MWST ({{ mwstProzent }}%)</td>
-          <td class="text-end">{{ mwstBetrag | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
-        </tr>
-        <tr class="fs-5 fw-bold">
-          <td>Total inkl. MWST</td>
-          <td class="text-end">{{ gesamtTotal | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
-        </tr>
-        </tbody>
-      </table>
+      <div class="table-responsive">
+        <table class="table calculation-table">
+          <tbody>
+          <tr class="fs-5">
+            <td>Total (provisorisch exkl. MWST)</td>
+            <td class="text-end fw-bold">{{ kosten.subTotalNetto | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+          </tr>
+          <tr>
+            <td>MWST ({{ kosten.taxRatePercent }}%)</td>
+            <td class="text-end">{{ kosten.taxAmount | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+          </tr>
+          <tr class="fs-4 fw-bolder">
+            <td>Total inkl. MWST</td>
+            <td class="text-end">{{ kosten.grandTotalCalculated | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+      <p *ngIf="kosten.mindestbestellwertHinweis" class="text-muted small mt-2">{{ kosten.mindestbestellwertHinweis }}</p>
     </div>
 
     <div class="text-muted small my-4 hinweise-calculator">
@@ -124,7 +130,7 @@
       <ol>
         <li>Servicepauschale deckt Fahrtkosten, detaillierte Routenplanung und GPS-Tracking für Ihre Verteilung ab.</li>
         <li>Spezielle Formate und Druckaufträge erfordern eine manuelle Prüfung. Der genaue Preis wird Ihnen anschliessend per E-Mail mitgeteilt</li>
-        <li>Der Ausgleich zum Mindestbestellwert von 250 CHF dient der Abdeckung von Fixkosten wie Planung, Logistik und Fahrkosten.</li>
+        <li>Der Ausgleich zum Mindestbestellwert von CHF {{ kosten.mindestbestellwert | currency:'':'symbol':'1.0-0':'de-CH' }} dient der Abdeckung von Fixkosten wie Planung, Logistik und Fahrkosten.</li>
       </ol>
     </div>
 

@@ -1,105 +1,85 @@
-import { Component, OnInit, Output, EventEmitter, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, OnDestroy, Output, EventEmitter, ChangeDetectorRef } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
-import { takeUntil, debounceTime } from 'rxjs/operators';
+import { takeUntil, startWith } from 'rxjs/operators';
 import { OrderDataService } from '../../services/order-data.service';
 import { KontaktDetailsState } from '../../services/order-data.types';
-import { ValidationStatus } from '../offer-process/offer-process.component';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-contact-data',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './contact-data.component.html',
-  styleUrls: ['./contact-data.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  styleUrls: ['./contact-data.component.scss']
 })
 export class ContactDataComponent implements OnInit, OnDestroy {
-  @Output() public validationChange = new EventEmitter<ValidationStatus>();
-  @Output() public submitRequest = new EventEmitter<void>();
 
-  public form!: FormGroup;
-  public salutations: string[] = ['Herr', 'Frau', 'Firma'];
-  public currentStatus: ValidationStatus = 'unchecked';
+  @Output() validationChange = new EventEmitter<boolean>();
+  public form: FormGroup;
   private destroy$ = new Subject<void>();
+  public salutations: string[] = ['Keine Angabe', 'Herr', 'Frau', 'Firma'];
 
   constructor(
     private fb: FormBuilder,
     private orderDataService: OrderDataService,
     private cdr: ChangeDetectorRef
-  ) {}
-
-  ngOnInit(): void {
+  ) {
     this.form = this.fb.group({
-      salutation: ['', Validators.required],
+      salutation: [this.salutations[0], Validators.required],
       firstName: ['', Validators.required],
       lastName: ['', Validators.required],
+      company: [''],
       email: ['', [Validators.required, Validators.email]],
       phone: [''],
-      company: [''],
       street: [''],
       houseNumber: [''],
       postalCode: [''],
       city: [''],
-      website: ['']
+      website: [''],
+      notes: ['']
     });
-    this.loadInitialData();
-    this.form.statusChanges.pipe(
-      debounceTime(300),
-      takeUntil(this.destroy$)
-    ).subscribe(() => {
-      this.updateAndEmitValidation();
-      this.saveData();
-    });
-    Promise.resolve().then(() => this.updateAndEmitValidation());
   }
 
-  private loadInitialData(): void {
-    const contactData = this.orderDataService.getCurrentContactData();
-    if (contactData) {
-      this.form.patchValue(contactData, { emitEvent: false });
+  ngOnInit(): void {
+    this.orderDataService.kontaktDetails$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(details => {
+        if (details) {
+          this.form.patchValue(details, { emitEvent: false });
+        }
+
+        this.validationChange.emit(this.form.valid);
+        this.cdr.detectChanges();
+      });
+
+    this.form.statusChanges
+      .pipe(
+        takeUntil(this.destroy$),
+        startWith(this.form.status)
+      )
+      .subscribe(status => {
+        this.validationChange.emit(status === 'VALID');
+        if (status === 'VALID') {
+          this.orderDataService.updateKontaktDetails(this.form.value as KontaktDetailsState);
+        }
+      });
+  }
+
+  public finalizeOrder(): void {
+    this.form.markAllAsTouched();
+    this.validationChange.emit(this.form.valid);
+    if (this.form.valid) {
+      console.log('[ContactDataComponent] Form is valid, finalizeOrder called.');
+      this.orderDataService.updateKontaktDetails(this.form.value as KontaktDetailsState);
+
+    } else {
+      console.warn('[ContactDataComponent] Finalize order attempt with invalid form.');
     }
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-  }
-
-  private saveData(): void {
-    if (this.form.valid) {
-      this.orderDataService.updateContactData(this.form.value as Partial<KontaktDetailsState>);
-    }
-  }
-
-  private updateAndEmitValidation(): void {
-    let newStatus: ValidationStatus;
-    if (this.form.valid) {
-      newStatus = 'valid';
-    } else if (this.form.touched || this.form.dirty) {
-      newStatus = 'invalid';
-    } else {
-      newStatus = 'unchecked';
-    }
-    if (this.currentStatus !== newStatus) {
-      this.currentStatus = newStatus;
-      this.validationChange.emit(this.currentStatus);
-      this.cdr.markForCheck();
-    }
-  }
-
-  public finalizeOrder(): void {
-    this.form.markAllAsTouched();
-    this.updateAndEmitValidation();
-    if (this.form.valid) {
-      this.saveData();
-      this.submitRequest.emit();
-    }
-  }
-
-  public triggerValidationDisplay(): void {
-    this.form.markAllAsTouched();
-    this.updateAndEmitValidation();
   }
 }

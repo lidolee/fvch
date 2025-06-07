@@ -30,7 +30,7 @@
       "mindestbestellwert": 250
     }
   },
-  "designPackages": {
+  "design": {
     "basis": 399,
     "plus": 899,
     "premium": 1999,

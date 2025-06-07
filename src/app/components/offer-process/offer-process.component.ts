@@ -1,220 +1,208 @@
-import { Component, OnInit, ViewChild, ChangeDetectorRef, AfterViewInit, OnDestroy, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { NgbNav, NgbNavChangeEvent, NgbNavModule } from '@ng-bootstrap/ng-bootstrap';
-import { ActivatedRoute, Router, NavigationExtras } from '@angular/router';
-import { DistributionStepComponent } from '../distribution-step/distribution-step.component';
-import { DesignPrintStepComponent } from '../design-print-step/design-print-step.component';
-import { SummaryStepComponent } from '../summary-step/summary-step.component';
-import { CalculatorComponent } from '../calculator/calculator.component';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Observable, Subject } from 'rxjs';
+import { map, takeUntil, distinctUntilChanged } from 'rxjs/operators';
+import { NgbNavModule, NgbNavChangeEvent } from '@ng-bootstrap/ng-bootstrap';
 import { OrderDataService } from '../../services/order-data.service';
-import { ZielgruppeOption } from '../../services/order-data.types';
-import { Subject, Subscription } from 'rxjs';
-import { takeUntil, distinctUntilChanged, map as rxjsMap } from 'rxjs/operators';
+import { ZielgruppeOption, VerteilgebietDataState, StepValidationStatus } from '../../services/order-data.types';
+import { DistributionStepComponent, DistributionStepValidationState } from '../distribution-step/distribution-step.component';
+import { DesignPrintStepComponent } from '../design-print-step/design-print-step.component';
+import { ContactDataComponent } from '../contact-data/contact-data.component';
+import { CalculatorComponent } from '../calculator/calculator.component';
 
-export type ValidationStatus = 'valid' | 'invalid' | 'pending' | 'unchecked';
+export type InternalStepValidationStatus = 'valid' | 'invalid' | 'pending';
+
+type StepHtmlIdentifier = 'verteilgebiet' | number;
 
 @Component({
   selector: 'app-offer-process',
   standalone: true,
-  imports: [ CommonModule, NgbNavModule, DistributionStepComponent, DesignPrintStepComponent, SummaryStepComponent, CalculatorComponent ],
+  imports: [
+    CommonModule,
+    NgbNavModule,
+    DistributionStepComponent,
+    DesignPrintStepComponent,
+    ContactDataComponent,
+    CalculatorComponent
+  ],
   templateUrl: './offer-process.component.html',
   styleUrls: ['./offer-process.component.scss']
 })
-export class OfferProcessComponent implements OnInit, AfterViewInit, OnDestroy {
-  @ViewChild('nav') public nav!: NgbNav;
-  @ViewChild(DistributionStepComponent) private distributionStepComponent!: DistributionStepComponent;
-  @ViewChild(DesignPrintStepComponent) private designPrintStepComponent!: DesignPrintStepComponent;
-  @ViewChild(SummaryStepComponent) private summaryStepComponent!: SummaryStepComponent;
-
+export class OfferProcessComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
   public activeStepId: number = 1;
-  public stepValidationStatus: { [key: number]: ValidationStatus } = {
-    1: 'unchecked', 2: 'unchecked', 3: 'unchecked'
-  };
-  public initialStadtnameForDistribution: string | undefined;
+  public initialStadtUrlParam$: Observable<string | null>;
   public zielgruppe: ZielgruppeOption = 'Alle Haushalte';
-
-  private componentDestroyed$ = new Subject<void>();
-  private currentStadtname: string | null = null;
-  private paramMapSubscription: Subscription | undefined;
-  private queryParamMapSubscription: Subscription | undefined;
-  private isNavigatingInternally = false;
+  public calculatorCurrentStepIsValid: boolean = false;
+  private stepSpecificValidationStates: Map<number, InternalStepValidationStatus> = new Map([
+    [1, 'pending'],
+    [2, 'pending'],
+    [3, 'pending']
+  ]);
 
   constructor(
-    private orderDataService: OrderDataService,
     private route: ActivatedRoute,
     private router: Router,
-    private cdr: ChangeDetectorRef,
-    private ngZone: NgZone
-  ) {}
-
-  ngOnInit(): void {
-    this.paramMapSubscription = this.route.paramMap.pipe(
-      takeUntil(this.componentDestroyed$),
-      rxjsMap(params => params.get('stadtname')),
-      distinctUntilChanged()
-    ).subscribe(stadtname => {
-      this.currentStadtname = stadtname;
-      if (stadtname) this.initialStadtnameForDistribution = stadtname;
-    });
-
-    this.queryParamMapSubscription = this.route.queryParamMap.pipe(
-      takeUntil(this.componentDestroyed$),
-    ).subscribe(params => {
-      const stadtQueryParam = params.get('stadt');
-      if (stadtQueryParam && !this.initialStadtnameForDistribution) {
-        this.initialStadtnameForDistribution = stadtQueryParam;
-      }
-    });
-
-    const initialFragment = this.route.snapshot.fragment;
-    if (initialFragment) {
-      const stepNum = parseInt(initialFragment.replace('step', ''), 10);
-      if (stepNum >= 1 && stepNum <= 3) {
-        if (this.activeStepId !== stepNum) {
-          this.activeStepId = stepNum;
-        }
-      }
-    }
-    this.zielgruppe = this.orderDataService.getCurrentVerteilart();
+    private orderDataService: OrderDataService,
+    private cdr: ChangeDetectorRef
+  ) {
+    this.initialStadtUrlParam$ = this.route.queryParamMap.pipe(
+      map(params => params.get('stadt')),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$)
+    );
+    console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] Constructor - User: ${"lidolee"}`);
   }
 
-  ngAfterViewInit(): void {
-    Promise.resolve().then(() => {
-      this.ngZone.run(() => {
-        if (this.componentDestroyed$.isStopped) return;
-        if (this.nav && this.nav.activeId !== this.activeStepId) {
-          this.isNavigatingInternally = true;
-          this.nav.select(this.activeStepId);
-        } else {
-          this.triggerActiveStepValidation();
-        }
-      });
+  ngOnInit(): void {
+    console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] ngOnInit - User: ${"lidolee"}`);
+    this.orderDataService.verteilgebiet$.pipe(
+      map((verteilgebiet: VerteilgebietDataState) => verteilgebiet.zielgruppe),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$)
+    ).subscribe(zg => {
+      if (this.zielgruppe !== zg) {
+        this.zielgruppe = zg;
+        this.cdr.markForCheck();
+      }
     });
+
+    this.orderDataService.validierungsStatus$.pipe(takeUntil(this.destroy$)).subscribe(
+      (status: StepValidationStatus) => {
+        console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] Received validation status from OrderDataService:`, status);
+        this.updateLocalStepValidationState(1, status.isStep1Valid ? 'valid' : 'invalid');
+        this.updateLocalStepValidationState(2, status.isStep2Valid ? 'valid' : 'invalid');
+        this.updateLocalStepValidationState(3, status.isStep3Valid ? 'valid' : 'invalid');
+      }
+    );
+    this.updateCalculatorValidationFlag();
   }
 
   ngOnDestroy(): void {
-    this.componentDestroyed$.next(); this.componentDestroyed$.complete();
-    if (this.paramMapSubscription) this.paramMapSubscription.unsubscribe();
-    if (this.queryParamMapSubscription) this.queryParamMapSubscription.unsubscribe();
-  }
-
-  private triggerActiveStepValidation(): void {
-    if (this.componentDestroyed$.isStopped) return;
-    if (this.activeStepId === 1 && this.distributionStepComponent) this.distributionStepComponent.triggerValidationDisplay();
-    else if (this.activeStepId === 2 && this.designPrintStepComponent) this.designPrintStepComponent.triggerValidationDisplay();
-    else if (this.activeStepId === 3 && this.summaryStepComponent) this.summaryStepComponent.triggerValidationDisplay();
+    this.destroy$.next();
+    this.destroy$.complete();
+    console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] ngOnDestroy - User: ${"lidolee"}`);
   }
 
   public onNavChange(event: NgbNavChangeEvent): void {
-    if (this.componentDestroyed$.isStopped) { event.preventDefault(); return; }
-    const targetStepId = event.nextId;
+    console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] NavChange - From ID: ${event.activeId}, To ID: ${event.nextId}`);
 
-    if (this.isNavigatingInternally) {
-      this.isNavigatingInternally = false;
-      if (this.activeStepId !== targetStepId) this.activeStepId = targetStepId;
-      this.updateUrlFragment();
-      Promise.resolve().then(() => this.ngZone.run(() => { if (!this.componentDestroyed$.isStopped) this.triggerActiveStepValidation(); }));
-      return;
-    }
+    if (event.nextId > event.activeId) {
+      for (let i = 1; i < event.nextId; i++) {
+        if (!this.isStepInternallyValid(i)) {
+          console.warn(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] Prevented navigation from step ${event.activeId} to ${event.nextId} because step ${i} is invalid.`);
+          event.preventDefault();
+          alert(`Bitte vervollständigen Sie Schritt ${i}, bevor Sie zu Schritt ${event.nextId} fortfahren.`);
 
-    if (this.activeStepId === targetStepId) {
-      if (this.route.snapshot.fragment !== `step${this.activeStepId}`) this.updateUrlFragment();
-      return;
-    }
-
-    if (targetStepId < event.activeId) {
-      this.activeStepId = targetStepId;
-      this.updateUrlFragment();
-      Promise.resolve().then(() => this.ngZone.run(() => { if (!this.componentDestroyed$.isStopped) this.triggerActiveStepValidation(); }));
-    } else {
-      let canProceed = true;
-      for (let i = 1; i < targetStepId; i++) {
-        if (this.stepValidationStatus[i] !== 'valid') { canProceed = false; break; }
-      }
-      if (canProceed) {
-        this.activeStepId = targetStepId;
-        this.updateUrlFragment();
-        Promise.resolve().then(() => this.ngZone.run(() => { if (!this.componentDestroyed$.isStopped) this.triggerActiveStepValidation(); }));
-      } else {
-        event.preventDefault();
-      }
-    }
-  }
-
-  public updateValidationStatus(step: number, status: ValidationStatus): void {
-    if (this.stepValidationStatus[step] !== status) {
-      this.stepValidationStatus[step] = status;
-      Promise.resolve().then(() => {
-        this.ngZone.run(() => {
-          if (!this.componentDestroyed$.isStopped) {
+          if (this.activeStepId !== i) {
+            this.activeStepId = i;
             this.cdr.detectChanges();
           }
-        });
-      });
-    }
-  }
-
-  public getValidationIconClass(step: number): string {
-    return this.stepValidationStatus[step] === 'valid' ? 'mdi-check-circle text-success' :
-      this.stepValidationStatus[step] === 'invalid' ? 'mdi-alert-circle text-danger' :
-        this.stepValidationStatus[step] === 'pending' ? 'mdi-timer-sand text-warning' :
-          'mdi-checkbox-blank-circle-outline text-muted';
-  }
-
-  public onZielgruppeChange(neueZielgruppe: ZielgruppeOption): void {
-    this.zielgruppe = neueZielgruppe;
-    this.orderDataService.updateVerteilart(neueZielgruppe);
-    if (this.distributionStepComponent) this.distributionStepComponent.currentZielgruppe = neueZielgruppe;
-  }
-
-  public navigateToStep(stepId: number): void {
-    if (this.componentDestroyed$.isStopped) return;
-    if (this.nav && stepId >= 1 && stepId <= 3) {
-      let canProceed = true;
-      if (stepId > this.activeStepId) {
-        for (let i = this.activeStepId; i < stepId; i++) {
-          if (this.stepValidationStatus[i] !== 'valid') { canProceed = false; break; }
+          return;
         }
       }
-      if (canProceed) {
-        if (this.activeStepId !== stepId && this.nav.activeId !== stepId) {
-          this.isNavigatingInternally = true; this.nav.select(stepId);
-        } else if (this.activeStepId !== stepId) {
-          this.activeStepId = stepId; this.updateUrlFragment();
-          Promise.resolve().then(() => this.ngZone.run(() => { if (!this.componentDestroyed$.isStopped) this.triggerActiveStepValidation(); }));
-        } else {
-          Promise.resolve().then(() => this.ngZone.run(() => { if (!this.componentDestroyed$.isStopped) this.triggerActiveStepValidation(); }));
-        }
+    }
+    this.activeStepId = event.nextId;
+    this.updateCalculatorValidationFlag();
+    this.cdr.markForCheck();
+  }
+
+  public onStepValidationChange(stepIdentifier: StepHtmlIdentifier, statusEvent: DistributionStepValidationState | boolean): void {
+    let stepNumber: number;
+    let newStatus: InternalStepValidationStatus;
+
+    if (stepIdentifier === 'verteilgebiet') {
+      stepNumber = 1;
+
+      if (statusEvent === 'valid' || statusEvent === 'invalid' || statusEvent === 'pending') {
+        newStatus = statusEvent;
       } else {
-        Promise.resolve().then(() => this.ngZone.run(() => { if (!this.componentDestroyed$.isStopped) this.triggerActiveStepValidation(); }));
+        console.error(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] Invalid status from DistributionStep:`, statusEvent);
+        newStatus = 'invalid';
+      }
+    } else if ((stepIdentifier === 2 || stepIdentifier === 3)) {
+      stepNumber = stepIdentifier;
+
+      if (typeof statusEvent === 'boolean') {
+        newStatus = statusEvent ? 'valid' : 'invalid';
+      } else {
+
+        console.error(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] Invalid status type from Step ${stepNumber} (expected boolean, got ${typeof statusEvent}):`, statusEvent);
+        newStatus = 'invalid';
+      }
+    } else {
+      console.error(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] Unknown or invalid step identifier from HTML:`, stepIdentifier);
+      return;
+    }
+    this.updateLocalStepValidationState(stepNumber, newStatus);
+  }
+
+  private updateLocalStepValidationState(stepNumber: number, status: InternalStepValidationStatus): void {
+    if (this.stepSpecificValidationStates.get(stepNumber) !== status) {
+      this.stepSpecificValidationStates.set(stepNumber, status);
+      console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] Local validation for step ${stepNumber} set to: ${status}`);
+      this.updateCalculatorValidationFlag();
+      this.cdr.markForCheck();
+    }
+  }
+
+  public onZielgruppeUpdateFromStep(neueZielgruppe: ZielgruppeOption): void {
+    if (this.zielgruppe !== neueZielgruppe) {
+      this.orderDataService.updateZielgruppe(neueZielgruppe);
+
+    }
+  }
+
+  public getValidationIconClass(stepNumber: number): string {
+    const status = this.stepSpecificValidationStates.get(stepNumber);
+    switch (status) {
+      case 'valid': return 'mdi-check-circle text-success';
+      case 'invalid': return 'mdi-alert-circle text-danger';
+      default: return 'mdi-progress-question text-muted';
+    }
+  }
+
+  private isStepInternallyValid(stepNumber: number): boolean {
+    return this.stepSpecificValidationStates.get(stepNumber) === 'valid';
+  }
+
+  private updateCalculatorValidationFlag(): void {
+    const isValid = this.isStepInternallyValid(this.activeStepId);
+    if (this.calculatorCurrentStepIsValid !== isValid) {
+      this.calculatorCurrentStepIsValid = isValid;
+      this.cdr.markForCheck();
+    }
+  }
+
+  public onCalculatorPrevious(): void {
+    if (this.activeStepId > 1) {
+      this.activeStepId--;
+    }
+  }
+
+  public onCalculatorNext(): void {
+    if (this.isStepInternallyValid(this.activeStepId)) {
+      if (this.activeStepId < 3) {
+        this.activeStepId++;
+      } else {
+        this.onCalculatorSubmit();
+      }
+    } else {
+      alert(`Bitte vervollständigen Sie Schritt ${this.activeStepId}, um fortzufahren.`);
+    }
+  }
+
+  public onCalculatorSubmit(): void {
+    for (let i = 1; i <= 3; i++) {
+      if (!this.isStepInternallyValid(i)) {
+        this.activeStepId = i;
+        this.cdr.markForCheck();
+        alert(`Die Bestellung kann nicht abgeschickt werden. Bitte korrigieren Sie die Eingaben in Schritt ${i}.`);
+        return;
       }
     }
-  }
-
-  private updateUrlFragment(): void {
-    if (this.componentDestroyed$.isStopped) return;
-    const commands: any[] = this.currentStadtname ? [this.currentStadtname] : [];
-    const navigationExtras: NavigationExtras = { fragment: `step${this.activeStepId}`, replaceUrl: true, queryParamsHandling: 'preserve' };
-    if (this.route.snapshot.fragment !== navigationExtras.fragment) {
-      this.router.navigate(commands, navigationExtras);
-    }
-  }
-
-  public onCalculatorPrevious(): void { if (this.activeStepId > 1) this.navigateToStep(this.activeStepId - 1); }
-  public onCalculatorNext(): void {
-    if (this.stepValidationStatus[this.activeStepId] === 'valid') {
-      if (this.activeStepId < 3) this.navigateToStep(this.activeStepId + 1);
-      else if (this.activeStepId === 3) this.onCalculatorSubmit();
-    } else this.triggerActiveStepValidation();
-  }
-  public onCalculatorSubmit(): void {
-    let allStepsValid = true;
-    for (let i = 1; i <= 3; i++) {
-      if (this.stepValidationStatus[i] !== 'valid') { allStepsValid = false; this.navigateToStep(i); return; }
-    }
-    if (allStepsValid && this.summaryStepComponent) {
-      this.summaryStepComponent.triggerContactFormSubmit();
-      if(this.stepValidationStatus[3] === 'valid') this.orderDataService.getAllOrderData();
-    }
+    console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] All steps valid. Submitting order...`);
+    alert("Bestellung wird abgeschickt! (TODO: Logik hier implementieren)");
   }
 }

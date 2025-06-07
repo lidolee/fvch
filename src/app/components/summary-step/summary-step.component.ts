@@ -17,7 +17,10 @@ import { ValidationStatus } from '../offer-process/offer-process.component';
 })
 export class SummaryStepComponent implements OnInit, OnDestroy {
   @Output() public validationChange = new EventEmitter<ValidationStatus>();
+  // nextStepRequest is not used in the template or class logic based on provided code.
+  // If it's intended for future use, it can remain. Otherwise, it could be removed.
   @Output() public nextStepRequest = new EventEmitter<void>();
+  @Output() public requestStepChange = new EventEmitter<number>(); // Added based on offer-process.html
 
   @ViewChild(ContactDataComponent) public contactDataComponent!: ContactDataComponent;
 
@@ -31,13 +34,20 @@ export class SummaryStepComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.orderDataService.getAllOrderDataObservable().pipe(
+    this.orderDataService.state$.pipe( // Changed from getAllOrderDataObservable()
       takeUntil(this.destroy$)
     ).subscribe((data: AllOrderDataState) => {
       this.orderSummary = data;
+      // Re-validate when order summary data changes, as contact details might have been updated
+      // which could affect overall step validation if contactDataStatus was already 'valid'.
+      if (this.contactDataComponent) { // Ensure component is initialized
+        this.contactDataStatus = this.contactDataComponent.currentStatus;
+      }
+      this.validateStep();
       this.cdr.markForCheck();
     });
-    this.validateStep();
+    // Initial validation after view init might be better if contactDataComponent needs to be ready
+    // Promise.resolve().then(() => this.validateStep());
   }
 
   ngOnDestroy(): void {
@@ -52,15 +62,25 @@ export class SummaryStepComponent implements OnInit, OnDestroy {
 
   public triggerContactFormSubmit(): void {
     if (this.contactDataComponent) {
-      this.contactDataComponent.finalizeOrder();
+      this.contactDataComponent.finalizeOrder(); // This will save data and emit validation
     }
   }
 
+  // This method is called when ContactDataComponent emits submitRequest
+  // which happens after its form is valid and data is saved.
   public onContactDataSubmitRequest(): void {
+    // The validation status of contact data should already be 'valid' here.
+    // We re-validate the summary step which depends on contactDataStatus.
     this.validateStep();
+    // Potentially emit nextStepRequest if the overall summary step is now valid
+    // and an automatic progression is desired.
+    // if (this.contactDataStatus === 'valid') {
+    //   this.nextStepRequest.emit();
+    // }
   }
 
   private validateStep(): void {
+    // The summary step's validation is primarily determined by the contact data form's validity
     const newStatus = this.contactDataStatus;
     this.validationChange.emit(newStatus);
     this.cdr.markForCheck();
@@ -70,6 +90,9 @@ export class SummaryStepComponent implements OnInit, OnDestroy {
     if (this.contactDataComponent) {
       this.contactDataComponent.triggerValidationDisplay();
     }
+    // The validation status will be updated via onContactDataValidationChange
+    // so, calling validateStep() here might be redundant if onContactDataValidationChange handles it.
+    // However, to ensure the emission, it can be called.
     this.validateStep();
   }
 
@@ -78,17 +101,22 @@ export class SummaryStepComponent implements OnInit, OnDestroy {
     if (!verteilgebiet?.selectedPlzEntries || verteilgebiet.selectedPlzEntries.length === 0) return 'Kein Verteilgebiet ausgewählt.';
     const count = verteilgebiet.selectedPlzEntries.length;
     const startDate = verteilgebiet.verteilungStartdatum ? new Date(verteilgebiet.verteilungStartdatum).toLocaleDateString('de-CH') : 'N/A';
-    return `${count} PLZ-Gebiete, Start: ${startDate}`;
+    return `${count} PLZ-Gebiete, Start: ${startDate}, ${verteilgebiet.totalFlyersCount} Flyer (${verteilgebiet.zielgruppe})`;
   }
 
   public getDesignSummary(): string {
     const produktion: ProduktionDataState | undefined = this.orderSummary?.produktion;
     if (!produktion) return 'Keine Produktionsauswahl.';
-    let summary = `Design: ${produktion.designPackage || 'N/A'}. `;
+    let summary = `Design: ${produktion.designPackage ? produktion.designPackage.charAt(0).toUpperCase() + produktion.designPackage.slice(1) : 'Kein Paket'}. `;
     if (produktion.printOption === 'anliefern') {
-      summary += `Anlieferung: Format ${produktion.anlieferDetails?.format || 'N/A'}, ${produktion.anlieferDetails?.anlieferung || 'N/A'}.`;
+      summary += `Anlieferung: Format ${produktion.anlieferDetails?.format || 'N/A'}, Typ: ${produktion.anlieferDetails?.anlieferung || 'N/A'}.`;
     } else if (produktion.printOption === 'service') {
-      summary += `Druckservice: Format ${produktion.printServiceDetails?.format || 'N/A'}.`;
+      summary += `Druckservice: Format ${produktion.printServiceDetails?.format || 'N/A'}, ${produktion.printServiceDetails?.grammatur || 'N/A'}g, ${produktion.printServiceDetails?.art || 'N/A'}, ${produktion.printServiceDetails?.ausfuehrung || 'N/A'}. Auflage: ${produktion.printServiceDetails?.auflage || 0}.`;
+    } else if (produktion.printOption === 'eigenes') {
+      summary += 'Eigene Flyer werden verwendet.';
+      if (produktion.anlieferDetails?.format) {
+        summary += ` Format ${produktion.anlieferDetails.format}.`;
+      }
     } else {
       summary += 'Keine Druckoption gewählt.';
     }
@@ -97,9 +125,14 @@ export class SummaryStepComponent implements OnInit, OnDestroy {
 
   public getContactSummary(): string {
     const kontakt: KontaktDetailsState | null | undefined = this.orderSummary?.kontaktDetails;
-    if (kontakt?.firstName && kontakt?.lastName) {
+    if (kontakt?.firstName && kontakt?.lastName && kontakt.email) {
       return `${kontakt.salutation || ''} ${kontakt.firstName} ${kontakt.lastName}, ${kontakt.email}`;
     }
     return 'Noch nicht erfasst';
+  }
+
+  // Method to allow navigation to other steps from summary, e.g. to edit a previous step.
+  public editStep(stepNumber: number): void {
+    this.requestStepChange.emit(stepNumber);
   }
 }

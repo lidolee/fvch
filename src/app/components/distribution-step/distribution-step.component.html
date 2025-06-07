@@ -65,12 +65,12 @@
   <div *ngIf="searchInputStatus === 'invalid' && searchInputInitialTerm && searchInputInitialTerm.length > 0" class="text-danger small mt-1 ps-1">Eingabe ungültig oder keine Treffer.</div>
   <div *ngIf="searchInputStatus === 'pending'" class="text-muted small mt-1 ps-1">Suche aktiv...</div>
 
-  <ng-container *ngIf="selectedEntries.length > 0">
+  <ng-container *ngIf="selectedEntriesForTable.length > 0">
     <div class="my-4 row">
       <div class="col-sm-12">
         <div class="choice-card-group choice-card-group-zielgruppe">
           <button type="button" class="choice-card"
-                  [class.active]="currentZielgruppe === 'Alle Haushalte'"
+                  [class.active]="currentZielgruppeState === 'Alle Haushalte'"
                   (click)="setZielgruppe('Alle Haushalte')">
             <i class="mdi mdi-home-city card-icon"></i>
             <span class="card-content">
@@ -80,7 +80,7 @@
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="currentZielgruppe === 'Mehrfamilienhäuser'"
+                  [class.active]="currentZielgruppeState === 'Mehrfamilienhäuser'"
                   (click)="setZielgruppe('Mehrfamilienhäuser')">
             <i class="mdi mdi-office-building card-icon"></i>
             <span class="card-content">
@@ -90,7 +90,7 @@
             <span class="card-indicator"></span>
           </button>
           <button type="button" class="choice-card"
-                  [class.active]="currentZielgruppe === 'Ein- und Zweifamilienhäuser'"
+                  [class.active]="currentZielgruppeState === 'Ein- und Zweifamilienhäuser'"
                   (click)="setZielgruppe('Ein- und Zweifamilienhäuser')">
             <i class="mdi mdi-home-variant card-icon"></i>
             <span class="card-content">
@@ -104,7 +104,7 @@
     </div>
 
     <div>
-      <h3 class="section-title mt-4 mb-0"><span>Ihre Auswahl: {{ selectedEntries.length }} PLZ</span></h3>
+      <h3 class="section-title mt-4 mb-0"><span>Ihre Auswahl: {{ selectedEntriesForTable.length }} PLZ</span></h3>
       <div class="delete-plz-list text-end mt-2 mb-4">
         <button class="btn btn-sm btn-outline-danger" type="button" (click)="clearPlzTable()"><i class="mdi mdi-playlist-remove fs-6"></i>&nbsp;Liste löschen</button>
       </div>
@@ -112,8 +112,8 @@
 
     <div>
       <app-plz-selection-table
-        [entries]="selectedEntries"
-        [currentZielgruppe]="currentZielgruppe"
+        [entries]="selectedEntriesForTable"
+        [currentZielgruppe]="currentZielgruppeState"
         [highlightFlyerMaxColumn]="highlightFlyerMaxColumn"
         (remove)="removePlzFromTable($event)"
         (zoom)="zoomToTableEntryOnMap($event)"
@@ -124,7 +124,7 @@
   </ng-container>
 
   <ng-template #showBeliebteRegionenBlock>
-    <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer && selectedEntries.length === 0">
+    <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer && selectedEntriesForTable.length === 0">
       <div class="popular-locations text-center">
         <div class="my-2"><h6 class="text-uppercase">Beliebte Städte</h6></div>
         <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Zürich')">Zürich</button>
@@ -147,7 +147,7 @@
       </div>
     </div>
   </ng-template>
-  <div *ngIf="selectedEntries.length === 0">
+  <div *ngIf="selectedEntriesForTable.length === 0">
     <ng-container *ngTemplateOutlet="showBeliebteRegionenBlock"></ng-container>
   </div>
 </div>

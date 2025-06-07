@@ -6,31 +6,43 @@ export interface PlzSelectionDetail {
   plz4: string;
   ort: string;
   kt: string;
-  preisKategorie: string;
-  all: number | null;
-  efh?: number | null;
-  mfh?: number | null;
+  preisKategorie?: string;
+  all?: number;
+  mfh?: number;
+  efh?: number;
+  isSelected?: boolean;
+  isHighlighted?: boolean;
+  is_manual_count?: boolean;
   anzahl: number;
-  selected_display_flyer_count: number;
-  is_manual_count: boolean;
   zielgruppe: ZielgruppeOption;
+  selected_display_flyer_count?: number;
 }
 
 export type DesignPackageType = 'basis' | 'plus' | 'premium' | 'eigenes';
-export type PrintOptionType = 'anliefern' | 'service';
-export type FlyerFormatType = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN-Lang' | 'anderes';
-export type AnlieferungType = 'selbst' | 'abholung';
-export type DruckGrammaturType = '90' | '115' | '130' | '170' | '250' | '300';
-export type DruckArtType = 'einseitig' | 'zweiseitig';
-export type DruckAusfuehrungType = 'glaenzend' | 'matt';
 
-// NEU: Alias für die Verwendung im CalculatorService und Component
-export type DesignPackageService = DesignPackageType;
-export type AnlieferungOptionService = AnlieferungType;
+export interface DesignPrices {
+  basis: number;
+  plus: number;
+  premium: number;
+  eigenes: number;
+}
 
-// NEU: Spezifischer Typ für Formate mit Zuschlägen + 'anderes'
-export type VerteilzuschlagFormatKey = 'Lang' | 'A4' | 'A3' | 'anderes';
+export type PrintOptionType = 'eigenes' | 'service' | 'anliefern' | null;
 
+export type FlyerFormatType =
+  | 'A6' | 'A5' | 'A4' | 'DIN-Lang' | 'DIN_Lang'
+  | 'A3' | 'Anderes_Format' | 'anderes' | null;
+
+export type AnlieferungType = 'selbstanlieferung' | 'abholung' | 'selbst' | null;
+
+export type DruckArtType = 'einseitig' | 'zweiseitig' | null;
+
+export type DruckGrammaturType =
+  | '90' | '115' | '130' | '170' | '250' | '300'
+  | '90g' | '115g' | '130g' | '135g' | '170g' | '250g' | '300g'
+  | null;
+
+export type DruckAusfuehrungType = 'standard' | 'express' | 'glaenzend' | 'matt' | null;
 
 export interface AnlieferDetails {
   format: FlyerFormatType | null;
@@ -42,13 +54,13 @@ export interface PrintServiceDetails {
   grammatur: DruckGrammaturType | null;
   art: DruckArtType | null;
   ausfuehrung: DruckAusfuehrungType | null;
-  auflage: number | null;
+  auflage: number;
   reserve: number;
 }
 
 export interface VerteilgebietDataState {
   selectedPlzEntries: PlzSelectionDetail[];
-  verteilungStartdatum: string | null;
+  verteilungStartdatum: Date | null;
   expressConfirmed: boolean;
   totalFlyersCount: number;
   zielgruppe: ZielgruppeOption;
@@ -57,8 +69,8 @@ export interface VerteilgebietDataState {
 export interface ProduktionDataState {
   designPackage: DesignPackageType | null;
   printOption: PrintOptionType | null;
-  anlieferDetails: AnlieferDetails | null;
-  printServiceDetails: PrintServiceDetails | null;
+  anlieferDetails: AnlieferDetails;
+  printServiceDetails: PrintServiceDetails;
 }
 
 export interface KontaktDetailsState {
@@ -68,15 +80,61 @@ export interface KontaktDetailsState {
   email: string | null;
   phone?: string | null;
   company?: string | null;
-  street?: string | null;
-  houseNumber?: string | null;
-  postalCode?: string | null;
+  address?: string | null;
+  zip?: string | null;
   city?: string | null;
-  website?: string | null;
+  notes?: string | null;
+}
+
+export interface DistributionCostItem {
+  label: string;
+  plzCount: number;
+  flyers: number;
+  pricePerFlyer: number;
+  price: number;
+  category: string;
+}
+
+export interface KostenState {
+  selectedPlzEntriesLength: number;
+  expressZuschlagApplicable: boolean;
+  fahrzeugGpsApplicable: boolean;
+  zuschlagFormatAnzeigeText: string;
+  totalFlyersForDistribution: number;
+  flyerAbholungApplicable: boolean;
+  subTotalDistribution: number;
+  selectedPrintOption: PrintOptionType | null;
+  selectedDesignPackageName: string;
+  designPackageCost: number;
+  subTotalNetto: number;
+  taxRatePercent: number;
+  taxAmount: number;
+  grandTotalCalculated: number;
+  mindestbestellwertHinweis: string;
+  distributionCostItems: DistributionCostItem[];
+  expressZuschlagPrice: number;
+  fahrzeugGpsPrice: number;
+  zuschlagFormatPrice: number;
+  isAnderesFormatSelected: boolean;
+  flyerAbholungPrice: number;
+  printServiceName: string;
+  printServiceCost: number;
+  mindestbestellwert: number;
+}
+
+export interface StepValidationStatus {
+  isStep1Valid: boolean;
+  isStep2Valid: boolean;
+  isStep3Valid: boolean;
+  isOrderProcessValid: boolean;
 }
 
 export interface AllOrderDataState {
   verteilgebiet: VerteilgebietDataState;
   produktion: ProduktionDataState;
-  kontaktDetails: KontaktDetailsState | null;
+  kontaktDetails: KontaktDetailsState;
+  kosten: KostenState;
+  validierungsStatus: StepValidationStatus;
 }
+
+export type VerteilzuschlagFormatKey = 'Lang' | 'A4' | 'A3' | 'anderes';
