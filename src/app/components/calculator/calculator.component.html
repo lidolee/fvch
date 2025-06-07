@@ -16,7 +16,7 @@
           </thead>
           <tbody>
           <ng-container *ngFor="let item of distributionCostItems">
-            <tr *ngIf="!item.isSurcharge">
+            <tr>
               <td class="item-label">{{ item.label }}</td>
               <td class="item-quantity text-end">{{ item.flyers | number:'1.0-0':'de-CH' }}</td>
               <td class="item-subtotal text-end">{{ item.price | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
@@ -124,7 +124,7 @@
       <ol>
         <li>Servicepauschale deckt Fahrtkosten, detaillierte Routenplanung und GPS-Tracking für Ihre Verteilung ab.</li>
         <li>Spezielle Formate und Druckaufträge erfordern eine manuelle Prüfung. Der genaue Preis wird Ihnen anschliessend per E-Mail mitgeteilt</li>
-        <li>Der Ausgleich zum Mindestbestellwert von 400 CHF dient der Abdeckung von Fixkosten wie Planung, Logistik und Fahrkosten.</li>
+        <li>Der Ausgleich zum Mindestbestellwert von 250 CHF dient der Abdeckung von Fixkosten wie Planung, Logistik und Fahrkosten.</li>
       </ol>
     </div>
 

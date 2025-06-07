@@ -1,7 +1,11 @@
-import { Component, Output, EventEmitter, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, OnInit, Output, EventEmitter, ChangeDetectionStrategy, ChangeDetectorRef, ViewChild, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ValidationStatus } from '../offer-process/offer-process.component';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+import { OrderDataService } from '../../services/order-data.service';
+import { AllOrderDataState, KontaktDetailsState, VerteilgebietDataState, ProduktionDataState } from '../../services/order-data.types';
 import { ContactDataComponent } from '../contact-data/contact-data.component';
+import { ValidationStatus } from '../offer-process/offer-process.component';
 
 @Component({
   selector: 'app-summary-step',
@@ -11,60 +15,91 @@ import { ContactDataComponent } from '../contact-data/contact-data.component';
   styleUrls: ['./summary-step.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class SummaryStepComponent implements OnInit, AfterViewInit {
-  @Output() nextStepRequest = new EventEmitter<void>(); // For actual submission/completion
-  @Output() validationChange = new EventEmitter<ValidationStatus>();
+export class SummaryStepComponent implements OnInit, OnDestroy {
+  @Output() public validationChange = new EventEmitter<ValidationStatus>();
+  @Output() public nextStepRequest = new EventEmitter<void>();
 
-  @ViewChild(ContactDataComponent) contactDataComponent!: ContactDataComponent;
+  @ViewChild(ContactDataComponent) public contactDataComponent!: ContactDataComponent;
 
-  private contactDataIsValid: boolean = false;
+  public orderSummary: AllOrderDataState | null = null;
+  private contactDataStatus: ValidationStatus = 'unchecked';
+  private destroy$ = new Subject<void>();
 
-  constructor(private cdr: ChangeDetectorRef) {}
+  constructor(
+    private orderDataService: OrderDataService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
-  ngOnInit() {
-    // Initial validation state depends on ContactDataComponent, which starts as invalid/pending
-    this.validationChange.emit('pending');
+  ngOnInit(): void {
+    this.orderDataService.getAllOrderDataObservable().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe((data: AllOrderDataState) => {
+      this.orderSummary = data;
+      this.cdr.markForCheck();
+    });
+    this.validateStep();
   }
 
-  ngAfterViewInit() {
-    // Subscribe to validation changes from child ContactDataComponent
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  public onContactDataValidationChange(status: ValidationStatus): void {
+    this.contactDataStatus = status;
+    this.validateStep();
+  }
+
+  public triggerContactFormSubmit(): void {
     if (this.contactDataComponent) {
-      this.contactDataComponent.validationChange.subscribe((status: ValidationStatus) => {
-        this.onContactDataValidationChange(status);
-      });
-      // Emit initial status from contactDataComp after it's initialized
-      Promise.resolve().then(() => {
-        this.onContactDataValidationChange(this.contactDataComponent.form.valid ? 'valid' : 'pending');
-      });
+      this.contactDataComponent.finalizeOrder();
     }
   }
 
-  onContactDataValidationChange(status: ValidationStatus) {
-    this.contactDataIsValid = status === 'valid';
-    this.validationChange.emit(this.contactDataIsValid ? 'valid' : 'invalid'); // Or 'pending'
+  public onContactDataSubmitRequest(): void {
+    this.validateStep();
+  }
+
+  private validateStep(): void {
+    const newStatus = this.contactDataStatus;
+    this.validationChange.emit(newStatus);
     this.cdr.markForCheck();
   }
 
-  // This method will be called by OfferProcessComponent
-  public triggerFinalizeOrder() {
-    if (this.contactDataComponent) {
-      this.contactDataComponent.finalizeOrder(); // This marks form as touched and may emit submitRequest
-    }
-  }
-
-  // This method is connected to (submitRequest) from ContactDataComponent in the template
-  onContactDataSubmitRequest() {
-    // This means ContactDataComponent's form was valid and submitted
-    this.nextStepRequest.emit(); // Signal to OfferProcessComponent that the final action is done
-  }
-
-  // This method can be called by the parent to force UI updates for validation.
   public triggerValidationDisplay(): void {
     if (this.contactDataComponent) {
-      this.contactDataComponent.form.markAllAsTouched();
-      // Re-emit current validation status
-      this.onContactDataValidationChange(this.contactDataComponent.form.valid ? 'valid' : 'invalid');
+      this.contactDataComponent.triggerValidationDisplay();
     }
-    this.cdr.markForCheck();
+    this.validateStep();
+  }
+
+  public getDistributionSummary(): string {
+    const verteilgebiet: VerteilgebietDataState | undefined = this.orderSummary?.verteilgebiet;
+    if (!verteilgebiet?.selectedPlzEntries || verteilgebiet.selectedPlzEntries.length === 0) return 'Kein Verteilgebiet ausgewählt.';
+    const count = verteilgebiet.selectedPlzEntries.length;
+    const startDate = verteilgebiet.verteilungStartdatum ? new Date(verteilgebiet.verteilungStartdatum).toLocaleDateString('de-CH') : 'N/A';
+    return `${count} PLZ-Gebiete, Start: ${startDate}`;
+  }
+
+  public getDesignSummary(): string {
+    const produktion: ProduktionDataState | undefined = this.orderSummary?.produktion;
+    if (!produktion) return 'Keine Produktionsauswahl.';
+    let summary = `Design: ${produktion.designPackage || 'N/A'}. `;
+    if (produktion.printOption === 'anliefern') {
+      summary += `Anlieferung: Format ${produktion.anlieferDetails?.format || 'N/A'}, ${produktion.anlieferDetails?.anlieferung || 'N/A'}.`;
+    } else if (produktion.printOption === 'service') {
+      summary += `Druckservice: Format ${produktion.printServiceDetails?.format || 'N/A'}.`;
+    } else {
+      summary += 'Keine Druckoption gewählt.';
+    }
+    return summary;
+  }
+
+  public getContactSummary(): string {
+    const kontakt: KontaktDetailsState | null | undefined = this.orderSummary?.kontaktDetails;
+    if (kontakt?.firstName && kontakt?.lastName) {
+      return `${kontakt.salutation || ''} ${kontakt.firstName} ${kontakt.lastName}, ${kontakt.email}`;
+    }
+    return 'Noch nicht erfasst';
   }
 }

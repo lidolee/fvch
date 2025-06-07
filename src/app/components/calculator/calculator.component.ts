@@ -1,139 +1,121 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, OnInit, OnDestroy, ChangeDetectorRef, OnChanges, SimpleChanges } from '@angular/core';
-import { CommonModule, DecimalPipe, CurrencyPipe } from '@angular/common';
-import { ValidationStatus } from '../offer-process/offer-process.component';
-import { SelectionService } from '../../services/selection.service';
-import { PlzEntry } from '../../services/plz-data.service';
-import { OrderDataService, VerteilzuschlagFormatKey } from '../../services/order-data.service';
-import { CalculatorService, AppPrices } from '../../services/calculator.service';
-import { DesignPackage, PrintOption, AnlieferungOption } from '../design-print-step/design-print-step.component';
-import { ZielgruppeOption } from '../distribution-step/distribution-step.component';
+import { Component, OnInit, Input, Output, EventEmitter, OnChanges, SimpleChanges, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy } from '@angular/core';
+import { CommonModule, CurrencyPipe, DecimalPipe } from '@angular/common';
 import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { takeUntil, distinctUntilChanged } from 'rxjs/operators';
+import { OrderDataService } from '../../services/order-data.service';
+import {
+  ZielgruppeOption,
+  PlzSelectionDetail,
+  AllOrderDataState,
+  ProduktionDataState,
+  DesignPackageType,
+  FlyerFormatType,
+  PrintOptionType,
+  DesignPackageService,
+  VerteilzuschlagFormatKey,
+  AnlieferungOptionService
+} from '../../services/order-data.types';
+import { CalculatorService, AppPrices } from '../../services/calculator.service';
+import { ValidationStatus } from '../offer-process/offer-process.component';
+import { PlzEntry } from '../../services/plz-data.service';
 
-export interface DisplayCostItem {
+export interface CostItem {
   label: string;
-  flyers?: number;
   price: number;
-  isSurcharge?: boolean;
+  flyers: number;
+  details?: string;
 }
+
+const deepCompare = (obj1: any, obj2: any): boolean => {
+  return JSON.stringify(obj1) === JSON.stringify(obj2);
+};
 
 @Component({
   selector: 'app-calculator',
   standalone: true,
-  imports: [CommonModule, DecimalPipe, CurrencyPipe],
+  imports: [CommonModule, CurrencyPipe, DecimalPipe],
   templateUrl: './calculator.component.html',
   styleUrls: ['./calculator.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [CurrencyPipe, DecimalPipe]
 })
-export class CalculatorComponent implements OnInit, OnDestroy, OnChanges {
-  @Input() zielgruppe: ZielgruppeOption = 'Alle Haushalte';
-  @Input() activeStep: number = 1;
-  @Input() currentStepValidationStatus: ValidationStatus = 'pending';
+export class CalculatorComponent implements OnInit, OnChanges, OnDestroy {
+  @Input() public zielgruppe: ZielgruppeOption = 'Alle Haushalte';
+  @Input() public activeStep: number = 1;
+  @Input() public currentStepValidationStatus: ValidationStatus = 'unchecked';
 
-  @Output() requestPreviousStep = new EventEmitter<void>();
-  @Output() requestNextStep = new EventEmitter<void>();
-  @Output() requestSubmit = new EventEmitter<void>();
+  @Output() public requestPreviousStep = new EventEmitter<void>();
+  @Output() public requestNextStep = new EventEmitter<void>();
+  @Output() public requestSubmit = new EventEmitter<void>();
 
-  public selectedPlzEntries: PlzEntry[] = [];
-  public distributionCostItems: DisplayCostItem[] = [];
-  public totalFlyersForDistribution: number = 0;
-  public zwischensummeVerteilung: number = 0;
-
-  public selectedDesignPackageKey: DesignPackage | '' = '';
-  public selectedDesignPackageName: string = '';
-  public designPackagePrice: number = 0;
-
-  public selectedPrintOption: PrintOption | '' = '';
-
-  public overallTotalPrice: number = 0;
-
-  public zuschlagFormatAnzeige: VerteilzuschlagFormatKey | null = null;
-  public zuschlagFormatPrice: number = 0;
-  public isAnderesFormatSelected: boolean = false;
-
-  public flyerAbholungApplicable: boolean = false;
-  public flyerAbholungPrice: number = 0;
+  public selectedPlzEntries: PlzSelectionDetail[] = [];
+  public distributionCostItems: CostItem[] = [];
   public expressZuschlagApplicable: boolean = false;
   public expressZuschlagPrice: number = 0;
-  public mindestAbnahmePauschaleApplicable: boolean = false;
-  public mindestAbnahmePauschalePrice: number = 0;
-
   public fahrzeugGpsApplicable: boolean = false;
   public fahrzeugGpsPrice: number = 0;
-
-  // MWST/Total
-  public mwstProzent = 8.1;
-  public get mwstBetrag(): number {
-    return Math.round((this.overallTotalPrice * this.mwstProzent) ) / 100;
-  }
-  public get gesamtTotal(): number {
-    return this.overallTotalPrice + this.mwstBetrag;
-  }
+  public zuschlagFormatAnzeige: string | null = null;
+  public isAnderesFormatSelected: boolean = false;
+  public totalFlyersForDistribution: number = 0;
+  public zuschlagFormatPrice: number = 0;
+  public flyerAbholungApplicable: boolean = false;
+  public flyerAbholungPrice: number = 0;
+  public mindestAbnahmePauschaleApplicable: boolean = false;
+  public mindestAbnahmePauschalePrice: number = 0;
+  public zwischensummeVerteilung: number = 0;
+  public selectedPrintOption: PrintOptionType | null = null;
+  public selectedDesignPackageKey: DesignPackageType | null = null;
+  public selectedDesignPackageName: string | null = null;
+  public designPackagePrice: number = 0;
+  public overallTotalPrice: number = 0;
+  public mwstProzent: number = 0;
+  public mwstBetrag: number = 0;
+  public gesamtTotal: number = 0;
 
   private destroy$ = new Subject<void>();
-  private prices: AppPrices | null = null;
-  private calculationTrigger = new Subject<void>();
-
-  private currentFinalFlyerFormat: VerteilzuschlagFormatKey = '';
-  private currentAnlieferungOption: AnlieferungOption | '' = '';
-  private isExpressConfirmed: boolean = false;
+  private currentOrderData: AllOrderDataState | null = null;
+  private appPrices: AppPrices | null = null;
 
   constructor(
-    private selectionService: SelectionService,
     private orderDataService: OrderDataService,
     private calculatorService: CalculatorService,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
-    this.calculatorService.getPricesObservable().pipe(takeUntil(this.destroy$)).subscribe(p => {
-      this.prices = p;
-      this.triggerRecalculation();
+    this.calculatorService.prices$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(loadedPrices => {
+      if (loadedPrices) {
+        this.appPrices = loadedPrices;
+        this.mwstProzent = (this.appPrices.tax["vat-ch"] || 0) * 100;
+        if (this.currentOrderData) {
+          this.calculateAllCosts();
+          this.cdr.markForCheck();
+        }
+      }
     });
 
-    this.selectionService.selectedEntries$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(entries => {
-        this.selectedPlzEntries = entries;
-        this.triggerRecalculation();
-      });
+    this.orderDataService.getAllOrderDataObservable().pipe(
+      distinctUntilChanged(deepCompare),
+      takeUntil(this.destroy$)
+    ).subscribe(orderData => {
+      this.currentOrderData = orderData;
+      this.updatePropertiesFromOrderData(orderData);
+      if (this.appPrices) {
+        this.calculateAllCosts();
+        this.cdr.markForCheck();
+      }
+    });
+  }
 
-    this.orderDataService.designPackage$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((pkgKey: DesignPackage | '') => {
-        this.selectedDesignPackageKey = pkgKey;
-        this.updateDesignPackageDetails();
-      });
-
-    this.orderDataService.printOption$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(option => {
-        this.selectedPrintOption = option;
-        this.triggerRecalculation();
-      });
-
-    this.orderDataService.finalFlyerFormat$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(format => {
-        this.currentFinalFlyerFormat = format;
-        this.triggerRecalculation();
-      });
-
-    this.orderDataService.anlieferungOption$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(option => {
-        this.currentAnlieferungOption = option;
-        this.triggerRecalculation();
-      });
-
-    this.orderDataService.expressConfirmed$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(isConfirmed => {
-        this.isExpressConfirmed = isConfirmed;
-        this.triggerRecalculation();
-      });
-
-    this.triggerRecalculation();
+  ngOnChanges(changes: SimpleChanges): void {
+    if (this.appPrices && this.currentOrderData) {
+      if (changes['zielgruppe'] || changes['activeStep'] || changes['currentStepValidationStatus']) {
+        this.updatePropertiesFromOrderData(this.currentOrderData);
+        this.calculateAllCosts();
+      }
+    }
   }
 
   ngOnDestroy(): void {
@@ -141,168 +123,144 @@ export class CalculatorComponent implements OnInit, OnDestroy, OnChanges {
     this.destroy$.complete();
   }
 
-  ngOnChanges(changes: SimpleChanges): void {
-    // Wenn zielgruppe sich ändert, neu berechnen!
-    if (changes['zielgruppe']) {
-      this.triggerRecalculation();
-    }
-  }
-
-  private triggerRecalculation(): void {
-    this.calculationTrigger.next();
-    this.recalculateAllCostsLogic();
-  }
-
-  private updateDesignPackageDetails(): void {
-    if (this.selectedDesignPackageKey && this.prices?.designPackages) {
-      this.selectedDesignPackageName = this.getUIDesignPackageName(this.selectedDesignPackageKey);
-      this.designPackagePrice = this.prices.designPackages[this.selectedDesignPackageKey] ?? 0;
+  private updatePropertiesFromOrderData(orderData: AllOrderDataState): void {
+    if (orderData.verteilgebiet) {
+      this.selectedPlzEntries = orderData.verteilgebiet.selectedPlzEntries || [];
+      this.totalFlyersForDistribution = orderData.verteilgebiet.totalFlyersCount || 0;
+      this.expressZuschlagApplicable = orderData.verteilgebiet.expressConfirmed;
     } else {
-      this.selectedDesignPackageName = '';
-      this.designPackagePrice = 0;
+      this.selectedPlzEntries = [];
+      this.totalFlyersForDistribution = 0;
+      this.expressZuschlagApplicable = false;
     }
-    this.recalculateOverallTotalPrice();
+
+    const produktionState: ProduktionDataState | null = orderData.produktion;
+    if (produktionState) {
+      this.selectedPrintOption = produktionState.printOption;
+      this.selectedDesignPackageKey = produktionState.designPackage;
+    } else {
+      this.selectedPrintOption = null;
+      this.selectedDesignPackageKey = null;
+    }
   }
 
-  private recalculateAllCostsLogic(): void {
-    if (!this.prices) return;
-
-    const tempDistributionItems: DisplayCostItem[] = [];
-    this.totalFlyersForDistribution = this.selectedPlzEntries.reduce(
-      (sum, entry) => sum + (entry.selected_display_flyer_count || 0), 0
-    );
-
-    let summeGrundverteilung = 0;
-    this.selectedPlzEntries.forEach(entry => {
-      const price = this.calculatorService.calculateDistributionCostForEntry(
-        entry,
-        this.zielgruppe,
-        this.prices!
-      );
-      summeGrundverteilung += price;
-
-      tempDistributionItems.push({
-        label: `${entry.plz4} ${entry.ort}`,
-        flyers: entry.selected_display_flyer_count || 0,
-        price: price,
-        isSurcharge: false
-      });
-    });
-
-    let aktuelleZwischensummeVerteilung = summeGrundverteilung;
-
-    // GPS Zuschlag
-    this.fahrzeugGpsPrice = 0;
-    this.fahrzeugGpsApplicable = false;
-    if (this.selectedPlzEntries.length > 0) {
-      this.fahrzeugGpsPrice = this.calculatorService.getGpsSurcharge(this.prices!);
-      this.fahrzeugGpsApplicable = this.fahrzeugGpsPrice > 0;
-      if (this.fahrzeugGpsApplicable) {
-        aktuelleZwischensummeVerteilung += this.fahrzeugGpsPrice;
-      }
-    }
-
-    // Format-Zuschlag
-    this.zuschlagFormatAnzeige = null;
-    this.zuschlagFormatPrice = 0;
-    this.isAnderesFormatSelected = false;
-
-    if (this.currentFinalFlyerFormat === 'anderes') {
-      this.zuschlagFormatAnzeige = 'anderes';
-      this.isAnderesFormatSelected = true;
-    } else if (this.currentFinalFlyerFormat && this.totalFlyersForDistribution > 0) {
-      if (this.currentFinalFlyerFormat === 'Lang' || this.currentFinalFlyerFormat === 'A4' || this.currentFinalFlyerFormat === 'A3') {
-        const zuschlagPro1000 = this.calculatorService.getVerteilungZuschlagFormatPro1000(this.currentFinalFlyerFormat, this.prices!);
-        if (zuschlagPro1000 > 0) {
-          this.zuschlagFormatPrice = (this.totalFlyersForDistribution / 1000) * zuschlagPro1000;
-          this.zuschlagFormatAnzeige = this.currentFinalFlyerFormat;
-          aktuelleZwischensummeVerteilung += this.zuschlagFormatPrice;
-        }
-      }
-    }
-
-    // Flyer Abholung
-    this.flyerAbholungPrice = 0;
-    this.flyerAbholungApplicable = false;
-    if (this.currentAnlieferungOption === 'abholung') {
-      this.flyerAbholungPrice = this.calculatorService.getSurchargeValue('abholungFlyer', this.prices!);
-      if (this.flyerAbholungPrice > 0) {
-        this.flyerAbholungApplicable = true;
-        aktuelleZwischensummeVerteilung += this.flyerAbholungPrice;
-      }
-    }
-
-    // Express Zuschlag
-    this.expressZuschlagPrice = 0;
-    this.expressZuschlagApplicable = false;
-    if (this.isExpressConfirmed) {
-      const basisExpress = summeGrundverteilung + (this.currentFinalFlyerFormat !== 'anderes' ? this.zuschlagFormatPrice : 0);
-      if (basisExpress > 0) {
-        const expressFactor = this.calculatorService.getExpressSurchargeFactor(this.prices!);
-        if (expressFactor > 0) {
-          this.expressZuschlagPrice = basisExpress * expressFactor;
-          this.expressZuschlagApplicable = true;
-          aktuelleZwischensummeVerteilung += this.expressZuschlagPrice;
-        }
-      }
-    }
-
-    // Mindestabnahme-Pauschale
-    this.mindestAbnahmePauschalePrice = 0;
-    this.mindestAbnahmePauschaleApplicable = false;
-    if (aktuelleZwischensummeVerteilung > 0) {
-      this.mindestAbnahmePauschalePrice = this.calculatorService.calculateMinimumOrderSurcharge(aktuelleZwischensummeVerteilung, this.prices!);
-      if (this.mindestAbnahmePauschalePrice > 0) {
-        this.mindestAbnahmePauschaleApplicable = true;
-        aktuelleZwischensummeVerteilung += this.mindestAbnahmePauschalePrice;
-      }
-    }
-
-    this.distributionCostItems = tempDistributionItems;
-    this.zwischensummeVerteilung = aktuelleZwischensummeVerteilung;
-    this.recalculateOverallTotalPrice();
-
-    this.cdr.markForCheck();
-  }
-
-  private recalculateOverallTotalPrice(): void {
-    // Design kommt immer dazu!
-    this.overallTotalPrice = this.zwischensummeVerteilung + this.designPackagePrice;
-    this.cdr.markForCheck();
-  }
-
-  private getUIDesignPackageName(pkgKey: DesignPackage | string): string {
-    switch(pkgKey) {
+  private getDesignPackageName(packageKey: DesignPackageType | null): string | null {
+    if (!packageKey) return null;
+    switch (packageKey as DesignPackageService) {
       case 'basis': return 'Basis Paket';
       case 'plus': return 'Plus Paket';
       case 'premium': return 'Premium Paket';
-      case 'eigenes': return 'Eigenes Design angeliefert';
-      default: return '';
+      case 'eigenes': return 'Eigenes Design';
+      default: return null;
     }
   }
 
-  public getFlyerAmountForPlz(entry: PlzEntry): number {
-    return entry.selected_display_flyer_count || 0;
-  }
+  public calculateAllCosts(): void {
+    if (!this.appPrices || !this.currentOrderData) {
+      return;
+    }
 
-  public getDistributionPriceForPlz(entry: PlzEntry): number {
-    if(!this.prices) return 0;
-    return this.calculatorService.calculateDistributionCostForEntry(
-      entry,
-      this.zielgruppe,
-      this.prices
+    this.distributionCostItems = [];
+    let grundkostenVerteilung = 0;
+
+    this.selectedPlzEntries.forEach(entry => {
+      const preisKategorie = entry.preisKategorie || 'A';
+      const efhPreisProTausend = this.appPrices!.distribution.efh[preisKategorie] || 0;
+      const mfhPreisProTausend = this.appPrices!.distribution.mfh[preisKategorie] || 0;
+      let flyersForCostItem = 0;
+      let costForThisEntry = 0;
+
+      if (this.zielgruppe === 'Alle Haushalte') {
+        flyersForCostItem = entry.anzahl;
+        const efhFlyers = entry.efh || 0;
+        const mfhFlyers = entry.mfh || 0;
+        costForThisEntry = (efhFlyers / 1000 * efhPreisProTausend) + (mfhFlyers / 1000 * mfhPreisProTausend);
+      } else if (this.zielgruppe === 'Ein- und Zweifamilienhäuser') {
+        flyersForCostItem = entry.selected_display_flyer_count;
+        costForThisEntry = (flyersForCostItem / 1000) * efhPreisProTausend;
+      } else if (this.zielgruppe === 'Mehrfamilienhäuser') {
+        flyersForCostItem = entry.selected_display_flyer_count;
+        costForThisEntry = (flyersForCostItem / 1000) * mfhPreisProTausend;
+      }
+      costForThisEntry = this.calculatorService.roundCurrency(costForThisEntry);
+      if (flyersForCostItem > 0) {
+        this.distributionCostItems.push({ label: `PLZ ${entry.plz4} ${entry.ort}`, price: costForThisEntry, flyers: flyersForCostItem });
+        grundkostenVerteilung += costForThisEntry;
+      }
+    });
+    grundkostenVerteilung = this.calculatorService.roundCurrency(grundkostenVerteilung);
+
+    const produktionState = this.currentOrderData.produktion;
+    let finalFlyerFormatForSurcharge: VerteilzuschlagFormatKey | null = null;
+    let rawFlyerFormat: FlyerFormatType | null = null;
+
+    if (produktionState.printOption === 'anliefern' && produktionState.anlieferDetails?.format) {
+      rawFlyerFormat = produktionState.anlieferDetails.format;
+    } else if (produktionState.printOption === 'service' && produktionState.printServiceDetails?.format) {
+      rawFlyerFormat = produktionState.printServiceDetails.format;
+    }
+
+    if (rawFlyerFormat === 'DIN-Lang') finalFlyerFormatForSurcharge = 'Lang';
+    else if (rawFlyerFormat === 'A4') finalFlyerFormatForSurcharge = 'A4';
+    else if (rawFlyerFormat === 'A3') finalFlyerFormatForSurcharge = 'A3';
+    else if (rawFlyerFormat === 'anderes') finalFlyerFormatForSurcharge = 'anderes';
+
+    const anlieferOption = produktionState.anlieferDetails?.anlieferung as AnlieferungOptionService | null;
+    const plzEntriesForService = this.selectedPlzEntries as PlzEntry[];
+
+    const surchargeResults = this.calculatorService.recalculateAllCostsLogic(
+      grundkostenVerteilung, this.totalFlyersForDistribution, finalFlyerFormatForSurcharge,
+      anlieferOption, this.expressZuschlagApplicable, plzEntriesForService, this.appPrices
     );
+
+    this.fahrzeugGpsPrice = surchargeResults.gps;
+    this.zuschlagFormatPrice = surchargeResults.format;
+    this.flyerAbholungPrice = surchargeResults.abhol;
+    this.expressZuschlagPrice = surchargeResults.express;
+    let currentCalculatedDistributionTotal: number;
+    const basisMindestwert = this.appPrices.distribution.surcharges.mindestbestellwert;
+    const gpsKostenFuerMindestwert = this.appPrices.distribution.surcharges.fahrzeugGPS;
+    const effektiverMindestZielwert = (this.fahrzeugGpsPrice > 0) ? basisMindestwert + gpsKostenFuerMindestwert : basisMindestwert;
+    const summeOhneMindestzuschlag = grundkostenVerteilung + this.fahrzeugGpsPrice + this.zuschlagFormatPrice + this.flyerAbholungPrice + this.expressZuschlagPrice;
+
+    if (summeOhneMindestzuschlag < effektiverMindestZielwert) {
+      this.mindestAbnahmePauschalePrice = this.calculatorService.roundCurrency(effektiverMindestZielwert - summeOhneMindestzuschlag);
+      currentCalculatedDistributionTotal = effektiverMindestZielwert;
+    } else {
+      this.mindestAbnahmePauschalePrice = 0;
+      currentCalculatedDistributionTotal = summeOhneMindestzuschlag;
+    }
+    this.zwischensummeVerteilung = currentCalculatedDistributionTotal;
+    this.fahrzeugGpsApplicable = this.fahrzeugGpsPrice > 0;
+    this.flyerAbholungApplicable = this.flyerAbholungPrice > 0;
+    this.mindestAbnahmePauschaleApplicable = this.mindestAbnahmePauschalePrice > 0;
+
+    if (finalFlyerFormatForSurcharge && finalFlyerFormatForSurcharge !== 'anderes' && this.zuschlagFormatPrice > 0) {
+      this.zuschlagFormatAnzeige = finalFlyerFormatForSurcharge;
+      this.isAnderesFormatSelected = false;
+    } else if (finalFlyerFormatForSurcharge === 'anderes') {
+      this.zuschlagFormatAnzeige = 'Anderes';
+      this.isAnderesFormatSelected = true;
+    } else {
+      this.zuschlagFormatAnzeige = rawFlyerFormat;
+      this.isAnderesFormatSelected = false;
+    }
+
+    this.selectedDesignPackageName = this.getDesignPackageName(this.selectedDesignPackageKey);
+    if (this.selectedDesignPackageKey && this.appPrices.design) {
+      const designKey = this.selectedDesignPackageKey as keyof typeof this.appPrices.design;
+      this.designPackagePrice = this.appPrices.design[designKey] || 0;
+    } else {
+      this.designPackagePrice = 0;
+    }
+
+    this.overallTotalPrice = this.calculatorService.roundCurrency(this.zwischensummeVerteilung + this.designPackagePrice);
+    this.mwstBetrag = this.calculatorService.roundCurrency(this.overallTotalPrice * this.appPrices.tax["vat-ch"]);
+    this.gesamtTotal = this.calculatorService.roundCurrency(this.overallTotalPrice + this.mwstBetrag);
+    this.cdr.markForCheck();
   }
 
-  onRequestPrevious(): void {
-    this.requestPreviousStep.emit();
-  }
-
-  onRequestNext(): void {
-    this.requestNextStep.emit();
-  }
-
-  onRequestSubmit(): void {
-    this.requestSubmit.emit();
-  }
+  public onRequestPrevious(): void { this.requestPreviousStep.emit(); }
+  public onRequestNext(): void { this.requestNextStep.emit(); }
+  public onRequestSubmit(): void { this.requestSubmit.emit(); }
 }

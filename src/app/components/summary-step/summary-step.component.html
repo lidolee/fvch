@@ -6,14 +6,15 @@
 <div class="mb-3">
   <h6>Ihre Auswahl:</h6>
   <ul>
-    <li>Verteilgebiet: <em>(Daten hier einfügen)</em></li>
-    <li>Design: <em>(Daten hier einfügen)</em></li>
-    <li>Kontaktdaten: <em>(Daten hier einfügen)</em></li>
+    <li>Verteilgebiet: <em>{{ getDistributionSummary() }}</em></li>
+    <li>Design & Produktion: <em>{{ getDesignSummary() }}</em></li>
+    <li>Kontaktdaten: <em>{{ getContactSummary() }}</em></li>
   </ul>
 </div>
 <div class="mb-3">
   <h6>Kostenübersicht:</h6>
-  <p>Gesamtkosten: <em>(Daten vom Calculator Service hier einfügen)</em></p>
+  <p>Gesamtkosten: <em>(Platzhalter - Daten vom Calculator Service hier einfügen)</em></p>
+  <p class="small text-muted">Eine detaillierte Kostenaufstellung sehen Sie rechts im Kalkulator.</p>
 </div>
 
 <hr>

@@ -1,19 +1,11 @@
-import { Component, Output, EventEmitter, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy } from '@angular/core';
+import { Component, OnInit, Output, EventEmitter, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { OrderDataService } from '../../services/order-data.service';
+import { DesignPackageType, PrintOptionType, FlyerFormatType, AnlieferungType, DruckGrammaturType, DruckArtType, DruckAusfuehrungType } from '../../services/order-data.types';
 import { ValidationStatus } from '../offer-process/offer-process.component';
-import { OrderDataService, VerteilzuschlagFormatKey } from '../../services/order-data.service';
-
-export type DesignPackage = 'basis' | 'plus' | 'premium' | 'eigenes' | '';
-export type PrintOption = 'anliefern' | 'service' | '';
-export type DruckFormat = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN-Lang' | 'anderes' | '';
-export type DruckGrammatur = '90' | '115' | '130' | '170' | '250' | '300' | '';
-export type DruckArt = 'einseitig' | 'zweiseitig' | '';
-export type DruckAusfuehrung = 'glaenzend' | 'matt' | '';
-export type AnlieferungOption = 'selbst' | 'abholung' | '';
-export type FormatOption = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN-Lang' | 'anderes' | '';
 
 @Component({
   selector: 'app-design-print-step',
@@ -24,127 +16,168 @@ export type FormatOption = 'A6' | 'A5' | 'A4' | 'A3' | 'DIN-Lang' | 'anderes' | 
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DesignPrintStepComponent implements OnInit, OnDestroy {
-  @Output() validationChange = new EventEmitter<ValidationStatus>();
+  @Output() public validationChange = new EventEmitter<ValidationStatus>();
 
-  selectedDesignPackage: DesignPackage = '';
-  selectedPrintOption: PrintOption = '';
-  druckFormat: DruckFormat = '';
-  druckGrammatur: DruckGrammatur = '';
-  druckArt: DruckArt = '';
-  druckAusfuehrung: DruckAusfuehrung = '';
-  druckAuflage: number = 0;
-  druckReserve: number = 1000;
-  currentAnlieferung: AnlieferungOption = '';
-  currentFormat: FormatOption = '';
-
-  public currentStatus: ValidationStatus = 'pending';
+  public selectedDesignPackage: DesignPackageType | null = null;
+  public selectedPrintOption: PrintOptionType | null = null;
+  public currentFormat: FlyerFormatType | null = null;
+  public currentAnlieferung: AnlieferungType | null = null;
+  public druckFormat: FlyerFormatType | null = null;
+  public druckGrammatur: DruckGrammaturType | null = null;
+  public druckArt: DruckArtType | null = null;
+  public druckAusfuehrung: DruckAusfuehrungType | null = null;
+  public druckAuflage: number | null = null;
+  public druckReserve: number = 0;
+  public currentStatus: ValidationStatus = 'unchecked';
   private destroy$ = new Subject<void>();
-  private isDruckAuflageManuallySet: boolean = false;
+  private totalFlyersFromDistribution: number = 0;
 
   constructor(
-    private cdr: ChangeDetectorRef,
-    private orderDataService: OrderDataService
+    private orderDataService: OrderDataService,
+    private cdr: ChangeDetectorRef
   ) {}
 
-  ngOnInit() {
-    this.orderDataService.totalFlyersCount$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(count => {
-        if (this.selectedPrintOption === 'service' && !this.isDruckAuflageManuallySet) {
-          this.druckAuflage = count;
-          this.cdr.markForCheck();
-        }
-      });
-    this.determineAndEmitValidationStatus();
+  ngOnInit(): void {
+    this.loadInitialData();
+    this.orderDataService.totalFlyersCount$.pipe(takeUntil(this.destroy$)).subscribe(count => {
+      this.totalFlyersFromDistribution = count;
+      if (this.selectedPrintOption === 'service') {
+        this.druckAuflage = count > 0 ? count : null;
+        this.orderDataService.updatePrintServiceDetails({ auflage: this.druckAuflage });
+      }
+      this.validateStep();
+    });
+    this.validateStep(); // Initial validation
   }
 
-  ngOnDestroy() {
+  ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
   }
 
-  onDesignPackageSelect(pkg: DesignPackage): void {
-    this.selectedDesignPackage = pkg;
-    this.orderDataService.updateDesignPackage(pkg);
-    this.determineAndEmitValidationStatus();
-  }
-
-  onPrintOptionSelect(opt: PrintOption): void {
-    this.selectedPrintOption = opt;
-    this.orderDataService.updatePrintOption(opt);
-    this.updateFinalFlyerFormat();
-    this.updateAnlieferungOption();
-    this.determineAndEmitValidationStatus();
-  }
-
-  onFormatSelect(format: FormatOption | DruckFormat, isDruckService: boolean): void {
-    if (isDruckService) {
-      this.druckFormat = format as DruckFormat;
-    } else {
-      this.currentFormat = format as FormatOption;
+  private loadInitialData(): void {
+    this.selectedDesignPackage = this.orderDataService.getCurrentDesignPackage();
+    this.selectedPrintOption = this.orderDataService.getCurrentPrintOption();
+    if (this.selectedPrintOption === 'anliefern') {
+      const anlieferDetails = this.orderDataService.getCurrentAnlieferDetails();
+      this.currentFormat = anlieferDetails?.format || null;
+      this.currentAnlieferung = anlieferDetails?.anlieferung || null;
+    } else if (this.selectedPrintOption === 'service') {
+      const printDetails = this.orderDataService.getCurrentPrintServiceDetails();
+      this.druckFormat = printDetails?.format || null;
+      this.druckGrammatur = printDetails?.grammatur || null;
+      this.druckArt = printDetails?.art || null;
+      this.druckAusfuehrung = printDetails?.ausfuehrung || null;
+      this.druckAuflage = printDetails?.auflage !== undefined && printDetails.auflage !== null ? printDetails.auflage : (this.totalFlyersFromDistribution > 0 ? this.totalFlyersFromDistribution : null);
+      this.druckReserve = printDetails?.reserve || 0;
     }
-    this.updateFinalFlyerFormat();
-    this.determineAndEmitValidationStatus();
   }
 
-  onAnlieferungSelect(anlieferung: AnlieferungOption): void {
+  public onDesignPackageSelect(paket: DesignPackageType): void {
+    this.selectedDesignPackage = paket;
+    this.orderDataService.updateDesignPackage(this.selectedDesignPackage);
+    this.validateStep();
+  }
+
+  public onPrintOptionSelect(option: PrintOptionType): void {
+    this.selectedPrintOption = option;
+    this.orderDataService.updatePrintOption(this.selectedPrintOption);
+    if (option === 'anliefern') {
+      this.resetPrintServiceDetails();
+      const anlieferDetails = this.orderDataService.getCurrentAnlieferDetails();
+      this.currentFormat = anlieferDetails?.format || null;
+      this.currentAnlieferung = anlieferDetails?.anlieferung || null;
+    } else if (option === 'service') {
+      this.resetAnlieferDetails();
+      const printDetails = this.orderDataService.getCurrentPrintServiceDetails();
+      this.druckFormat = printDetails?.format || null;
+      this.druckGrammatur = printDetails?.grammatur || null;
+      this.druckArt = printDetails?.art || null;
+      this.druckAusfuehrung = printDetails?.ausfuehrung || null;
+      this.druckAuflage = printDetails?.auflage !== undefined && printDetails.auflage !== null ? printDetails.auflage : (this.totalFlyersFromDistribution > 0 ? this.totalFlyersFromDistribution : null);
+      this.druckReserve = printDetails?.reserve || 0;
+      if (this.druckAuflage !== null) {
+        this.orderDataService.updatePrintServiceDetails({ auflage: this.druckAuflage });
+      }
+    }
+    this.validateStep();
+  }
+
+  public onFormatSelect(format: FlyerFormatType, isPrintService: boolean): void {
+    if (isPrintService) {
+      this.druckFormat = format;
+      this.orderDataService.updatePrintServiceDetails({ format: this.druckFormat });
+    } else {
+      this.currentFormat = format;
+      this.orderDataService.updateAnlieferDetails({ format: this.currentFormat });
+    }
+    this.validateStep();
+  }
+
+  public onAnlieferungSelect(anlieferung: AnlieferungType): void {
     this.currentAnlieferung = anlieferung;
-    this.updateAnlieferungOption();
-    this.determineAndEmitValidationStatus();
+    this.orderDataService.updateAnlieferDetails({ anlieferung: this.currentAnlieferung });
+    this.validateStep();
   }
 
-  onPrintServiceDetailChange(): void {
-    this.determineAndEmitValidationStatus();
+  public onPrintServiceDetailChange(): void {
+    this.orderDataService.updatePrintServiceDetails({
+      format: this.druckFormat, grammatur: this.druckGrammatur,
+      art: this.druckArt, ausfuehrung: this.druckAusfuehrung, reserve: this.druckReserve
+    });
+    this.validateStep();
   }
 
-  onDruckAuflageChange(): void {
-    this.isDruckAuflageManuallySet = true;
-    this.determineAndEmitValidationStatus();
-  }
-
-  private updateFinalFlyerFormat(): void {
-    let finalFormat: FormatOption | DruckFormat = '';
-    if (this.selectedPrintOption === 'anliefern') {
-      finalFormat = this.currentFormat;
-    } else if (this.selectedPrintOption === 'service') {
-      finalFormat = this.druckFormat;
+  public onDruckAuflageChange(): void {
+    if (this.druckAuflage === null || this.druckAuflage < 0) {
+      this.druckAuflage = this.druckAuflage === null ? null : 0;
     }
-
-    let serviceFormat: VerteilzuschlagFormatKey = '';
-    if (finalFormat === 'DIN-Lang') {
-      serviceFormat = 'Lang';
-    } else if (finalFormat === 'A4' || finalFormat === 'A3' || finalFormat === 'anderes') {
-      serviceFormat = finalFormat;
-    }
-
-    this.orderDataService.updateFinalFlyerFormat(serviceFormat);
+    this.orderDataService.updatePrintServiceDetails({ auflage: this.druckAuflage });
+    this.validateStep();
   }
 
-  private updateAnlieferungOption(): void {
-    if (this.selectedPrintOption === 'anliefern') {
-      this.orderDataService.updateAnlieferungOption(this.currentAnlieferung);
-    } else {
-      this.orderDataService.updateAnlieferungOption('');
-    }
+  private resetAnlieferDetails(): void {
+    this.currentFormat = null; this.currentAnlieferung = null;
+    this.orderDataService.updateAnlieferDetails({ format: null, anlieferung: null });
   }
 
-  private determineAndEmitValidationStatus(): void {
-    let isValid = true;
-    if (!this.selectedDesignPackage) isValid = false;
-    if (!this.selectedPrintOption) isValid = false;
+  private resetPrintServiceDetails(): void {
+    this.druckFormat = null; this.druckGrammatur = null; this.druckArt = null;
+    this.druckAusfuehrung = null; this.druckReserve = 0;
+    this.orderDataService.updatePrintServiceDetails({
+      format: null, grammatur: null, art: null, ausfuehrung: null, reserve: 0, auflage: null
+    });
+  }
 
-    if (this.selectedPrintOption === 'anliefern') {
-      if (!this.currentAnlieferung) isValid = false;
-      if (!this.currentFormat) isValid = false;
-    } else if (this.selectedPrintOption === 'service') {
-      if (!this.druckFormat || !this.druckGrammatur || !this.druckArt || !this.druckAusfuehrung) isValid = false;
-      if (this.druckAuflage <= 0) isValid = false;
+  private validateStep(): void {
+    let isValid = false;
+    if (this.selectedDesignPackage) {
+      if (this.selectedPrintOption === 'anliefern') {
+        if (this.currentFormat && this.currentAnlieferung) {
+          isValid = true;
+        }
+      } else if (this.selectedPrintOption === 'service') {
+        if (
+          this.druckFormat && this.druckGrammatur && this.druckArt &&
+          this.druckAusfuehrung && this.druckAuflage !== null &&
+          this.druckAuflage >= (this.totalFlyersFromDistribution || 1) // Auflage muss mindestens der Verteilmenge entsprechen
+        ) {
+          isValid = true;
+        }
+      }
     }
-
-    const newStatus = isValid ? 'valid' : 'pending';
+    const newStatus = isValid ? 'valid' : 'invalid';
     if (this.currentStatus !== newStatus) {
       this.currentStatus = newStatus;
-      this.validationChange.emit(this.currentStatus);
+      // Event asynchron senden, um NG0100 im Parent zu vermeiden
+      Promise.resolve().then(() => { // oder setTimeout, wenn NgZone nicht verfügbar ist oder bevorzugt wird
+        this.validationChange.emit(this.currentStatus);
+      });
     }
+    this.cdr.markForCheck();
+  }
+
+  public triggerValidationDisplay(): void {
+    this.validateStep();
   }
 }

@@ -3,7 +3,6 @@
   <p>Bitte teilen Sie uns Ihre Kontaktdaten mit.</p>
 </div>
 
-
 <form [formGroup]="form" (ngSubmit)="finalizeOrder()">
 
   <fieldset>
@@ -18,13 +17,13 @@
           <option value="" disabled selected>— Anrede wählen</option>
           <option *ngFor="let salutation of salutations" [value]="salutation">{{ salutation }}</option>
         </select>
-        <div *ngIf="form.controls['salutation'].invalid && form.get('salutation')?.invalid && form.get('salutation')?.touched" class="text-danger small mt-1">
+        <div *ngIf="form.controls['salutation'].invalid && form.get('salutation')?.touched" class="text-danger small mt-1">
           Bitte wählen Sie eine Anrede.
         </div>
       </div>
     </div>
 
-    <div class="row">
+    <div class="row mb-3">
       <label for="vorname" class="col-sm-4 col-form-label">Vorname Name</label>
       <div class="col-sm-8">
         <div class="input-group">
@@ -40,6 +39,12 @@
                  class="form-control border-primary-subtle"
                  placeholder="Mustermann"
                  formControlName="lastName">
+        </div>
+        <div *ngIf="form.controls['firstName'].invalid && form.controls['firstName'].touched" class="text-danger small mt-1 d-block">
+          Vorname ist erforderlich.
+        </div>
+        <div *ngIf="form.controls['lastName'].invalid && form.controls['lastName'].touched" class="text-danger small mt-1 d-block">
+          Nachname ist erforderlich.
         </div>
       </div>
     </div>
@@ -58,6 +63,10 @@
                placeholder="max.mustermann@musterfirma.ch"
                autocomplete="on"
                formControlName="email">
+        <div *ngIf="form.controls['email'].invalid && form.controls['email'].touched" class="text-danger small mt-1">
+          <span *ngIf="form.controls['email'].errors?.['required']">E-Mail ist erforderlich.</span>
+          <span *ngIf="form.controls['email'].errors?.['email']">Bitte geben Sie eine gültige E-Mail Adresse ein.</span>
+        </div>
       </div>
     </div>
 
@@ -136,5 +145,4 @@
       </div>
     </div>
   </fieldset>
-
 </form>

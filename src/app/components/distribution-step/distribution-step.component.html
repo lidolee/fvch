@@ -47,7 +47,7 @@
              [mapOptions]="mapConfig"
              (plzClicked)="onPlzClickedOnMap($event)"
              (loading)="onMapLoadingStatusChanged($event)"
-             (mapReady)="$event">
+             (mapReady)="onMapReady($event)">
     </app-map>
   </div>
 
@@ -65,8 +65,8 @@
   <div *ngIf="searchInputStatus === 'invalid' && searchInputInitialTerm && searchInputInitialTerm.length > 0" class="text-danger small mt-1 ps-1">Eingabe ungültig oder keine Treffer.</div>
   <div *ngIf="searchInputStatus === 'pending'" class="text-muted small mt-1 ps-1">Suche aktiv...</div>
 
-  <ng-container *ngIf="(selectedEntries$ | async) as selectedEntries">
-    <div class="my-4 row" *ngIf="selectedEntries && selectedEntries.length > 0">
+  <ng-container *ngIf="selectedEntries.length > 0">
+    <div class="my-4 row">
       <div class="col-sm-12">
         <div class="choice-card-group choice-card-group-zielgruppe">
           <button type="button" class="choice-card"
@@ -103,49 +103,53 @@
       </div>
     </div>
 
-    <div *ngIf="selectedEntries && selectedEntries.length > 0">
+    <div>
       <h3 class="section-title mt-4 mb-0"><span>Ihre Auswahl: {{ selectedEntries.length }} PLZ</span></h3>
       <div class="delete-plz-list text-end mt-2 mb-4">
         <button class="btn btn-sm btn-outline-danger" type="button" (click)="clearPlzTable()"><i class="mdi mdi-playlist-remove fs-6"></i>&nbsp;Liste löschen</button>
       </div>
     </div>
 
-    <div *ngIf="selectedEntries && selectedEntries.length > 0; else showBeliebteRegionenBlock">
+    <div>
       <app-plz-selection-table
         [entries]="selectedEntries"
         [currentZielgruppe]="currentZielgruppe"
         [highlightFlyerMaxColumn]="highlightFlyerMaxColumn"
         (remove)="removePlzFromTable($event)"
         (zoom)="zoomToTableEntryOnMap($event)"
-        (highlight)="highlightPlacemarkOnMapFromTable($event)">
+        (highlight)="highlightPlacemarkOnMapFromTable($event)"
+        (flyerCountChange)="onPlzFlyerCountChanged($event)">
       </app-plz-selection-table>
     </div>
-
-    <ng-template #showBeliebteRegionenBlock>
-      <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer">
-        <div class="popular-locations text-center">
-          <div class="my-2"><h6 class="text-uppercase">Beliebte Städte</h6></div>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Zürich')">Zürich</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Bern')">Bern</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Basel')">Basel</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Luzern')">Luzern</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('St. Gallen')">St. Gallen</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Winterthur')">Winterthur</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Schaffhausen')">Schaffhausen</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Baden')">Baden</button>
-          <br/>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Genève')">Genève</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Lausanne')">Lausanne</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Biel/Bienne')">Biel/Bienne</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Fribourg')">Fribourg</button>
-          <br/>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Lugano')">Lugano</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Bellinzona')">Bellinzona</button>
-          <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Locarno')">Locarno</button>
-        </div>
-      </div>
-    </ng-template>
   </ng-container>
+
+  <ng-template #showBeliebteRegionenBlock>
+    <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer && selectedEntries.length === 0">
+      <div class="popular-locations text-center">
+        <div class="my-2"><h6 class="text-uppercase">Beliebte Städte</h6></div>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Zürich')">Zürich</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Bern')">Bern</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Basel')">Basel</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Luzern')">Luzern</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('St. Gallen')">St. Gallen</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Winterthur')">Winterthur</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Schaffhausen')">Schaffhausen</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Baden')">Baden</button>
+        <br/>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Genève')">Genève</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Lausanne')">Lausanne</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Biel/Bienne')">Biel/Bienne</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Fribourg')">Fribourg</button>
+        <br/>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Lugano')">Lugano</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Bellinzona')">Bellinzona</button>
+        <button type="button" class="btn btn-sm btn-link me-1 mb-1" (click)="selectCityAndFetchPlz('Locarno')">Locarno</button>
+      </div>
+    </div>
+  </ng-template>
+  <div *ngIf="selectedEntries.length === 0">
+    <ng-container *ngTemplateOutlet="showBeliebteRegionenBlock"></ng-container>
+  </div>
 </div>
 
 <div class="perimeter-container reminder" *ngIf="showPerimeterUiContainer">
@@ -191,9 +195,7 @@
         <span class="alert-title"><i class="mdi mdi-alert-box me-2 fs-5"></i>Express-Zuschlag</span>
       </div>
       <div>Kurzfristiges Startdatum <strong class="text-danger">50% Express-Zuschlag</strong></div>
-
       <div class="mt-2">Start ab <strong>{{ getFormattedDefaultStandardDateForDisplay() }}</strong> oder später: kein Zuschlag.</div>
-
       <div class="row gx-3">
         <div class="col-6">
           <button type="button" class="btn btn-sm w-100 btn-outline-danger mt-3" (click)="avoidExpressSurcharge()">

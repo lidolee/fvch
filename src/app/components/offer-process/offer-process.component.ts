@@ -1,190 +1,220 @@
-import { Component, ViewChild, ChangeDetectorRef, Input, OnInit, OnChanges, SimpleChanges, ChangeDetectionStrategy, AfterViewInit, PLATFORM_ID, Inject } from '@angular/core';
-import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { NgbNavModule, NgbNav, NgbNavChangeEvent } from '@ng-bootstrap/ng-bootstrap';
-import { Router } from '@angular/router';
-
-import { DistributionStepComponent, ZielgruppeOption } from '../distribution-step/distribution-step.component';
+import { Component, OnInit, ViewChild, ChangeDetectorRef, AfterViewInit, OnDestroy, NgZone } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { NgbNav, NgbNavChangeEvent, NgbNavModule } from '@ng-bootstrap/ng-bootstrap';
+import { ActivatedRoute, Router, NavigationExtras } from '@angular/router';
+import { DistributionStepComponent } from '../distribution-step/distribution-step.component';
 import { DesignPrintStepComponent } from '../design-print-step/design-print-step.component';
 import { SummaryStepComponent } from '../summary-step/summary-step.component';
 import { CalculatorComponent } from '../calculator/calculator.component';
+import { OrderDataService } from '../../services/order-data.service';
+import { ZielgruppeOption } from '../../services/order-data.types';
+import { Subject, Subscription } from 'rxjs';
+import { takeUntil, distinctUntilChanged, map as rxjsMap } from 'rxjs/operators';
 
-export type ValidationStatus = 'valid' | 'invalid' | 'pending' | 'neutral';
+export type ValidationStatus = 'valid' | 'invalid' | 'pending' | 'unchecked';
 
 @Component({
   selector: 'app-offer-process',
   standalone: true,
-  imports: [
-    CommonModule,
-    NgbNavModule,
-    DistributionStepComponent,
-    DesignPrintStepComponent,
-    SummaryStepComponent,
-    CalculatorComponent
-  ],
+  imports: [ CommonModule, NgbNavModule, DistributionStepComponent, DesignPrintStepComponent, SummaryStepComponent, CalculatorComponent ],
   templateUrl: './offer-process.component.html',
-  styleUrls: ['./offer-process.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  styleUrls: ['./offer-process.component.scss']
 })
-export class OfferProcessComponent implements OnInit, OnChanges, AfterViewInit {
-  @ViewChild('nav') navInstance!: NgbNav;
-  @ViewChild(DistributionStepComponent) distributionStepComponent?: DistributionStepComponent;
-  @ViewChild(DesignPrintStepComponent) designPrintStepComponent?: DesignPrintStepComponent;
-  @ViewChild(SummaryStepComponent) summaryStepComponent?: SummaryStepComponent;
+export class OfferProcessComponent implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('nav') public nav!: NgbNav;
+  @ViewChild(DistributionStepComponent) private distributionStepComponent!: DistributionStepComponent;
+  @ViewChild(DesignPrintStepComponent) private designPrintStepComponent!: DesignPrintStepComponent;
+  @ViewChild(SummaryStepComponent) private summaryStepComponent!: SummaryStepComponent;
 
-  @Input() stadtname: string | undefined;
-  initialStadtnameForDistribution: string | undefined;
-
-  activeStepId = 1;
-  stepValidationStatus: { [key: number]: ValidationStatus } = {
-    1: 'pending',
-    2: 'pending',
-    3: 'pending',
+  public activeStepId: number = 1;
+  public stepValidationStatus: { [key: number]: ValidationStatus } = {
+    1: 'unchecked', 2: 'unchecked', 3: 'unchecked'
   };
+  public initialStadtnameForDistribution: string | undefined;
+  public zielgruppe: ZielgruppeOption = 'Alle Haushalte';
 
-  // NEU: Zielgruppe State zentral im OfferProcess
-  zielgruppe: ZielgruppeOption = 'Alle Haushalte';
-
-  private readonly isBrowser: boolean;
+  private componentDestroyed$ = new Subject<void>();
+  private currentStadtname: string | null = null;
+  private paramMapSubscription: Subscription | undefined;
+  private queryParamMapSubscription: Subscription | undefined;
+  private isNavigatingInternally = false;
 
   constructor(
-    private cdr: ChangeDetectorRef,
+    private orderDataService: OrderDataService,
+    private route: ActivatedRoute,
     private router: Router,
-    @Inject(PLATFORM_ID) private platformId: Object
-  ) {
-    this.isBrowser = isPlatformBrowser(this.platformId);
-  }
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone
+  ) {}
 
   ngOnInit(): void {
-    this.updateInitialStadtForDistributionStep();
-  }
+    this.paramMapSubscription = this.route.paramMap.pipe(
+      takeUntil(this.componentDestroyed$),
+      rxjsMap(params => params.get('stadtname')),
+      distinctUntilChanged()
+    ).subscribe(stadtname => {
+      this.currentStadtname = stadtname;
+      if (stadtname) this.initialStadtnameForDistribution = stadtname;
+    });
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['stadtname']) {
-      this.updateInitialStadtForDistributionStep();
+    this.queryParamMapSubscription = this.route.queryParamMap.pipe(
+      takeUntil(this.componentDestroyed$),
+    ).subscribe(params => {
+      const stadtQueryParam = params.get('stadt');
+      if (stadtQueryParam && !this.initialStadtnameForDistribution) {
+        this.initialStadtnameForDistribution = stadtQueryParam;
+      }
+    });
+
+    const initialFragment = this.route.snapshot.fragment;
+    if (initialFragment) {
+      const stepNum = parseInt(initialFragment.replace('step', ''), 10);
+      if (stepNum >= 1 && stepNum <= 3) {
+        if (this.activeStepId !== stepNum) {
+          this.activeStepId = stepNum;
+        }
+      }
     }
+    this.zielgruppe = this.orderDataService.getCurrentVerteilart();
   }
 
   ngAfterViewInit(): void {
-    if (this.activeStepId === 1 && this.distributionStepComponent) {
-      // Potentially trigger a re-validation or status check if needed
-    }
-    this.cdr.detectChanges();
+    Promise.resolve().then(() => {
+      this.ngZone.run(() => {
+        if (this.componentDestroyed$.isStopped) return;
+        if (this.nav && this.nav.activeId !== this.activeStepId) {
+          this.isNavigatingInternally = true;
+          this.nav.select(this.activeStepId);
+        } else {
+          this.triggerActiveStepValidation();
+        }
+      });
+    });
   }
 
-  private updateInitialStadtForDistributionStep(): void {
-    let newInitialStadtValue: string | undefined;
-
-    if (this.stadtname && this.stadtname.trim() !== '' && this.stadtname.toLowerCase() !== 'undefined') {
-      newInitialStadtValue = this.stadtname;
-    } else {
-      newInitialStadtValue = undefined;
-    }
-
-    if (this.initialStadtnameForDistribution !== newInitialStadtValue) {
-      this.initialStadtnameForDistribution = newInitialStadtValue;
-      this.cdr.markForCheck();
-    }
+  ngOnDestroy(): void {
+    this.componentDestroyed$.next(); this.componentDestroyed$.complete();
+    if (this.paramMapSubscription) this.paramMapSubscription.unsubscribe();
+    if (this.queryParamMapSubscription) this.queryParamMapSubscription.unsubscribe();
   }
 
-  navigateToStep(stepId: number): void {
-    if (this.navInstance && this.activeStepId !== stepId && stepId >= 1 && stepId <= 3) {
-      this.activeStepId = stepId;
-      this.navInstance.select(stepId);
-      this.cdr.markForCheck();
-    } else if (stepId === 4 && this.activeStepId === 3 && this.stepValidationStatus[3] === 'valid') {
-      // this.router.navigate(['/danke']); // Example completion navigation
-      this.scrollToTop(); // Scroll on final step completion
-    }
+  private triggerActiveStepValidation(): void {
+    if (this.componentDestroyed$.isStopped) return;
+    if (this.activeStepId === 1 && this.distributionStepComponent) this.distributionStepComponent.triggerValidationDisplay();
+    else if (this.activeStepId === 2 && this.designPrintStepComponent) this.designPrintStepComponent.triggerValidationDisplay();
+    else if (this.activeStepId === 3 && this.summaryStepComponent) this.summaryStepComponent.triggerValidationDisplay();
   }
 
-  updateValidationStatus(stepId: number, status: ValidationStatus): void {
-    if (this.stepValidationStatus[stepId] !== status) {
-      this.stepValidationStatus[stepId] = status;
-      this.cdr.markForCheck();
-    }
-  }
+  public onNavChange(event: NgbNavChangeEvent): void {
+    if (this.componentDestroyed$.isStopped) { event.preventDefault(); return; }
+    const targetStepId = event.nextId;
 
-  getValidationIconClass(stepId: number): string {
-    const status = this.stepValidationStatus[stepId];
-    switch (status) {
-      case 'valid': return 'mdi-check-circle text-success';
-      case 'invalid': return 'mdi-alert-circle text-danger';
-      default: return 'mdi-circle-outline text-secondary';
-    }
-  }
-
-  onNavChange(event: NgbNavChangeEvent<number>): void {
-    if (event.activeId < event.nextId && this.stepValidationStatus[event.activeId] !== 'valid') {
-      event.preventDefault();
-      this.triggerStepValidationFeedback(event.activeId);
+    if (this.isNavigatingInternally) {
+      this.isNavigatingInternally = false;
+      if (this.activeStepId !== targetStepId) this.activeStepId = targetStepId;
+      this.updateUrlFragment();
+      Promise.resolve().then(() => this.ngZone.run(() => { if (!this.componentDestroyed$.isStopped) this.triggerActiveStepValidation(); }));
       return;
     }
-    this.activeStepId = event.nextId;
-    this.cdr.markForCheck();
-    this.scrollToTop(); // Scroll whenever a tab navigation occurs
-  }
 
-  private triggerStepValidationFeedback(stepId: number): void {
-    const componentInstance = this.getActiveStepComponentInstance(stepId);
-    if (componentInstance && typeof componentInstance.triggerValidationDisplay === 'function') {
-      componentInstance.triggerValidationDisplay();
-    } else if (componentInstance && stepId === 3 && componentInstance instanceof SummaryStepComponent) {
-      componentInstance.triggerFinalizeOrder();
+    if (this.activeStepId === targetStepId) {
+      if (this.route.snapshot.fragment !== `step${this.activeStepId}`) this.updateUrlFragment();
+      return;
     }
-  }
 
-  onCalculatorPrevious(): void {
-    if (this.activeStepId > 1) {
-      this.navigateToStep(this.activeStepId - 1);
-      this.scrollToTop(); // Scroll on previous step navigation
-    }
-  }
-
-  onCalculatorNext(): void {
-    if (this.stepValidationStatus[this.activeStepId] === 'valid') {
-      if (this.activeStepId < 3) {
-        const nextStepId = this.activeStepId + 1;
-        this.navigateToStep(nextStepId);
-        this.scrollToTop(); // Scroll on next step navigation
-      }
+    if (targetStepId < event.activeId) {
+      this.activeStepId = targetStepId;
+      this.updateUrlFragment();
+      Promise.resolve().then(() => this.ngZone.run(() => { if (!this.componentDestroyed$.isStopped) this.triggerActiveStepValidation(); }));
     } else {
-      this.triggerStepValidationFeedback(this.activeStepId);
+      let canProceed = true;
+      for (let i = 1; i < targetStepId; i++) {
+        if (this.stepValidationStatus[i] !== 'valid') { canProceed = false; break; }
+      }
+      if (canProceed) {
+        this.activeStepId = targetStepId;
+        this.updateUrlFragment();
+        Promise.resolve().then(() => this.ngZone.run(() => { if (!this.componentDestroyed$.isStopped) this.triggerActiveStepValidation(); }));
+      } else {
+        event.preventDefault();
+      }
     }
   }
 
-  onCalculatorSubmit(): void {
-    if (this.activeStepId === 3) {
-      if (this.stepValidationStatus[3] === 'valid') {
-        const summaryComp = this.summaryStepComponent;
-        if (summaryComp) {
-          summaryComp.triggerFinalizeOrder(); // This eventually calls navigateToStep(4) via events
+  public updateValidationStatus(step: number, status: ValidationStatus): void {
+    if (this.stepValidationStatus[step] !== status) {
+      this.stepValidationStatus[step] = status;
+      Promise.resolve().then(() => {
+        this.ngZone.run(() => {
+          if (!this.componentDestroyed$.isStopped) {
+            this.cdr.detectChanges();
+          }
+        });
+      });
+    }
+  }
+
+  public getValidationIconClass(step: number): string {
+    return this.stepValidationStatus[step] === 'valid' ? 'mdi-check-circle text-success' :
+      this.stepValidationStatus[step] === 'invalid' ? 'mdi-alert-circle text-danger' :
+        this.stepValidationStatus[step] === 'pending' ? 'mdi-timer-sand text-warning' :
+          'mdi-checkbox-blank-circle-outline text-muted';
+  }
+
+  public onZielgruppeChange(neueZielgruppe: ZielgruppeOption): void {
+    this.zielgruppe = neueZielgruppe;
+    this.orderDataService.updateVerteilart(neueZielgruppe);
+    if (this.distributionStepComponent) this.distributionStepComponent.currentZielgruppe = neueZielgruppe;
+  }
+
+  public navigateToStep(stepId: number): void {
+    if (this.componentDestroyed$.isStopped) return;
+    if (this.nav && stepId >= 1 && stepId <= 3) {
+      let canProceed = true;
+      if (stepId > this.activeStepId) {
+        for (let i = this.activeStepId; i < stepId; i++) {
+          if (this.stepValidationStatus[i] !== 'valid') { canProceed = false; break; }
+        }
+      }
+      if (canProceed) {
+        if (this.activeStepId !== stepId && this.nav.activeId !== stepId) {
+          this.isNavigatingInternally = true; this.nav.select(stepId);
+        } else if (this.activeStepId !== stepId) {
+          this.activeStepId = stepId; this.updateUrlFragment();
+          Promise.resolve().then(() => this.ngZone.run(() => { if (!this.componentDestroyed$.isStopped) this.triggerActiveStepValidation(); }));
+        } else {
+          Promise.resolve().then(() => this.ngZone.run(() => { if (!this.componentDestroyed$.isStopped) this.triggerActiveStepValidation(); }));
         }
       } else {
-        this.triggerStepValidationFeedback(this.activeStepId);
+        Promise.resolve().then(() => this.ngZone.run(() => { if (!this.componentDestroyed$.isStopped) this.triggerActiveStepValidation(); }));
       }
     }
   }
 
-  // NEU: Zielgruppenwechsel annehmen
-  onZielgruppeChange(zielgruppe: ZielgruppeOption) {
-    if (this.zielgruppe !== zielgruppe) {
-      this.zielgruppe = zielgruppe;
-      this.cdr.markForCheck();
+  private updateUrlFragment(): void {
+    if (this.componentDestroyed$.isStopped) return;
+    const commands: any[] = this.currentStadtname ? [this.currentStadtname] : [];
+    const navigationExtras: NavigationExtras = { fragment: `step${this.activeStepId}`, replaceUrl: true, queryParamsHandling: 'preserve' };
+    if (this.route.snapshot.fragment !== navigationExtras.fragment) {
+      this.router.navigate(commands, navigationExtras);
     }
   }
 
-  private getActiveStepComponentInstance(stepId: number): any {
-    switch (stepId) {
-      case 1: return this.distributionStepComponent;
-      case 2: return this.designPrintStepComponent;
-      case 3: return this.summaryStepComponent;
-      default: return null;
-    }
+  public onCalculatorPrevious(): void { if (this.activeStepId > 1) this.navigateToStep(this.activeStepId - 1); }
+  public onCalculatorNext(): void {
+    if (this.stepValidationStatus[this.activeStepId] === 'valid') {
+      if (this.activeStepId < 3) this.navigateToStep(this.activeStepId + 1);
+      else if (this.activeStepId === 3) this.onCalculatorSubmit();
+    } else this.triggerActiveStepValidation();
   }
-
-  private scrollToTop(): void {
-    if (this.isBrowser) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+  public onCalculatorSubmit(): void {
+    let allStepsValid = true;
+    for (let i = 1; i <= 3; i++) {
+      if (this.stepValidationStatus[i] !== 'valid') { allStepsValid = false; this.navigateToStep(i); return; }
+    }
+    if (allStepsValid && this.summaryStepComponent) {
+      this.summaryStepComponent.triggerContactFormSubmit();
+      if(this.stepValidationStatus[3] === 'valid') this.orderDataService.getAllOrderData();
     }
   }
 }

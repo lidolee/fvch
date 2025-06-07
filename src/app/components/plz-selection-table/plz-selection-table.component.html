@@ -16,22 +16,22 @@
     </thead>
     <tbody>
     <tr *ngFor="let entry of entries; trackBy: trackByPlzId"
-        (mouseenter)="highlight.emit({plzId: entry.id, highlight: true})"
-        (mouseleave)="highlight.emit({plzId: null, highlight: false})">
+        (mouseenter)="onMouseEnterRow(entry.id)"
+        (mouseleave)="onMouseLeaveRow()">
       <td class="plz">{{ entry.plz4 }}</td>
       <td class="ort">{{ entry.ort }}</td>
       <td class="canton text-start">{{ entry.kt }}</td>
       <td class="flyer-max text-end"
           [class.column-highlighted]="highlightFlyerMaxColumn"
           [class.text-muted]="entry.is_manual_count">
-        {{ getAudienceCalculatedFlyerCount(entry) | number:'1.0-0' }}
+        {{ getAudienceCalculatedFlyerCount(entry) | number:'1.0-0':'de-CH' }}
       </td>
       <td class="flyer-limit text-end"
           *ngIf="currentZielgruppe !== 'Alle Haushalte'"
           title="Definitive Wunschmenge, die wir für diese PLZ verteilen. Bitte abrunden auf nächste 100er Zahl">
         <input class="form-control form-control-sm text-end"
                type="number"
-               [ngModel]="entry.selected_display_flyer_count"
+               [value]="entry.selected_display_flyer_count"
                (blur)="onManualFlyerInputBlur(entry, $event.target)"
                min="0"
                step="100"
@@ -39,26 +39,26 @@
                placeholder=""/>
       </td>
       <td class="has-icon actions-zoom text-end">
-        <button type="button" class="btn btn-sm btn-outline-secondary me-1 action-btn" (click)="zoom.emit(entry)" title="Auf Karte zentrieren">
+        <button type="button" class="btn btn-sm btn-outline-secondary me-1 action-btn" (click)="onZoomToPlzClick(entry)" title="Auf Karte zentrieren">
           <i class="mdi mdi-magnify-scan"></i>
         </button>
-        <button type="button" class="btn btn-sm btn-outline-danger action-btn" (click)="remove.emit(entry)" title="Aus Auswahl entfernen">
+        <button type="button" class="btn btn-sm btn-outline-danger action-btn" (click)="onRemovePlzClick(entry)" title="Aus Auswahl entfernen">
           <i class="mdi mdi-delete"></i>
         </button>
       </td>
     </tr>
     </tbody>
-<!--    <tfoot>
+    <tfoot>
     <tr class="table-light">
       <td colspan="3" class="fw-bold">Total Auswahl</td>
       <td class="text-end fw-bold" [class.highlight-column]="highlightFlyerMaxColumn">
-        {{ getTotalAudienceCalculatedFlyers() | number:'1.0-0' }}
+        {{ getTotalAudienceCalculatedFlyers() | number:'1.0-0':'de-CH' }}
       </td>
       <td class="text-end fw-bold" *ngIf="currentZielgruppe !== 'Alle Haushalte'">
-        {{ getTotalDefinitiveFlyers() | number:'1.0-0' }}
+        {{ getTotalDefinitiveFlyers() | number:'1.0-0':'de-CH' }}
       </td>
       <td></td>
     </tr>
-    </tfoot>-->
+    </tfoot>
   </table>
 </div>

@@ -4,7 +4,6 @@
   <p>Wählen Sie Ihre Design- und Druckoptionen.</p>
 </div>
 
-
 <h3 class="section-title"><span>1. Flyer Design</span></h3>
 
 <div class="choice-card-group design-package-group">
@@ -314,7 +313,6 @@
   </fieldset>
 </div>
 
-
-<div *ngIf="currentStatus === 'pending' && (selectedDesignPackage && selectedPrintOption)" class="alert alert-warning mt-3 small">
+<div *ngIf="currentStatus === 'invalid' && (selectedDesignPackage && selectedPrintOption)" class="alert alert-warning mt-3 small">
   Bitte füllen Sie alle erforderlichen Felder für die gewählte Druck/Anlieferoption aus.
 </div>

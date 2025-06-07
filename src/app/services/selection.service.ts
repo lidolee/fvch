@@ -1,130 +1,124 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
-import { PlzEntry } from './plz-data.service';
-import { OrderDataService } from './order-data.service';
-// ZielgruppeOption ist ein exportierter *Typ* aus der Datei distribution-step.component.ts, nicht die Komponentenklasse selbst.
-// Der Pfad '../components/distribution-step/distribution-step.component' ist korrekt, um diesen Typ zu importieren.
-import { ZielgruppeOption } from '../components/distribution-step/distribution-step.component';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+import { PlzEntry, PlzDataService } from './plz-data.service';
+// KORREKTER IMPORT für ZielgruppeOption
+import { ZielgruppeOption } from './order-data.types';
 
 @Injectable({
   providedIn: 'root'
 })
 export class SelectionService {
-  private selectedEntriesSource = new BehaviorSubject<PlzEntry[]>([]);
-  selectedEntries$ = this.selectedEntriesSource.asObservable();
+  private selectedEntriesSubject = new BehaviorSubject<PlzEntry[]>([]);
+  public selectedEntries$: Observable<PlzEntry[]> = this.selectedEntriesSubject.asObservable();
 
-  private lastKnownGlobalAudience: ZielgruppeOption = 'Alle Haushalte';
+  public totalFlyerCount$: Observable<number>;
+  public totalMaxPossibleFlyers$: Observable<number>;
 
-  constructor(private orderDataService: OrderDataService) {}
+  constructor(private plzDataService: PlzDataService) {
+    this.totalFlyerCount$ = this.selectedEntries$.pipe(
+      map(entries => entries.reduce((sum, entry) => sum + (entry.selected_display_flyer_count ?? this.getDefaultFlyerCountForEntry(entry, 'Alle Haushalte')), 0))
+    );
 
-  private getAudienceCalculatedCount(entry: PlzEntry, zielgruppe: ZielgruppeOption): number {
-    if (!entry) return 0;
-    switch (zielgruppe) {
-      case 'Mehrfamilienhäuser':
-        return entry.mfh ?? 0;
-      case 'Ein- und Zweifamilienhäuser':
-        return entry.efh ?? 0;
-      case 'Alle Haushalte':
-      default:
-        return entry.all ?? 0;
+    this.totalMaxPossibleFlyers$ = this.selectedEntries$.pipe(
+      map(entries => entries.reduce((sum, entry) => sum + (entry.all || 0), 0))
+    );
+  }
+
+  public getSelectedEntries(): PlzEntry[] {
+    return this.selectedEntriesSubject.getValue();
+  }
+
+  public addEntry(entry: PlzEntry, zielgruppe: ZielgruppeOption): void {
+    const currentEntries = this.selectedEntriesSubject.getValue();
+    if (!currentEntries.find(e => e.id === entry.id) && this.validateEntry(entry)) {
+      entry.selected_display_flyer_count = this.getDefaultFlyerCountForEntry(entry, zielgruppe);
+      entry.is_manual_count = false;
+      this.selectedEntriesSubject.next([...currentEntries, entry].sort((a,b) => a.plz6.localeCompare(b.plz6)));
     }
   }
 
-  addEntry(entry: PlzEntry, zielgruppe: ZielgruppeOption): void {
-    const currentEntries = this.selectedEntriesSource.getValue();
-    if (!currentEntries.find(e => e.id === entry.id)) {
-      const newEntry = { ...entry };
-      newEntry.selected_display_flyer_count = this.getAudienceCalculatedCount(newEntry, zielgruppe);
-      newEntry.is_manual_count = false;
-
-      const updatedEntries = [...currentEntries, newEntry];
-      this.selectedEntriesSource.next(updatedEntries);
-      this.recalculateAndEmitTotalFlyers(updatedEntries);
-    }
-  }
-
-  addMultipleEntries(entries: PlzEntry[], zielgruppe: ZielgruppeOption): void {
-    const currentSelected = [...this.selectedEntriesSource.getValue()];
-    const newEntriesToAdd: PlzEntry[] = [];
-
-    entries.forEach(newEntryData => {
-      if (!currentSelected.find(e => e.id === newEntryData.id)) {
-        const newEntry = { ...newEntryData };
-        newEntry.selected_display_flyer_count = this.getAudienceCalculatedCount(newEntry, zielgruppe);
-        newEntry.is_manual_count = false;
-        newEntriesToAdd.push(newEntry);
-      }
-    });
+  public addMultipleEntries(entries: PlzEntry[], zielgruppe: ZielgruppeOption): void {
+    const currentSelected = this.selectedEntriesSubject.getValue();
+    const newEntriesToAdd = entries.filter(
+      newEntry => !currentSelected.find(existing => existing.id === newEntry.id) && this.validateEntry(newEntry)
+    );
 
     if (newEntriesToAdd.length > 0) {
-      const updatedEntries = [...currentSelected, ...newEntriesToAdd];
-      this.selectedEntriesSource.next(updatedEntries);
-      this.recalculateAndEmitTotalFlyers(updatedEntries);
+      newEntriesToAdd.forEach(entry => {
+        entry.selected_display_flyer_count = this.getDefaultFlyerCountForEntry(entry, zielgruppe);
+        entry.is_manual_count = false;
+      });
+      this.selectedEntriesSubject.next([...currentSelected, ...newEntriesToAdd].sort((a,b) => a.plz6.localeCompare(b.plz6)));
     }
   }
 
-  removeEntry(id: string): void {
-    const currentEntries = this.selectedEntriesSource.getValue();
-    const updatedEntries = currentEntries.filter(entry => entry.id !== id);
-    if (updatedEntries.length !== currentEntries.length) {
-      this.selectedEntriesSource.next(updatedEntries);
-      this.recalculateAndEmitTotalFlyers(updatedEntries);
-    }
+  public removeEntry(entryId: string): void {
+    const currentEntries = this.selectedEntriesSubject.getValue();
+    this.selectedEntriesSubject.next(currentEntries.filter(e => e.id !== entryId));
   }
 
-  clearEntries(): void {
-    this.selectedEntriesSource.next([]);
-    this.orderDataService.updateTotalFlyersCount(0);
+  public clearEntries(): void {
+    this.selectedEntriesSubject.next([]);
   }
 
-  public updateFlyerCountsForAudience(zielgruppe: ZielgruppeOption): void {
-    this.lastKnownGlobalAudience = zielgruppe;
-    const currentEntries = this.selectedEntriesSource.getValue();
-
-    const updatedEntries = currentEntries.map(entry => {
-      const newEntry = { ...entry };
-      newEntry.selected_display_flyer_count = this.getAudienceCalculatedCount(newEntry, zielgruppe);
-      newEntry.is_manual_count = false;
-      return newEntry;
-    });
-
-    this.selectedEntriesSource.next(updatedEntries);
-    this.recalculateAndEmitTotalFlyers(updatedEntries);
+  public validateEntry(entry: PlzEntry): boolean {
+    return !!entry && typeof entry.id === 'string' && entry.id.length > 0;
   }
 
-  public updateManualFlyerCountForEntry(entryId: string, manualCountInput: number | null): void {
-    const currentEntries = [...this.selectedEntriesSource.getValue()];
+  public updateFlyerCountForEntry(entryId: string, newCount: number, zielgruppe: ZielgruppeOption): void {
+    const currentEntries = this.selectedEntriesSubject.getValue();
     const entryIndex = currentEntries.findIndex(e => e.id === entryId);
 
     if (entryIndex > -1) {
-      const updatedEntry = { ...currentEntries[entryIndex] };
+      const entryToUpdate = { ...currentEntries[entryIndex] };
+      const maxCount = this.getMaxFlyerCountForEntry(entryToUpdate, zielgruppe);
 
-      if (manualCountInput === null) {
-        updatedEntry.selected_display_flyer_count = this.getAudienceCalculatedCount(updatedEntry, this.lastKnownGlobalAudience);
-        updatedEntry.is_manual_count = false;
-      } else {
-        updatedEntry.selected_display_flyer_count = manualCountInput;
-        updatedEntry.is_manual_count = true;
-      }
+      entryToUpdate.selected_display_flyer_count = Math.max(0, Math.min(newCount, maxCount));
+      entryToUpdate.is_manual_count = true;
 
-      const newEntriesArray = [...currentEntries];
-      newEntriesArray[entryIndex] = updatedEntry;
-
-      this.selectedEntriesSource.next(newEntriesArray);
-      this.recalculateAndEmitTotalFlyers(newEntriesArray);
+      const updatedEntries = [...currentEntries];
+      updatedEntries[entryIndex] = entryToUpdate;
+      this.selectedEntriesSubject.next(updatedEntries);
     }
   }
 
-  private recalculateAndEmitTotalFlyers(entries: PlzEntry[]): void {
-    const totalFlyers = entries.reduce((sum, entry) => sum + (Number(entry.selected_display_flyer_count) || 0), 0);
-    this.orderDataService.updateTotalFlyersCount(totalFlyers);
+  public updateFlyerCountsForAudience(zielgruppe: ZielgruppeOption): void {
+    const currentEntries = this.selectedEntriesSubject.getValue();
+    const updatedEntries = currentEntries.map(entry => {
+      if (!entry.is_manual_count || typeof entry.selected_display_flyer_count === 'undefined') {
+        return {
+          ...entry,
+          selected_display_flyer_count: this.getDefaultFlyerCountForEntry(entry, zielgruppe),
+          is_manual_count: false
+        };
+      }
+      const maxForNewAudience = this.getMaxFlyerCountForEntry(entry, zielgruppe);
+      if (entry.selected_display_flyer_count && entry.selected_display_flyer_count > maxForNewAudience) {
+        return {
+          ...entry,
+          selected_display_flyer_count: maxForNewAudience
+        };
+      }
+      return entry;
+    });
+    this.selectedEntriesSubject.next(updatedEntries);
   }
 
-  getSelectedEntries(): PlzEntry[] {
-    return this.selectedEntriesSource.getValue();
+  private getDefaultFlyerCountForEntry(entry: PlzEntry, zielgruppe: ZielgruppeOption): number {
+    switch (zielgruppe) {
+      case 'Alle Haushalte':
+        return entry.all || 0;
+      case 'Ein- und Zweifamilienhäuser':
+        return entry.efh || 0;
+      case 'Mehrfamilienhäuser':
+        return entry.mfh || 0;
+      default:
+        return entry.all || 0;
+    }
   }
 
-  validateEntry(entry: PlzEntry): boolean {
-    return !!(entry && entry.id && entry.ort && entry.plz4);
+  private getMaxFlyerCountForEntry(entry: PlzEntry, zielgruppe: ZielgruppeOption): number {
+    return this.getDefaultFlyerCountForEntry(entry, zielgruppe);
   }
 }

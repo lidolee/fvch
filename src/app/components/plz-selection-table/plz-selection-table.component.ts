@@ -1,86 +1,101 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, SimpleChanges, OnChanges, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
-import { FormsModule } from '@angular/forms'; // Required for ngModel
-import { PlzEntry } from '../../services/plz-data.service';
-import { ZielgruppeOption } from '../distribution-step/distribution-step.component'; // Ensure path is correct
-
-export interface TableHighlightEvent {
-  plzId: string | null;
-  highlight: boolean;
-}
+import { FormsModule } from '@angular/forms';
+import { ZielgruppeOption, PlzSelectionDetail } from '../../services/order-data.types';
+import { TableHighlightEvent } from '../distribution-step/distribution-step.component';
 
 @Component({
   selector: 'app-plz-selection-table',
   standalone: true,
   imports: [CommonModule, FormsModule, DecimalPipe],
   templateUrl: './plz-selection-table.component.html',
-  styleUrls: ['./plz-selection-table.component.scss'], // Assuming you have this SCSS file
-  changeDetection: ChangeDetectionStrategy.OnPush
+  styleUrls: ['./plz-selection-table.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [DecimalPipe]
 })
-export class PlzSelectionTableComponent {
-  @Input() entries: PlzEntry[] = [];
-  @Input() currentZielgruppe: ZielgruppeOption = 'Alle Haushalte';
-  @Input() highlightFlyerMaxColumn: boolean = false;
+export class PlzSelectionTableComponent implements OnChanges {
+  @Input() public entries: PlzSelectionDetail[] = [];
+  @Input() public currentZielgruppe: ZielgruppeOption = 'Alle Haushalte';
+  @Input() public highlightFlyerMaxColumn: boolean = false;
 
-  @Output() remove = new EventEmitter<PlzEntry>();
-  @Output() zoom = new EventEmitter<PlzEntry>();
-  @Output() highlight = new EventEmitter<TableHighlightEvent>();
-  @Output() manualFlyerCountUpdated = new EventEmitter<{ entryId: string, newCount: number | null }>();
+  @Output() public remove = new EventEmitter<PlzSelectionDetail>();
+  @Output() public zoom = new EventEmitter<PlzSelectionDetail>();
+  @Output() public highlight = new EventEmitter<TableHighlightEvent>();
+  @Output() public flyerCountChange = new EventEmitter<{ entryId: string, newCount: number }>();
 
-  constructor() {}
+  public anzahlSumme: number = 0;
+  public haushalteSumme: number = 0;
 
-  // Your existing trackByPlzId (if it was trackByEntryId, either is fine, just be consistent)
-  trackByPlzId(index: number, item: PlzEntry): string {
+  constructor(private cdr: ChangeDetectorRef) {}
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['entries'] || changes['currentZielgruppe']) {
+      this.calculateSums();
+    }
+  }
+
+  private calculateSums(): void {
+    this.anzahlSumme = this.entries.reduce((sum, detail) => sum + (detail.selected_display_flyer_count ?? detail.anzahl), 0);
+    this.haushalteSumme = this.entries.reduce((sum, detail) => sum + this.getFlyerMaxForEntry(detail), 0);
+    this.cdr.markForCheck();
+  }
+
+  public onRemovePlzClick(detail: PlzSelectionDetail): void {
+    this.remove.emit(detail);
+  }
+
+  public onZoomToPlzClick(detail: PlzSelectionDetail): void {
+    this.zoom.emit(detail);
+  }
+
+  public onMouseEnterRow(plzId: string): void {
+    this.highlight.emit({ plzId: plzId, highlight: true });
+  }
+
+  public onMouseLeaveRow(): void {
+    this.highlight.emit({ plzId: null, highlight: false });
+  }
+
+  public onManualFlyerInputBlur(entry: PlzSelectionDetail, target: EventTarget | null): void {
+    if (target instanceof HTMLInputElement) {
+      let newCount = parseInt(target.value, 10);
+      const maxCount = this.getAudienceCalculatedFlyerCount(entry);
+
+      if (isNaN(newCount) || newCount < 0) {
+        newCount = 0;
+      } else if (newCount > maxCount) {
+        newCount = maxCount;
+      }
+      target.value = newCount.toString();
+      if (entry.selected_display_flyer_count !== newCount) {
+        this.flyerCountChange.emit({ entryId: entry.id, newCount: newCount });
+      }
+    }
+  }
+
+  public getAudienceCalculatedFlyerCount(entry: PlzSelectionDetail): number {
+    return entry.anzahl;
+  }
+
+  private getFlyerMaxForEntry(entry: PlzSelectionDetail): number {
+    if (!entry) return 0;
+    switch (this.currentZielgruppe) {
+      case 'Mehrfamilienhäuser': return entry.mfh ?? 0;
+      case 'Ein- und Zweifamilienhäuser': return entry.efh ?? 0;
+      case 'Alle Haushalte':
+      default: return entry.all || 0;
+    }
+  }
+
+  public trackByPlzId(index: number, item: PlzSelectionDetail): string {
     return item.id;
   }
 
-  // Renamed from getFlyerMaxForEntry to be more specific for the "max" column
-  getAudienceCalculatedFlyerCount(entry: PlzEntry): number {
-    if (!entry) return 0;
-    switch (this.currentZielgruppe) {
-      case 'Mehrfamilienhäuser':
-        return entry.mfh ?? 0;
-      case 'Ein- und Zweifamilienhäuser':
-        return entry.efh ?? 0;
-      case 'Alle Haushalte':
-      default:
-        return entry.all ?? 0;
-    }
-  }
-
-  onManualFlyerInputBlur(entry: PlzEntry, target: any): void {
-    const rawValue = target.value;
-    let processedCount: number | null;
-
-    if (rawValue === null || String(rawValue).trim() === '') {
-      // User cleared the input. Signal to revert to audience-calculated.
-      processedCount = null;
-    } else {
-      let numValue = parseInt(rawValue, 10);
-      if (isNaN(numValue) || numValue < 0) {
-        // Invalid input, signal to revert.
-        processedCount = null;
-      } else {
-        // Valid number, round it.
-        processedCount = Math.round(numValue / 100) * 100;
-      }
-    }
-
-    // Visually update input only if processed value differs from raw or is being reset
-    if (processedCount !== null && String(target.value) !== String(processedCount)) {
-      target.value = processedCount; // Reflect rounding
-    } else if (processedCount === null && String(target.value).trim() !== '') {
-      // Input was invalid/cleared, target.value will be updated by ngModel once service changes entry
-    }
-
-    this.manualFlyerCountUpdated.emit({ entryId: entry.id, newCount: processedCount });
-  }
-
-  getTotalAudienceCalculatedFlyers(): number {
+  public getTotalAudienceCalculatedFlyers(): number {
     return this.entries.reduce((sum, entry) => sum + this.getAudienceCalculatedFlyerCount(entry), 0);
   }
 
-  getTotalDefinitiveFlyers(): number {
-    return this.entries.reduce((sum, entry) => sum + (entry.selected_display_flyer_count ?? 0), 0);
+  public getTotalDefinitiveFlyers(): number {
+    return this.entries.reduce((sum, entry) => sum + (entry.selected_display_flyer_count ?? entry.anzahl), 0);
   }
 }
