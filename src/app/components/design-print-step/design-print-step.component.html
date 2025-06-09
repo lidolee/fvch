@@ -314,6 +314,16 @@
     </div>
   </div>
 
+  <!-- UPLOAD PDF FILE ///////////////////////////////////////////////////// -->
+
+  <div class="mt-3">
+    <div class="input-group">
+      <input class="form-control" type="file" id="pdfFileUpload"/>
+      <button type="button" class="btn btn-sm btn-primary"> <i class="mdi mdi-upload"></i> hochladen</button>
+    </div>
+
+  </div>
+
   <div *ngIf="(currentStatus$ | async) === 'invalid' && (produktion.designPackage && produktion.printOption)" class="alert alert-warning mt-3 small">
     Bitte füllen Sie alle erforderlichen Felder für die gewählte Druck/Anlieferoption aus.
   </div>
