@@ -105,30 +105,30 @@
       <div class="table-responsive">
         <table class="table calculation-table">
           <tbody>
-          <tr>
-            <td class="item-label">{{ kosten.selectedDesignPackageName }}</td>
-            <td class="item-subtotal text-end">{{ kosten.designPackageCost | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+          <tr class="table-light">
+            <td class="item-label fw-bold">{{ kosten.selectedDesignPackageName }}</td>
+            <td class="item-subtotal text-end fw-bold">{{ kosten.designPackageCost | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <div class="cost-group total-summary mt-3 pt-3 border-top" *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0">
+    <div class="cost-group total-summary mt-4" *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0">
       <div class="table-responsive">
         <table class="table calculation-table">
           <tbody>
-          <tr class="fs-5">
-            <td>Total (provisorisch exkl. MWST)</td>
+          <tr class="table-light">
+            <td class="fw-bold">Zwischentotal</td>
             <td class="text-end fw-bold">{{ kosten.subTotalNetto | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
-          <tr>
-            <td>MWST ({{ kosten.taxRatePercent }}%)</td>
+          <tr class="table-light">
+            <td>Mehrwertsteuer {{ kosten.taxRatePercent }}%</td>
             <td class="text-end">{{ kosten.taxAmount | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
-          <tr class="fs-4 fw-bolder">
-            <td>Total inkl. MWST</td>
-            <td class="text-end">{{ kosten.grandTotalCalculated | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+          <tr class="table-light">
+            <td class="fw-bold fs-5">Total</td>
+            <td class="text-end fw-bold fs-5">{{ kosten.grandTotalCalculated | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
           </tbody>
         </table>

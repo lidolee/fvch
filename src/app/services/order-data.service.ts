@@ -139,7 +139,10 @@ export class OrderDataService {
     const subTotalNetto = this.calculatorService.roundCurrency(subTotalDistribution + designPackageCost + printService.cost);
     const taxRate = appPrices.tax["vat-ch"] || 0;
     const taxAmount = this.calculatorService.roundCurrency(subTotalNetto * taxRate);
-    const grandTotalCalculated = this.calculatorService.roundCurrency(subTotalNetto + taxAmount);
+
+    const unroundedGrandTotal = subTotalNetto + taxAmount;
+    const grandTotalCalculated = this.calculatorService.roundTo5Rappen(unroundedGrandTotal);
+
     let distributionHeadline = '';
     if (distribution.items.length > 0) {
       switch (verteilgebiet.zielgruppe) {

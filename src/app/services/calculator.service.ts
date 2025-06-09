@@ -65,6 +65,10 @@ export class CalculatorService {
     return Math.round(value * 100) / 100;
   }
 
+  public roundTo5Rappen(value: number): number {
+    return Math.round(value * 20) / 20;
+  }
+
   public calculateDesignPackagePrice(packageType: DesignPackageType | null, designPrices: DesignPrices | null): number {
     if (!packageType || !designPrices || !(packageType in designPrices)) {
       return 0;
@@ -169,7 +173,6 @@ export class CalculatorService {
               costForThisEntry += (flyersAnteilMFH / 1000) * (appPrices.distribution.mfh[preisKategorie] || 0);
             }
           } else {
-            // Fallback, if no mfh/efh data, assume efh price
             costForThisEntry = (flyersForThisEntry / 1000) * (appPrices.distribution.efh[preisKategorie] || 0);
           }
           break;
