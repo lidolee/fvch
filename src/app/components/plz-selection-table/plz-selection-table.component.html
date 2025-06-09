@@ -7,10 +7,14 @@
       <th scope="col" class="canton text-start">KT</th>
       <th scope="col" class="flyer-max text-end"
           [class.highlight-column]="highlightFlyerMaxColumn"
-          [title]="'Flyer Max basierend auf Zielgruppe: ' + currentZielgruppe">Flyer</th>
+          [title]="'Maximale Anzahl basierend auf der aktuellen Zielgruppe: ' + currentZielgruppe">Max. {{ currentZielgruppe === 'Alle Haushalte' ? '' : (currentZielgruppe === 'Mehrfamilienhäuser' ? 'MFH' : 'EFH') }}</th>
+
       <th scope="col" class="flyer-limit text-start"
           *ngIf="currentZielgruppe !== 'Alle Haushalte'"
-          title="Definitive Wunschmenge, die wir für diese PLZ verteilen. Bitte abrunden auf nächste 100er Zahl">Definitiv</th>
+          [title]="'Definitive Wunschmenge, die wir für diese PLZ verteilen.'">
+        Definitiv {{ currentZielgruppe === 'Mehrfamilienhäuser' ? 'MFH' : 'EFH' }}
+      </th>
+
       <th scope="col" class="actions text-end">&nbsp;</th>
     </tr>
     </thead>
@@ -21,23 +25,32 @@
       <td class="plz">{{ entry.plz4 }}</td>
       <td class="ort">{{ entry.ort }}</td>
       <td class="canton text-start">{{ entry.kt }}</td>
-      <td class="flyer-max text-end"
-          [class.column-highlighted]="highlightFlyerMaxColumn"
-          [class.text-muted]="entry.is_manual_count">
+      <td class="flyer-max text-end" [class.column-highlighted]="highlightFlyerMaxColumn">
         {{ getAudienceCalculatedFlyerCount(entry) | number:'1.0-0':'de-CH' }}
       </td>
-      <td class="flyer-limit text-end"
-          *ngIf="currentZielgruppe !== 'Alle Haushalte'"
-          title="Definitive Wunschmenge, die wir für diese PLZ verteilen. Bitte abrunden auf nächste 100er Zahl">
+
+      <td class="flyer-limit text-end" *ngIf="currentZielgruppe === 'Mehrfamilienhäuser'">
         <input class="form-control form-control-sm text-end"
                type="number"
-               [value]="getInitialDisplayCount(entry)"
-               (input)="onManualFlyerInputChange(entry, $event.target)"
+               [value]="entry.selected_flyer_count_mfh"
+               (input)="onManualFlyerInputChange(entry, $event.target, 'mfh')"
                min="0"
                step="100"
-               [max]="getAudienceCalculatedFlyerCount(entry)"
+               [max]="entry.mfh"
                placeholder=""/>
       </td>
+
+      <td class="flyer-limit text-end" *ngIf="currentZielgruppe === 'Ein- und Zweifamilienhäuser'">
+        <input class="form-control form-control-sm text-end"
+               type="number"
+               [value]="entry.selected_flyer_count_efh"
+               (input)="onManualFlyerInputChange(entry, $event.target, 'efh')"
+               min="0"
+               step="100"
+               [max]="entry.efh"
+               placeholder=""/>
+      </td>
+
       <td class="has-icon actions-zoom text-end">
         <button type="button" class="btn btn-sm btn-outline-secondary me-1 action-btn" (click)="onZoomToPlzClick(entry)" title="Auf Karte zentrieren">
           <i class="mdi mdi-magnify-scan"></i>
@@ -54,9 +67,17 @@
       <td class="text-end fw-bold" [class.highlight-column]="highlightFlyerMaxColumn">
         {{ getTotalAudienceCalculatedFlyers() | number:'1.0-0':'de-CH' }}
       </td>
+
       <td class="text-end fw-bold" *ngIf="currentZielgruppe !== 'Alle Haushalte'">
-        {{ getTotalDefinitiveFlyers() | number:'1.0-0':'de-CH' }}
+        <ng-container *ngIf="currentZielgruppe === 'Mehrfamilienhäuser'">
+          {{ getTotalDefinitiveMfhFlyers() | number:'1.0-0':'de-CH' }}
+        </ng-container>
+        <ng-container *ngIf="currentZielgruppe === 'Ein- und Zweifamilienhäuser'">
+          {{ getTotalDefinitiveEfhFlyers() | number:'1.0-0':'de-CH' }}
+        </ng-container>
       </td>
+
+      <td *ngIf="currentZielgruppe === 'Alle Haushalte'"></td>
       <td></td>
     </tr>
     </tfoot>

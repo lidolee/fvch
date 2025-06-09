@@ -12,16 +12,22 @@ export interface PlzSelectionDetail {
   efh?: number;
   isSelected?: boolean;
   isHighlighted?: boolean;
+
+  // Manuelle Anzahl pro Zielgruppe
+  manual_flyer_count_mfh: number | null;
+  manual_flyer_count_efh: number | null;
+
+  // Der finale Wert, der für die Kalkulation verwendet wird
+  selected_flyer_count_mfh: number;
+  selected_flyer_count_efh: number;
+
+  // veraltet, wird entfernt oder angepasst
   is_manual_count?: boolean;
   selected_display_flyer_count?: number;
-
-  // KORREKTUR: Fehlende Felder zur Behebung der Compiler-Fehler hinzugefügt
-  manual_flyer_count_mfh?: number | null;
-  manual_flyer_count_efh?: number | null;
-
   anzahl: number;
   zielgruppe: ZielgruppeOption;
 }
+
 
 export type DesignPackageType = 'basis' | 'plus' | 'premium' | 'eigenes';
 

@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { PlzEntry } from './plz-data.service';
-import { ZielgruppeOption } from './order-data.types';
 
 @Injectable({
   providedIn: 'root'
@@ -47,24 +46,22 @@ export class SelectionService {
     return !!entry && !!entry.id;
   }
 
-  public updateFlyerCountForEntry(entryId: string, newCount: number | null, zielgruppe: ZielgruppeOption): void {
-    console.log(`[SelectionService] updateFlyerCountForEntry: entryId=${entryId}, newCount=${newCount}, zielgruppe=${zielgruppe}`);
+  public updateFlyerCountForEntry(entryId: string, newCount: number | null, type: 'mfh' | 'efh'): void {
+    console.log(`[SelectionService] updateFlyerCountForEntry: entryId=${entryId}, newCount=${newCount}, type=${type}`);
     const entries = [...this.getSelectedEntriesSnapshot()];
     const entryIndex = entries.findIndex(e => e.id === entryId);
 
     if (entryIndex > -1) {
       const entry = { ...entries[entryIndex] };
 
-      if (zielgruppe === 'Mehrfamilienhäuser') {
+      if (type === 'mfh') {
         entry.manual_flyer_count_mfh = newCount;
-      } else if (zielgruppe === 'Ein- und Zweifamilienhäuser') {
+      } else if (type === 'efh') {
         entry.manual_flyer_count_efh = newCount;
       }
 
-      entry.is_manual_count = typeof entry.manual_flyer_count_efh === 'number' || typeof entry.manual_flyer_count_mfh === 'number';
-
       entries[entryIndex] = entry;
-      console.log(`[SelectionService] Emitting updated entries. Entry ${entryId} now has mfh=${entry.manual_flyer_count_mfh}, efh=${entry.manual_flyer_count_efh}`);
+      console.log(`[SelectionService] Emitting updated entries for ${entryId}: mfh=${entry.manual_flyer_count_mfh}, efh=${entry.manual_flyer_count_efh}`);
       this._selectedEntries.next(entries);
     }
   }

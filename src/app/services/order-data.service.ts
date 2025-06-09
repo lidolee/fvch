@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, combineLatest } from 'rxjs';
-import { map, distinctUntilChanged, tap, shareReplay, startWith, filter } from 'rxjs/operators';
+import { Observable, combineLatest, ReplaySubject, firstValueFrom } from 'rxjs';
+import { map, distinctUntilChanged, tap, shareReplay, filter } from 'rxjs/operators';
 import {
   AllOrderDataState, VerteilgebietDataState, ProduktionDataState, KontaktDetailsState,
   KostenState, StepValidationStatus, DesignPackageType, PrintOptionType,
@@ -8,6 +8,7 @@ import {
 } from './order-data.types';
 import { CalculatorService, AppPrices } from './calculator.service';
 import { SelectionService } from './selection.service';
+import { PlzEntry } from './plz-data.service';
 
 @Injectable({
   providedIn: 'root'
@@ -54,13 +55,9 @@ export class OrderDataService {
     isStep1Valid: false, isStep2Valid: false, isStep3Valid: false, isOrderProcessValid: false
   };
 
-  private stateParts = {
-    verteilgebiet: new BehaviorSubject<VerteilgebietDataState>({ ...this.initialVerteilgebietState }),
-    produktion: new BehaviorSubject<ProduktionDataState>({ ...this.initialProduktionState }),
-    kontaktDetails: new BehaviorSubject<KontaktDetailsState>({ ...this.initialKontaktDetailsState }),
-    kosten: new BehaviorSubject<KostenState>({ ...this.initialKostenState }),
-    validierungsStatus: new BehaviorSubject<StepValidationStatus>({ ...this.initialValidierungsStatus })
-  };
+  private readonly verteilgebietSubject = new ReplaySubject<VerteilgebietDataState>(1);
+  private readonly produktionSubject = new ReplaySubject<ProduktionDataState>(1);
+  private readonly kontaktDetailsSubject = new ReplaySubject<KontaktDetailsState>(1);
 
   public readonly state$: Observable<AllOrderDataState>;
   public readonly verteilgebiet$: Observable<VerteilgebietDataState>;
@@ -75,115 +72,102 @@ export class OrderDataService {
   ) {
     console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Constructor - Initializing...`);
 
-    const zielgruppe$ = this.stateParts.verteilgebiet.pipe(
-      map(v => v.zielgruppe),
-      distinctUntilChanged()
-    );
+    this.verteilgebietSubject.next(this.initialVerteilgebietState);
+    this.produktionSubject.next(this.initialProduktionState);
+    this.kontaktDetailsSubject.next(this.initialKontaktDetailsState);
 
-    combineLatest([this.selectionService.selectedEntries$, zielgruppe$]).pipe(
-      map(([selectedPlzEntriesFromService, currentZielgruppe]) => {
-        console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Re-calculating verteilgebiet state for zielgruppe: ${currentZielgruppe}`);
-        let totalFlyers = 0;
+    const verteilgebietTransformed$ = combineLatest([
+      this.selectionService.selectedEntries$,
+      this.verteilgebietSubject.pipe(map(v => v.zielgruppe), distinctUntilChanged()),
+      this.verteilgebietSubject.pipe(map(v => v.verteilungStartdatum), distinctUntilChanged()),
+      this.verteilgebietSubject.pipe(map(v => v.expressConfirmed), distinctUntilChanged())
+    ]).pipe(
+      map(([selectedPlzEntriesFromService, zielgruppe, verteilungStartdatum, expressConfirmed]) => {
+        console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Re-calculating Verteilgebiet state. Zielgruppe: ${zielgruppe}`);
 
-        const typedSelectedEntries: PlzSelectionDetail[] = selectedPlzEntriesFromService.map(entry => {
-          let definitiveCount: number;
+        const typedSelectedEntries: PlzSelectionDetail[] = selectedPlzEntriesFromService.map((entry: PlzEntry) => {
+          const manualMfh = entry.manual_flyer_count_mfh ?? null;
+          const manualEfh = entry.manual_flyer_count_efh ?? null;
+          const selected_flyer_count_mfh = manualMfh !== null ? manualMfh : (entry.mfh ?? 0);
+          const selected_flyer_count_efh = manualEfh !== null ? manualEfh : (entry.efh ?? 0);
 
-          switch (currentZielgruppe) {
-            case 'Mehrfamilienhäuser':
-              definitiveCount = (typeof entry.manual_flyer_count_mfh === 'number') ? entry.manual_flyer_count_mfh : (entry.mfh ?? 0);
-              break;
-            case 'Ein- und Zweifamilienhäuser':
-              definitiveCount = (typeof entry.manual_flyer_count_efh === 'number') ? entry.manual_flyer_count_efh : (entry.efh ?? 0);
-              break;
-            default:
-              definitiveCount = entry.all ?? 0;
-              break;
+          let anzahl = 0;
+          switch (zielgruppe) {
+            case 'Alle Haushalte': anzahl = entry.all ?? 0; break;
+            case 'Mehrfamilienhäuser': anzahl = selected_flyer_count_mfh; break;
+            case 'Ein- und Zweifamilienhäuser': anzahl = selected_flyer_count_efh; break;
           }
 
-          totalFlyers += definitiveCount;
-
           return {
-            id: entry.id,
-            plz6: entry.plz6,
-            plz4: entry.plz4,
-            ort: entry.ort,
-            kt: entry.kt,
-            preisKategorie: entry.preisKategorie,
-            all: entry.all,
-            mfh: entry.mfh,
-            efh: entry.efh,
-            isSelected: entry.isSelected,
-            isHighlighted: entry.isHighlighted,
-            is_manual_count: entry.is_manual_count,
-            manual_flyer_count_efh: entry.manual_flyer_count_efh,
-            manual_flyer_count_mfh: entry.manual_flyer_count_mfh,
-            anzahl: definitiveCount,
-            zielgruppe: currentZielgruppe,
-            selected_display_flyer_count: definitiveCount
+            ...entry,
+            manual_flyer_count_mfh: manualMfh,
+            manual_flyer_count_efh: manualEfh,
+            selected_flyer_count_mfh,
+            selected_flyer_count_efh,
+            anzahl,
+            zielgruppe,
           };
         });
 
-        const currentState = this.stateParts.verteilgebiet.getValue();
+        const totalFlyersCount = typedSelectedEntries.reduce((acc, curr) => acc + curr.anzahl, 0);
+
         return {
-          ...currentState,
           selectedPlzEntries: typedSelectedEntries,
-          totalFlyersCount: totalFlyers,
-          zielgruppe: currentZielgruppe
+          verteilungStartdatum,
+          expressConfirmed,
+          totalFlyersCount,
+          zielgruppe
         };
       }),
-      distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr))
-    ).subscribe(newVerteilgebietState => {
-      console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Pushing new Verteilgebiet state:`, JSON.parse(JSON.stringify(newVerteilgebietState)));
-      this.stateParts.verteilgebiet.next(newVerteilgebietState);
-    });
-
-    combineLatest([
-      this.stateParts.verteilgebiet,
-      this.stateParts.produktion,
-      this.stateParts.kontaktDetails,
-      this.calculatorService.prices$.pipe(startWith(null as AppPrices | null))
-    ]).pipe(
-      filter((data): data is [VerteilgebietDataState, ProduktionDataState, KontaktDetailsState, AppPrices] => {
-        const prices = data[3];
-        const isValid = prices !== null && !!prices.design && !!prices.tax && !!prices.distribution;
-        if (!isValid) console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Cost/Validation Pipeline: Prices not (fully) loaded or invalid. Skipping calculation.`);
-        return isValid;
-      }),
-      map(([verteilgebiet, produktion, kontaktDetails, appPrices]) => {
-        const newKosten = this.calculateAllCosts(verteilgebiet, produktion, appPrices);
-        const newValidierung = this.validateAllSteps(verteilgebiet, produktion, kontaktDetails, newKosten);
-        return { kosten: newKosten, validierung: newValidierung };
-      }),
-      distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr))
-    ).subscribe(({ kosten, validierung }) => {
-      console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Cost/Validation Pipeline calculated. Kosten changed: ${JSON.stringify(this.stateParts.kosten.getValue()) !== JSON.stringify(kosten)}. Validierung changed: ${JSON.stringify(this.stateParts.validierungsStatus.getValue()) !== JSON.stringify(validierung)}`);
-      this.stateParts.kosten.next(kosten);
-      this.stateParts.validierungsStatus.next(validierung);
-    });
-
-    this.state$ = combineLatest({
-      verteilgebiet: this.stateParts.verteilgebiet,
-      produktion: this.stateParts.produktion,
-      kontaktDetails: this.stateParts.kontaktDetails,
-      kosten: this.stateParts.kosten,
-      validierungsStatus: this.stateParts.validierungsStatus,
-    }).pipe(
-      map(allParts => ({ ...allParts })),
-      tap(newState => console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Global state$ emitting:`, JSON.parse(JSON.stringify(newState)))),
       shareReplay(1)
     );
 
-    this.verteilgebiet$ = this.state$.pipe(map(s => s.verteilgebiet), distinctUntilChanged((p,c)=>JSON.stringify(p) === JSON.stringify(c)), shareReplay(1));
-    this.produktion$ = this.state$.pipe(map(s => s.produktion), distinctUntilChanged((p,c)=>JSON.stringify(p) === JSON.stringify(c)), shareReplay(1));
-    this.kontaktDetails$ = this.state$.pipe(map(s => s.kontaktDetails), distinctUntilChanged((p,c)=>JSON.stringify(p) === JSON.stringify(c)), shareReplay(1));
-    this.kosten$ = this.state$.pipe(map(s => s.kosten), distinctUntilChanged((p,c)=>JSON.stringify(p) === JSON.stringify(c)), shareReplay(1));
-    this.validierungsStatus$ = this.state$.pipe(map(s => s.validierungsStatus), distinctUntilChanged((p,c)=>JSON.stringify(p) === JSON.stringify(c)), shareReplay(1));
+    const kostenAndValidation$ = combineLatest([
+      verteilgebietTransformed$,
+      this.produktionSubject,
+      this.calculatorService.prices$.pipe(filter((p): p is AppPrices => !!p))
+    ]).pipe(
+      map(([verteilgebiet, produktion, appPrices]) => {
+        const newKosten = this.calculateAllCosts(verteilgebiet, produktion, appPrices);
+        return { verteilgebiet, produktion, kosten: newKosten };
+      }),
+      shareReplay(1)
+    );
+
+    this.verteilgebiet$ = verteilgebietTransformed$;
+    this.produktion$ = this.produktionSubject.asObservable();
+    this.kontaktDetails$ = this.kontaktDetailsSubject.asObservable();
+    this.kosten$ = kostenAndValidation$.pipe(map(r => r.kosten));
+
+    this.validierungsStatus$ = combineLatest([
+      kostenAndValidation$,
+      this.kontaktDetails$
+    ]).pipe(
+      map(([{ verteilgebiet, produktion, kosten }, kontaktDetails]) => {
+        return this.validateAllSteps(verteilgebiet, produktion, kontaktDetails, kosten);
+      })
+    );
+
+    this.state$ = combineLatest({
+      verteilgebiet: this.verteilgebiet$,
+      produktion: this.produktion$,
+      kontaktDetails: this.kontaktDetails$,
+      kosten: this.kosten$,
+      validierungsStatus: this.validierungsStatus$,
+    }).pipe(
+      tap(newState => console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Global state$ emitting:`, JSON.parse(JSON.stringify(newState)))),
+      shareReplay(1)
+    );
 
     console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Constructor - Initialization complete.`);
   }
 
   private getCurrentTimestamp(): string {
     return new Date().toISOString();
+  }
+
+  private async getCurrentState<T>(subject: ReplaySubject<T>): Promise<T> {
+    return await firstValueFrom(subject);
   }
 
   private calculateAllCosts(
@@ -194,13 +178,13 @@ export class OrderDataService {
     const calcFormat = produktion.printOption === 'service'
       ? produktion.printServiceDetails.format
       : produktion.anlieferDetails.format;
-    console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] calculateAllCosts called. Effective format: ${calcFormat}, PLZ Count: ${verteilgebiet.selectedPlzEntries.length}`);
+    console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] calculateAllCosts called. Zielgruppe: ${verteilgebiet.zielgruppe}, TotalFlyers: ${verteilgebiet.totalFlyersCount}`);
 
     const designPackageCost = this.calculatorService.calculateDesignPackagePrice(produktion.designPackage, appPrices.design);
     const selectedDesignPackageName = this.calculatorService.getDesignPackageName(produktion.designPackage, designPackageCost);
     const printService = this.calculatorService.calculatePrintServiceCost(produktion.printServiceDetails);
     const verteilzuschlag = this.calculatorService.calculateVerteilzuschlag(calcFormat, verteilgebiet.totalFlyersCount, appPrices);
-    const distribution = this.calculatorService.calculateDistributionCost(verteilgebiet.selectedPlzEntries, verteilgebiet.zielgruppe, appPrices);
+    const distribution = this.calculatorService.calculateDistributionCost(verteilgebiet.selectedPlzEntries, appPrices);
 
     const expressZuschlagApplicable = verteilgebiet.expressConfirmed && distribution.total > 0;
     const expressZuschlagPrice = expressZuschlagApplicable
@@ -266,7 +250,7 @@ export class OrderDataService {
     kosten: KostenState
   ): StepValidationStatus {
     const isStep1Valid = verteilgebiet.selectedPlzEntries.length > 0 &&
-      verteilgebiet.totalFlyersCount >= 0 &&
+      verteilgebiet.totalFlyersCount > 0 &&
       !!verteilgebiet.verteilungStartdatum &&
       (!kosten.expressZuschlagApplicable || verteilgebiet.expressConfirmed);
 
@@ -306,53 +290,53 @@ export class OrderDataService {
     };
   }
 
-  public updateVerteilungStartdatum(date: Date | null): void {
+  public async updateVerteilungStartdatum(date: Date | null): Promise<void> {
     console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] updateVerteilungStartdatum called with:`, date);
-    const current = this.stateParts.verteilgebiet.getValue();
-    this.stateParts.verteilgebiet.next({ ...current, verteilungStartdatum: date });
+    const current = await this.getCurrentState(this.verteilgebietSubject);
+    this.verteilgebietSubject.next({ ...current, verteilungStartdatum: date });
   }
 
-  public updateExpressConfirmed(confirmed: boolean): void {
+  public async updateExpressConfirmed(confirmed: boolean): Promise<void> {
     console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] updateExpressConfirmed called with:`, confirmed);
-    const current = this.stateParts.verteilgebiet.getValue();
-    this.stateParts.verteilgebiet.next({ ...current, expressConfirmed: confirmed });
+    const current = await this.getCurrentState(this.verteilgebietSubject);
+    this.verteilgebietSubject.next({ ...current, expressConfirmed: confirmed });
   }
 
-  public updateZielgruppe(zielgruppe: ZielgruppeOption): void {
+  public async updateZielgruppe(zielgruppe: ZielgruppeOption): Promise<void> {
     console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] updateZielgruppe called with:`, zielgruppe);
-    const current = this.stateParts.verteilgebiet.getValue();
+    const current = await this.getCurrentState(this.verteilgebietSubject);
     if (current.zielgruppe !== zielgruppe) {
-      this.stateParts.verteilgebiet.next({ ...current, zielgruppe: zielgruppe });
+      this.verteilgebietSubject.next({ ...current, zielgruppe: zielgruppe });
     }
   }
 
-  public updateDesignPackage(pkg: DesignPackageType | null): void {
+  public async updateDesignPackage(pkg: DesignPackageType | null): Promise<void> {
     console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] updateDesignPackage called with:`, pkg);
-    const current = this.stateParts.produktion.getValue();
-    this.stateParts.produktion.next({ ...current, designPackage: pkg });
+    const current = await this.getCurrentState(this.produktionSubject);
+    this.produktionSubject.next({ ...current, designPackage: pkg });
   }
 
-  public updatePrintOption(option: PrintOptionType | null): void {
+  public async updatePrintOption(option: PrintOptionType | null): Promise<void> {
     console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] updatePrintOption called with:`, option);
-    const current = this.stateParts.produktion.getValue();
-    this.stateParts.produktion.next({ ...current, printOption: option });
+    const current = await this.getCurrentState(this.produktionSubject);
+    this.produktionSubject.next({ ...current, printOption: option });
   }
 
-  public updateAnlieferDetails(details: Partial<AnlieferDetails>): void {
+  public async updateAnlieferDetails(details: Partial<AnlieferDetails>): Promise<void> {
     console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] updateAnlieferDetails called with:`, details);
-    const current = this.stateParts.produktion.getValue();
-    this.stateParts.produktion.next({ ...current, anlieferDetails: { ...current.anlieferDetails, ...details } });
+    const current = await this.getCurrentState(this.produktionSubject);
+    this.produktionSubject.next({ ...current, anlieferDetails: { ...current.anlieferDetails, ...details } });
   }
 
-  public updatePrintServiceDetails(details: Partial<PrintServiceDetails>): void {
+  public async updatePrintServiceDetails(details: Partial<PrintServiceDetails>): Promise<void> {
     console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] updatePrintServiceDetails called with:`, details);
-    const current = this.stateParts.produktion.getValue();
-    this.stateParts.produktion.next({ ...current, printServiceDetails: { ...current.printServiceDetails, ...details } });
+    const current = await this.getCurrentState(this.produktionSubject);
+    this.produktionSubject.next({ ...current, printServiceDetails: { ...current.printServiceDetails, ...details } });
   }
 
-  public updateKontaktDetails(details: Partial<KontaktDetailsState>): void {
+  public async updateKontaktDetails(details: Partial<KontaktDetailsState>): Promise<void> {
     console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] updateKontaktDetails called with:`, details);
-    const current = this.stateParts.kontaktDetails.getValue();
-    this.stateParts.kontaktDetails.next({ ...current, ...details });
+    const current = await this.getCurrentState(this.kontaktDetailsSubject);
+    this.kontaktDetailsSubject.next({ ...current, ...details });
   }
 }

@@ -21,23 +21,14 @@ export class PlzSelectionTableComponent implements OnChanges {
   @Output() public remove = new EventEmitter<PlzSelectionDetail>();
   @Output() public zoom = new EventEmitter<PlzSelectionDetail>();
   @Output() public highlight = new EventEmitter<TableHighlightEvent>();
-  @Output() public flyerCountChange = new EventEmitter<{ entryId: string, newCount: number | null }>();
-
-  public anzahlSumme: number = 0;
-  public haushalteSumme: number = 0;
+  @Output() public flyerCountChange = new EventEmitter<{ entryId: string, type: 'mfh' | 'efh', newCount: number | null }>();
 
   constructor(private cdr: ChangeDetectorRef) {}
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['entries'] || changes['currentZielgruppe']) {
-      this.calculateSums();
+      this.cdr.markForCheck();
     }
-  }
-
-  private calculateSums(): void {
-    this.anzahlSumme = this.getTotalDefinitiveFlyers();
-    this.haushalteSumme = this.getTotalAudienceCalculatedFlyers();
-    this.cdr.markForCheck();
   }
 
   public onRemovePlzClick(detail: PlzSelectionDetail): void {
@@ -56,26 +47,27 @@ export class PlzSelectionTableComponent implements OnChanges {
     this.highlight.emit({ plzId: null, highlight: false });
   }
 
-  public onManualFlyerInputChange(entry: PlzSelectionDetail, target: EventTarget | null): void {
+  public onManualFlyerInputChange(entry: PlzSelectionDetail, target: EventTarget | null, type: 'mfh' | 'efh'): void {
     if (target instanceof HTMLInputElement) {
       const value = target.value;
 
       if (value === '') {
-        this.flyerCountChange.emit({ entryId: entry.id, newCount: null });
+        this.flyerCountChange.emit({ entryId: entry.id, type, newCount: null });
         return;
       }
 
       let newCount = parseInt(value, 10);
 
       if (!isNaN(newCount)) {
-        const maxCount = this.getAudienceCalculatedFlyerCount(entry);
+        const maxCount = type === 'mfh' ? (entry.mfh ?? 0) : (entry.efh ?? 0);
 
         if (newCount > maxCount) newCount = maxCount;
         if (newCount < 0) newCount = 0;
 
-        // Use getInitialDisplayCount to check against the currently displayed value
-        if (this.getInitialDisplayCount(entry) !== newCount) {
-          this.flyerCountChange.emit({ entryId: entry.id, newCount: newCount });
+        const currentVal = type === 'mfh' ? entry.selected_flyer_count_mfh : entry.selected_flyer_count_efh;
+
+        if (currentVal !== newCount) {
+          this.flyerCountChange.emit({ entryId: entry.id, type, newCount });
         }
       }
     }
@@ -91,17 +83,6 @@ export class PlzSelectionTableComponent implements OnChanges {
     }
   }
 
-  public getInitialDisplayCount(entry: PlzSelectionDetail): number {
-    switch (this.currentZielgruppe) {
-      case 'Mehrfamilienhäuser':
-        return typeof entry.manual_flyer_count_mfh === 'number' ? entry.manual_flyer_count_mfh : (entry.mfh ?? 0);
-      case 'Ein- und Zweifamilienhäuser':
-        return typeof entry.manual_flyer_count_efh === 'number' ? entry.manual_flyer_count_efh : (entry.efh ?? 0);
-      default:
-        return entry.all ?? 0;
-    }
-  }
-
   public trackByPlzId(index: number, item: PlzSelectionDetail): string {
     return item.id;
   }
@@ -110,7 +91,11 @@ export class PlzSelectionTableComponent implements OnChanges {
     return this.entries.reduce((sum, entry) => sum + this.getAudienceCalculatedFlyerCount(entry), 0);
   }
 
-  public getTotalDefinitiveFlyers(): number {
-    return this.entries.reduce((sum, entry) => sum + (entry.selected_display_flyer_count ?? 0), 0);
+  public getTotalDefinitiveMfhFlyers(): number {
+    return this.entries.reduce((sum, entry) => sum + entry.selected_flyer_count_mfh, 0);
+  }
+
+  public getTotalDefinitiveEfhFlyers(): number {
+    return this.entries.reduce((sum, entry) => sum + entry.selected_flyer_count_efh, 0);
   }
 }

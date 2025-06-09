@@ -448,7 +448,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
             const plz6 = id;
             const plz4 = plz6.substring(0, 4);
             const ort = evt.name || 'Unbekannt';
-            const fallbackEntry: PlzEntry = { id, plz6, plz4, ort, kt: 'N/A', preisKategorie: 'A', all: 0, efh: 0, mfh: 0 };
+            const fallbackEntry: PlzEntry = { id, plz6, plz4, ort, kt: 'N/A', preisKategorie: 'A', all: 0, mfh: 0, efh: 0 };
             if(this.selectionService.validateEntry(fallbackEntry)) {
               this.selectionService.addEntry(fallbackEntry);
             }
@@ -502,9 +502,9 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     }
   }
 
-  public onPlzFlyerCountChanged(event: {entryId: string, newCount: number | null}): void {
-    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] onPlzFlyerCountChanged event received:`, event, "Current Zielgruppe for call:", this.currentZielgruppeState);
-    this.selectionService.updateFlyerCountForEntry(event.entryId, event.newCount, this.currentZielgruppeState);
+  public onPlzFlyerCountChanged(event: { entryId: string, type: 'mfh' | 'efh', newCount: number | null }): void {
+    console.log(`[DistributionStepComponent] onPlzFlyerCountChanged event received:`, event);
+    this.selectionService.updateFlyerCountForEntry(event.entryId, event.newCount, event.type);
   }
 
   public triggerKmlUpload(): void {
