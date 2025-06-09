@@ -13,9 +13,14 @@ export interface PlzSelectionDetail {
   isSelected?: boolean;
   isHighlighted?: boolean;
   is_manual_count?: boolean;
+  selected_display_flyer_count?: number;
+
+  // KORREKTUR: Fehlende Felder zur Behebung der Compiler-Fehler hinzugefügt
+  manual_flyer_count_mfh?: number | null;
+  manual_flyer_count_efh?: number | null;
+
   anzahl: number;
   zielgruppe: ZielgruppeOption;
-  selected_display_flyer_count?: number;
 }
 
 export type DesignPackageType = 'basis' | 'plus' | 'premium' | 'eigenes';

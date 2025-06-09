@@ -31,8 +31,8 @@
           title="Definitive Wunschmenge, die wir für diese PLZ verteilen. Bitte abrunden auf nächste 100er Zahl">
         <input class="form-control form-control-sm text-end"
                type="number"
-               [value]="entry.selected_display_flyer_count"
-               (blur)="onManualFlyerInputBlur(entry, $event.target)"
+               [value]="getInitialDisplayCount(entry)"
+               (input)="onManualFlyerInputChange(entry, $event.target)"
                min="0"
                step="100"
                [max]="getAudienceCalculatedFlyerCount(entry)"

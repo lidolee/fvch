@@ -6,7 +6,6 @@ import {
   KostenState, StepValidationStatus, DesignPackageType, PrintOptionType,
   AnlieferDetails, PrintServiceDetails, PlzSelectionDetail, ZielgruppeOption
 } from './order-data.types';
-import { PlzEntry } from './plz-data.service';
 import { CalculatorService, AppPrices } from './calculator.service';
 import { SelectionService } from './selection.service';
 
@@ -30,15 +29,13 @@ export class OrderDataService {
     printServiceDetails: { format: null, grammatur: null, art: null, ausfuehrung: null, auflage: 0, reserve: 0 }
   };
 
-  // KORRIGIERT: Felder an order-data.types.ts (KontaktDetailsState) angepasst
   private initialKontaktDetailsState: KontaktDetailsState = {
     salutation: null, firstName: null, lastName: null, email: null,
     phone: null, company: null,
-    address: null, // Verwendet 'address' statt 'street' und 'houseNumber'
-    zip: null,     // Verwendet 'zip' statt 'postalCode'
+    address: null,
+    zip: null,
     city: null,
     notes: null
-    // 'website' ist nicht in KontaktDetailsState definiert
   };
 
   private initialKostenState: KostenState = {
@@ -57,7 +54,6 @@ export class OrderDataService {
     isStep1Valid: false, isStep2Valid: false, isStep3Valid: false, isOrderProcessValid: false
   };
 
-  // State Parts als BehaviorSubjects
   private stateParts = {
     verteilgebiet: new BehaviorSubject<VerteilgebietDataState>({ ...this.initialVerteilgebietState }),
     produktion: new BehaviorSubject<ProduktionDataState>({ ...this.initialProduktionState }),
@@ -66,10 +62,7 @@ export class OrderDataService {
     validierungsStatus: new BehaviorSubject<StepValidationStatus>({ ...this.initialValidierungsStatus })
   };
 
-  // Globaler State kombiniert alle Parts
   public readonly state$: Observable<AllOrderDataState>;
-
-  // Öffentliche Observables, abgeleitet vom globalen state$
   public readonly verteilgebiet$: Observable<VerteilgebietDataState>;
   public readonly produktion$: Observable<ProduktionDataState>;
   public readonly kontaktDetails$: Observable<KontaktDetailsState>;
@@ -82,49 +75,82 @@ export class OrderDataService {
   ) {
     console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Constructor - Initializing...`);
 
-    // Verteilgebiet-Updates vom SelectionService
-    this.selectionService.selectedEntries$.pipe(
-      startWith([] as PlzEntry[]),
-      map(selectedPlzEntriesFromService => {
-        const currentVerteilgebiet = this.stateParts.verteilgebiet.getValue();
-        const totalFlyers = selectedPlzEntriesFromService.reduce((sum, entry) => sum + (entry.selected_display_flyer_count || 0), 0);
+    const zielgruppe$ = this.stateParts.verteilgebiet.pipe(
+      map(v => v.zielgruppe),
+      distinctUntilChanged()
+    );
+
+    combineLatest([this.selectionService.selectedEntries$, zielgruppe$]).pipe(
+      map(([selectedPlzEntriesFromService, currentZielgruppe]) => {
+        console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Re-calculating verteilgebiet state for zielgruppe: ${currentZielgruppe}`);
+        let totalFlyers = 0;
+
         const typedSelectedEntries: PlzSelectionDetail[] = selectedPlzEntriesFromService.map(entry => {
-          const anzahl = entry.all || (entry.mfh || 0) + (entry.efh || 0) || 0;
+          let definitiveCount: number;
+
+          switch (currentZielgruppe) {
+            case 'Mehrfamilienhäuser':
+              definitiveCount = (typeof entry.manual_flyer_count_mfh === 'number') ? entry.manual_flyer_count_mfh : (entry.mfh ?? 0);
+              break;
+            case 'Ein- und Zweifamilienhäuser':
+              definitiveCount = (typeof entry.manual_flyer_count_efh === 'number') ? entry.manual_flyer_count_efh : (entry.efh ?? 0);
+              break;
+            default:
+              definitiveCount = entry.all ?? 0;
+              break;
+          }
+
+          totalFlyers += definitiveCount;
+
           return {
-            id: entry.id, plz6: entry.plz6, plz4: entry.plz4, ort: entry.ort, kt: entry.kt,
-            preisKategorie: entry.preisKategorie, all: entry.all, mfh: entry.mfh, efh: entry.efh,
-            isSelected: entry.isSelected, isHighlighted: entry.isHighlighted, is_manual_count: entry.is_manual_count,
-            anzahl: anzahl, zielgruppe: currentVerteilgebiet.zielgruppe, selected_display_flyer_count: entry.selected_display_flyer_count
+            id: entry.id,
+            plz6: entry.plz6,
+            plz4: entry.plz4,
+            ort: entry.ort,
+            kt: entry.kt,
+            preisKategorie: entry.preisKategorie,
+            all: entry.all,
+            mfh: entry.mfh,
+            efh: entry.efh,
+            isSelected: entry.isSelected,
+            isHighlighted: entry.isHighlighted,
+            is_manual_count: entry.is_manual_count,
+            manual_flyer_count_efh: entry.manual_flyer_count_efh,
+            manual_flyer_count_mfh: entry.manual_flyer_count_mfh,
+            anzahl: definitiveCount,
+            zielgruppe: currentZielgruppe,
+            selected_display_flyer_count: definitiveCount
           };
         });
-        return { ...currentVerteilgebiet, selectedPlzEntries: typedSelectedEntries, totalFlyersCount: totalFlyers };
+
+        const currentState = this.stateParts.verteilgebiet.getValue();
+        return {
+          ...currentState,
+          selectedPlzEntries: typedSelectedEntries,
+          totalFlyersCount: totalFlyers,
+          zielgruppe: currentZielgruppe
+        };
       }),
       distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr))
     ).subscribe(newVerteilgebietState => {
-      console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] selectionService.selectedEntries$ triggered update for stateParts.verteilgebiet:`, JSON.parse(JSON.stringify(newVerteilgebietState)));
+      console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Pushing new Verteilgebiet state:`, JSON.parse(JSON.stringify(newVerteilgebietState)));
       this.stateParts.verteilgebiet.next(newVerteilgebietState);
     });
 
-    // Kosten- und Validierungs-Pipeline
     combineLatest([
       this.stateParts.verteilgebiet,
       this.stateParts.produktion,
       this.stateParts.kontaktDetails,
       this.calculatorService.prices$.pipe(startWith(null as AppPrices | null))
     ]).pipe(
-      tap(([vg, prod, kontakt, prices]) => {
-        const format = prod.printOption === 'service'
-          ? prod.printServiceDetails.format
-          : prod.anlieferDetails.format;
-        console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Cost/Validation Pipeline Input: EffectiveFormat: ${format}, PricesLoaded: ${!!prices}, PLZ Count: ${vg.selectedPlzEntries.length}`);
-      }),
-      filter(([, , , prices]) => {
+      filter((data): data is [VerteilgebietDataState, ProduktionDataState, KontaktDetailsState, AppPrices] => {
+        const prices = data[3];
         const isValid = prices !== null && !!prices.design && !!prices.tax && !!prices.distribution;
         if (!isValid) console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Cost/Validation Pipeline: Prices not (fully) loaded or invalid. Skipping calculation.`);
         return isValid;
       }),
       map(([verteilgebiet, produktion, kontaktDetails, appPrices]) => {
-        const newKosten = this.calculateAllCosts(verteilgebiet, produktion, appPrices as AppPrices);
+        const newKosten = this.calculateAllCosts(verteilgebiet, produktion, appPrices);
         const newValidierung = this.validateAllSteps(verteilgebiet, produktion, kontaktDetails, newKosten);
         return { kosten: newKosten, validierung: newValidierung };
       }),
@@ -135,7 +161,6 @@ export class OrderDataService {
       this.stateParts.validierungsStatus.next(validierung);
     });
 
-    // Globaler state$
     this.state$ = combineLatest({
       verteilgebiet: this.stateParts.verteilgebiet,
       produktion: this.stateParts.produktion,
@@ -148,7 +173,6 @@ export class OrderDataService {
       shareReplay(1)
     );
 
-    // Öffentliche Observables ableiten
     this.verteilgebiet$ = this.state$.pipe(map(s => s.verteilgebiet), distinctUntilChanged((p,c)=>JSON.stringify(p) === JSON.stringify(c)), shareReplay(1));
     this.produktion$ = this.state$.pipe(map(s => s.produktion), distinctUntilChanged((p,c)=>JSON.stringify(p) === JSON.stringify(c)), shareReplay(1));
     this.kontaktDetails$ = this.state$.pipe(map(s => s.kontaktDetails), distinctUntilChanged((p,c)=>JSON.stringify(p) === JSON.stringify(c)), shareReplay(1));
@@ -242,7 +266,7 @@ export class OrderDataService {
     kosten: KostenState
   ): StepValidationStatus {
     const isStep1Valid = verteilgebiet.selectedPlzEntries.length > 0 &&
-      verteilgebiet.totalFlyersCount > 0 &&
+      verteilgebiet.totalFlyersCount >= 0 &&
       !!verteilgebiet.verteilungStartdatum &&
       (!kosten.expressZuschlagApplicable || verteilgebiet.expressConfirmed);
 
@@ -297,8 +321,9 @@ export class OrderDataService {
   public updateZielgruppe(zielgruppe: ZielgruppeOption): void {
     console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] updateZielgruppe called with:`, zielgruppe);
     const current = this.stateParts.verteilgebiet.getValue();
-    this.selectionService.updateFlyerCountsForAudience(zielgruppe);
-    this.stateParts.verteilgebiet.next({ ...current, zielgruppe });
+    if (current.zielgruppe !== zielgruppe) {
+      this.stateParts.verteilgebiet.next({ ...current, zielgruppe: zielgruppe });
+    }
   }
 
   public updateDesignPackage(pkg: DesignPackageType | null): void {

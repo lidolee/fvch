@@ -13,7 +13,7 @@ export interface PlzEntry {
   plz4: string;
   ort: string;
   kt: string;
-  preisKategorie: string; // Added: Price category (A, B, C, D, E)
+  preisKategorie: string;
   all: number;
   mfh?: number;
   efh?: number;
@@ -21,6 +21,10 @@ export interface PlzEntry {
   isHighlighted?: boolean;
   selected_display_flyer_count?: number;
   is_manual_count?: boolean;
+
+  // KORREKTUR: Fehlende Felder zur Behebung der Compiler-Fehler hinzugefügt
+  manual_flyer_count_mfh?: number | null;
+  manual_flyer_count_efh?: number | null;
 }
 
 export interface EnhancedSearchResultItem extends PlzEntry {
@@ -80,7 +84,6 @@ export class PlzDataService {
             const plz6FromInput = String(rawEntry.plz).trim();
             const ortFromInput = String(rawEntry.name).trim();
             const ktFromInput = String(rawEntry.ct || 'N/A').trim();
-            // Map the 'cat' field from JSON to 'preisKategorie'
             const preisKategorie = String(rawEntry.cat || 'A').trim().toUpperCase();
 
             if (!plz6FromInput || !ortFromInput) {
@@ -94,7 +97,7 @@ export class PlzDataService {
               plz4: plz4,
               ort: ortFromInput,
               kt: ktFromInput,
-              preisKategorie: preisKategorie, // Added: Map from 'cat' field
+              preisKategorie: preisKategorie,
               all: Number(rawEntry.all) || 0,
               mfh: rawEntry.mfh !== undefined && rawEntry.mfh !== null ? Number(rawEntry.mfh) : undefined,
               efh: rawEntry.efh !== undefined && rawEntry.efh !== null ? Number(rawEntry.efh) : undefined,

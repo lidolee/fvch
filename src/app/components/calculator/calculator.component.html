@@ -64,8 +64,8 @@
           </tfoot>
         </table>
       </div>
-      <div *ngIf="kosten.selectedPlzEntriesLength === 0">
-        Noch keine Verteilgebiete oder Optionen ausgewählt.
+      <div *ngIf="kosten.selectedPlzEntriesLength === 0" class="text-muted small">
+        Bitte wählen Sie mindestens eine PLZ aus.
       </div>
     </div>
 
@@ -103,7 +103,7 @@
     </div>
 
     <!-- GESAMT -->
-    <div class="cost-group total-summary mt-3 pt-3 border-top">
+    <div class="cost-group total-summary mt-3 pt-3 border-top" *ngIf="kosten.selectedPlzEntriesLength > 0">
       <div class="table-responsive">
         <table class="table calculation-table">
           <tbody>
@@ -125,7 +125,7 @@
       <p *ngIf="kosten.mindestbestellwertHinweis" class="text-muted small mt-2">{{ kosten.mindestbestellwertHinweis }}</p>
     </div>
 
-    <div class="text-muted small my-4 hinweise-calculator">
+    <div class="text-muted small my-4 hinweise-calculator" *ngIf="kosten.selectedPlzEntriesLength > 0">
       <strong>Hinweise</strong><br>
       <ol>
         <li>Servicepauschale deckt Fahrtkosten, detaillierte Routenplanung und GPS-Tracking für Ihre Verteilung ab.</li>

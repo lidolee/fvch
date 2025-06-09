@@ -101,7 +101,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
         this.expressSurchargeConfirmed = verteilgebiet.expressConfirmed;
 
         if (verteilgebiet.verteilungStartdatum) {
-          const orderStartDate = verteilgebiet.verteilungStartdatum;
+          const orderStartDate = new Date(verteilgebiet.verteilungStartdatum);
           if (orderStartDate && !isNaN(orderStartDate.getTime())) {
             this.verteilungStartdatum = this.formatDateToYyyyMmDd(orderStartDate);
           }
@@ -110,12 +110,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
           this.orderDataService.updateVerteilungStartdatum(this.defaultStandardStartDate);
         }
 
-        if (this.currentZielgruppeState !== verteilgebiet.zielgruppe) {
-          console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] Zielgruppe changed via OrderDataService from ${this.currentZielgruppeState} to ${verteilgebiet.zielgruppe}. Updating SelectionService.`);
-          this.currentZielgruppeState = verteilgebiet.zielgruppe;
-          this.selectionService.updateFlyerCountsForAudience(this.currentZielgruppeState);
-        }
-
+        this.currentZielgruppeState = verteilgebiet.zielgruppe;
         this.selectedEntriesForTable = [...verteilgebiet.selectedPlzEntries];
         this.mapSelectedPlzIds = this.selectedEntriesForTable.map(e => e.id);
 
@@ -196,9 +191,10 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     const currentServiceDate$ = this.orderDataService.state$.pipe(map(s => s.verteilgebiet.verteilungStartdatum));
 
     firstValueFrom(currentServiceDate$).then(serviceDate => {
-      if (serviceDate && !isNaN(serviceDate.getTime())) {
-        if (serviceDate >= minStartDate) {
-          initialDateToSet = serviceDate;
+      if (serviceDate && !isNaN(new Date(serviceDate).getTime())) {
+        const date = new Date(serviceDate);
+        if (date >= minStartDate) {
+          initialDateToSet = date;
         }
       }
 
@@ -209,7 +205,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
         initialDateToSet = new Date(minStartDate);
       }
       this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialDateToSet);
-      if (!serviceDate || serviceDate.getTime() !== initialDateToSet.getTime()) {
+      if (!serviceDate || new Date(serviceDate).getTime() !== initialDateToSet.getTime()) {
         this.orderDataService.updateVerteilungStartdatum(initialDateToSet);
       }
       this.checkExpressSurcharge();
@@ -366,7 +362,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
         }
       }
       this.searchInputInitialTerm = termToUse;
-      if (plzToSelect.length > 0) this.selectionService.addMultipleEntries(plzToSelect, this.currentZielgruppeState);
+      if (plzToSelect.length > 0) this.selectionService.addMultipleEntries(plzToSelect);
     } catch (e) { console.error(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] Error in _processAndSelectLocation: `, e); this.searchInputInitialTerm = locationName; }
     finally {
       this.mapIsLoading = false;
@@ -388,7 +384,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
 
   public onSearchInputEntriesSelected(e: PlzEntry[]): void {
     if(e && e.length > 0) {
-      this.selectionService.addMultipleEntries(e, this.currentZielgruppeState);
+      this.selectionService.addMultipleEntries(e);
       if(isPlatformBrowser(this.platformId)) setTimeout(()=>this.scrollToMapView(),100);
     }
   }
@@ -446,7 +442,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
       firstValueFrom(this.plzDataService.getEntryById(id).pipe(takeUntil(this.destroy$)))
         .then(entry => {
           if(entry && this.selectionService.validateEntry(entry)) {
-            this.selectionService.addEntry(entry, this.currentZielgruppeState);
+            this.selectionService.addEntry(entry);
           } else {
 
             const plz6 = id;
@@ -454,7 +450,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
             const ort = evt.name || 'Unbekannt';
             const fallbackEntry: PlzEntry = { id, plz6, plz4, ort, kt: 'N/A', preisKategorie: 'A', all: 0, efh: 0, mfh: 0 };
             if(this.selectionService.validateEntry(fallbackEntry)) {
-              this.selectionService.addEntry(fallbackEntry, this.currentZielgruppeState);
+              this.selectionService.addEntry(fallbackEntry);
             }
           }
         }).catch(err => {
@@ -506,7 +502,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     }
   }
 
-  public onPlzFlyerCountChanged(event: {entryId: string, newCount: number}): void {
+  public onPlzFlyerCountChanged(event: {entryId: string, newCount: number | null}): void {
     console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] onPlzFlyerCountChanged event received:`, event, "Current Zielgruppe for call:", this.currentZielgruppeState);
     this.selectionService.updateFlyerCountForEntry(event.entryId, event.newCount, this.currentZielgruppeState);
   }

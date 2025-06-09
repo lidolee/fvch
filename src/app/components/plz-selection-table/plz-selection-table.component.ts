@@ -21,7 +21,7 @@ export class PlzSelectionTableComponent implements OnChanges {
   @Output() public remove = new EventEmitter<PlzSelectionDetail>();
   @Output() public zoom = new EventEmitter<PlzSelectionDetail>();
   @Output() public highlight = new EventEmitter<TableHighlightEvent>();
-  @Output() public flyerCountChange = new EventEmitter<{ entryId: string, newCount: number }>();
+  @Output() public flyerCountChange = new EventEmitter<{ entryId: string, newCount: number | null }>();
 
   public anzahlSumme: number = 0;
   public haushalteSumme: number = 0;
@@ -35,8 +35,8 @@ export class PlzSelectionTableComponent implements OnChanges {
   }
 
   private calculateSums(): void {
-    this.anzahlSumme = this.entries.reduce((sum, detail) => sum + (detail.selected_display_flyer_count ?? detail.anzahl), 0);
-    this.haushalteSumme = this.entries.reduce((sum, detail) => sum + this.getFlyerMaxForEntry(detail), 0);
+    this.anzahlSumme = this.getTotalDefinitiveFlyers();
+    this.haushalteSumme = this.getTotalAudienceCalculatedFlyers();
     this.cdr.markForCheck();
   }
 
@@ -56,34 +56,49 @@ export class PlzSelectionTableComponent implements OnChanges {
     this.highlight.emit({ plzId: null, highlight: false });
   }
 
-  public onManualFlyerInputBlur(entry: PlzSelectionDetail, target: EventTarget | null): void {
+  public onManualFlyerInputChange(entry: PlzSelectionDetail, target: EventTarget | null): void {
     if (target instanceof HTMLInputElement) {
-      let newCount = parseInt(target.value, 10);
-      const maxCount = this.getAudienceCalculatedFlyerCount(entry);
+      const value = target.value;
 
-      if (isNaN(newCount) || newCount < 0) {
-        newCount = 0;
-      } else if (newCount > maxCount) {
-        newCount = maxCount;
+      if (value === '') {
+        this.flyerCountChange.emit({ entryId: entry.id, newCount: null });
+        return;
       }
-      target.value = newCount.toString();
-      if (entry.selected_display_flyer_count !== newCount) {
-        this.flyerCountChange.emit({ entryId: entry.id, newCount: newCount });
+
+      let newCount = parseInt(value, 10);
+
+      if (!isNaN(newCount)) {
+        const maxCount = this.getAudienceCalculatedFlyerCount(entry);
+
+        if (newCount > maxCount) newCount = maxCount;
+        if (newCount < 0) newCount = 0;
+
+        // Use getInitialDisplayCount to check against the currently displayed value
+        if (this.getInitialDisplayCount(entry) !== newCount) {
+          this.flyerCountChange.emit({ entryId: entry.id, newCount: newCount });
+        }
       }
     }
   }
 
   public getAudienceCalculatedFlyerCount(entry: PlzSelectionDetail): number {
-    return entry.anzahl;
-  }
-
-  private getFlyerMaxForEntry(entry: PlzSelectionDetail): number {
     if (!entry) return 0;
     switch (this.currentZielgruppe) {
       case 'Mehrfamilienhäuser': return entry.mfh ?? 0;
       case 'Ein- und Zweifamilienhäuser': return entry.efh ?? 0;
       case 'Alle Haushalte':
       default: return entry.all || 0;
+    }
+  }
+
+  public getInitialDisplayCount(entry: PlzSelectionDetail): number {
+    switch (this.currentZielgruppe) {
+      case 'Mehrfamilienhäuser':
+        return typeof entry.manual_flyer_count_mfh === 'number' ? entry.manual_flyer_count_mfh : (entry.mfh ?? 0);
+      case 'Ein- und Zweifamilienhäuser':
+        return typeof entry.manual_flyer_count_efh === 'number' ? entry.manual_flyer_count_efh : (entry.efh ?? 0);
+      default:
+        return entry.all ?? 0;
     }
   }
 
@@ -96,6 +111,6 @@ export class PlzSelectionTableComponent implements OnChanges {
   }
 
   public getTotalDefinitiveFlyers(): number {
-    return this.entries.reduce((sum, entry) => sum + (entry.selected_display_flyer_count ?? entry.anzahl), 0);
+    return this.entries.reduce((sum, entry) => sum + (entry.selected_display_flyer_count ?? 0), 0);
   }
 }
