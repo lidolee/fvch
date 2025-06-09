@@ -2,10 +2,9 @@
   <h3 class="calculator-title">Kostenübersicht</h3>
 
   <div class="cost-summary">
-    <!-- VERTEILUNG -->
     <div class="cost-group">
       <h4 class="cost-group-title"><span>Flyer Verteilung</span></h4>
-      <div class="table-responsive" *ngIf="kosten.selectedPlzEntriesLength > 0">
+      <div class="table-responsive" *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0">
         <table class="table calculation-table">
           <thead>
           <tr>
@@ -15,19 +14,27 @@
           </tr>
           </thead>
           <tbody>
-          <ng-container *ngFor="let item of kosten.distributionCostItems">
+          <ng-container *ngIf="kosten.distributionCostItems.length > 0">
             <tr>
-              <td class="item-label">{{ item.label }}</td>
+              <th class="item-label" colspan="3">{{ kosten.distributionHeadline }}</th>
+            </tr>
+            <tr *ngFor="let item of kosten.distributionCostItems">
+              <td class="item-label">{{ item.plz }} {{ item.ort }}</td>
               <td class="item-quantity text-end">{{ item.flyers | number:'1.0-0':'de-CH' }}</td>
               <td class="item-subtotal text-end">{{ item.price | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
             </tr>
           </ng-container>
+          <tr *ngIf="kosten.ausgleichKleinauftragPrice > 0">
+            <td class="item-label">Ausgleich Kleinauftrag<sup>3</sup></td>
+            <td class="item-quantity text-end"></td>
+            <td class="item-subtotal text-end">{{ kosten.ausgleichKleinauftragPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+          </tr>
           <tr *ngIf="kosten.expressZuschlagApplicable">
             <td class="item-label">Express Zuschlag 50%</td>
             <td class="item-quantity text-end"></td>
             <td class="item-subtotal text-end">{{ kosten.expressZuschlagPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
-          <tr *ngIf="kosten.fahrzeugGpsApplicable">
+          <tr *ngIf="kosten.fahrzeugGpsApplicable && kosten.totalFlyersForDistribution > 0">
             <td class="item-label">Servicepauschale<sup>1</sup></td>
             <td class="item-quantity text-end"></td>
             <td class="item-subtotal text-end">{{ kosten.fahrzeugGpsPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
@@ -50,14 +57,9 @@
             <td class="item-quantity text-end"></td>
             <td class="item-subtotal text-end">{{ kosten.flyerAbholungPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
-          <tr *ngIf="mindestAbnahmePauschaleApplicable$ | async">
-            <td class="item-label">Ausgleich Kleinauftrag<sup>3</sup></td>
-            <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">{{ mindestAbnahmePauschalePrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
-          </tr>
           </tbody>
           <tfoot>
-          <tr class="table-light">
+          <tr class="table-light" *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0">
             <td colspan="2" class="fw-bold">Zwischensumme Verteilung</td>
             <td class="text-end fw-bold">{{ kosten.subTotalDistribution | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
           </tr>
@@ -67,9 +69,11 @@
       <div *ngIf="kosten.selectedPlzEntriesLength === 0" class="text-muted small">
         Bitte wählen Sie mindestens eine PLZ aus.
       </div>
+      <div *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution === 0" class="text-muted small">
+        Flyer Verteilung ist nicht möglich, da keine Flyer ausgewählt wurden.
+      </div>
     </div>
 
-    <!-- DRUCK -->
     <div class="cost-group" *ngIf="kosten.selectedPrintOption === 'service'">
       <h4 class="cost-group-title"><span>Flyer Druck</span></h4>
       <div class="table-responsive">
@@ -87,7 +91,6 @@
       </div>
     </div>
 
-    <!-- DESIGN -->
     <div class="cost-group" *ngIf="kosten.selectedDesignPackageName && kosten.selectedDesignPackageName !== 'Kein Designpaket'">
       <h4 class="cost-group-title"><span>Flyer Design</span></h4>
       <div class="table-responsive">
@@ -102,8 +105,7 @@
       </div>
     </div>
 
-    <!-- GESAMT -->
-    <div class="cost-group total-summary mt-3 pt-3 border-top" *ngIf="kosten.selectedPlzEntriesLength > 0">
+    <div class="cost-group total-summary mt-3 pt-3 border-top" *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0">
       <div class="table-responsive">
         <table class="table calculation-table">
           <tbody>
@@ -122,15 +124,14 @@
           </tbody>
         </table>
       </div>
-      <p *ngIf="kosten.mindestbestellwertHinweis" class="text-muted small mt-2">{{ kosten.mindestbestellwertHinweis }}</p>
     </div>
 
-    <div class="text-muted small my-4 hinweise-calculator" *ngIf="kosten.selectedPlzEntriesLength > 0">
+    <div class="text-muted small my-4 hinweise-calculator" *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0">
       <strong>Hinweise</strong><br>
       <ol>
         <li>Servicepauschale deckt Fahrtkosten, detaillierte Routenplanung und GPS-Tracking für Ihre Verteilung ab.</li>
         <li>Spezielle Formate und Druckaufträge erfordern eine manuelle Prüfung. Der genaue Preis wird Ihnen anschliessend per E-Mail mitgeteilt</li>
-        <li>Der Ausgleich zum Mindestbestellwert von CHF {{ kosten.mindestbestellwert | currency:'':'symbol':'1.0-0':'de-CH' }} dient der Abdeckung von Fixkosten wie Planung, Logistik und Fahrkosten.</li>
+        <li>Der Ausgleich zum Mindestbestellwert für die Verteilung (CHF 250) dient der Abdeckung von Fixkosten wie Planung und Logistik.</li>
       </ol>
     </div>
 

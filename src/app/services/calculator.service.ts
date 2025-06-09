@@ -133,83 +133,59 @@ export class CalculatorService {
     }
 
     const zielgruppe = selectedPlzEntries[0].zielgruppe;
-    let subTotalDistribution = 0;
+    let totalDistributionCost = 0;
     const distributionCostItems: DistributionCostItem[] = [];
-    const totalFlyersForDistribution = selectedPlzEntries.reduce((sum, e) => sum + e.anzahl, 0);
 
-    if(totalFlyersForDistribution === 0) {
-      return { items: [], total: 0 };
-    }
+    for (const entry of selectedPlzEntries) {
+      let costForThisEntry = 0;
+      let flyersForThisEntry = entry.anzahl;
 
-    switch (zielgruppe) {
-      case 'Mehrfamilienhäuser':
-        subTotalDistribution = selectedPlzEntries.reduce((acc, entry) => {
-          const pricePer1000 = appPrices.distribution.mfh[entry.preisKategorie || 'A'] || 0;
-          return acc + (entry.selected_flyer_count_mfh / 1000) * pricePer1000;
-        }, 0);
-        distributionCostItems.push({
-          label: 'Verteilung Mehrfamilienhäuser',
-          plzCount: selectedPlzEntries.length,
-          flyers: totalFlyersForDistribution,
-          price: this.roundCurrency(subTotalDistribution),
-          pricePerFlyer: 0,
-          category: 'MFH'
-        });
-        break;
+      if (flyersForThisEntry === 0) continue;
 
-      case 'Ein- und Zweifamilienhäuser':
-        subTotalDistribution = selectedPlzEntries.reduce((acc, entry) => {
-          const pricePer1000 = appPrices.distribution.efh[entry.preisKategorie || 'A'] || 0;
-          return acc + (entry.selected_flyer_count_efh / 1000) * pricePer1000;
-        }, 0);
-        distributionCostItems.push({
-          label: 'Verteilung Ein-/Zweifamilienhäuser',
-          plzCount: selectedPlzEntries.length,
-          flyers: totalFlyersForDistribution,
-          price: this.roundCurrency(subTotalDistribution),
-          pricePerFlyer: 0,
-          category: 'EFH'
-        });
-        break;
+      const preisKategorie = entry.preisKategorie || 'A';
 
-      case 'Alle Haushalte':
-        subTotalDistribution = selectedPlzEntries.reduce((acc, entry) => {
-          const totalFlyersForPlz = entry.all || 0;
-          if (totalFlyersForPlz === 0) return acc;
+      switch (zielgruppe) {
+        case 'Mehrfamilienhäuser':
+          const pricePer1000Mfh = appPrices.distribution.mfh[preisKategorie] || 0;
+          costForThisEntry = (flyersForThisEntry / 1000) * pricePer1000Mfh;
+          break;
 
+        case 'Ein- und Zweifamilienhäuser':
+          const pricePer1000Efh = appPrices.distribution.efh[preisKategorie] || 0;
+          costForThisEntry = (flyersForThisEntry / 1000) * pricePer1000Efh;
+          break;
+
+        case 'Alle Haushalte':
           const haushalteEFH = entry.efh || 0;
           const haushalteMFH = entry.mfh || 0;
           const haushalteGesamtOriginal = haushalteEFH + haushalteMFH;
-          let kostenPlz = 0;
-          const preisKategorie = entry.preisKategorie || 'A';
-
           if (haushalteGesamtOriginal > 0) {
             if (haushalteEFH > 0) {
-              const flyersAnteilEFH = totalFlyersForPlz * (haushalteEFH / haushalteGesamtOriginal);
-              kostenPlz += (flyersAnteilEFH / 1000) * (appPrices.distribution.efh[preisKategorie] || 0);
+              const flyersAnteilEFH = flyersForThisEntry * (haushalteEFH / haushalteGesamtOriginal);
+              costForThisEntry += (flyersAnteilEFH / 1000) * (appPrices.distribution.efh[preisKategorie] || 0);
             }
             if (haushalteMFH > 0) {
-              const flyersAnteilMFH = totalFlyersForPlz * (haushalteMFH / haushalteGesamtOriginal);
-              kostenPlz += (flyersAnteilMFH / 1000) * (appPrices.distribution.mfh[preisKategorie] || 0);
+              const flyersAnteilMFH = flyersForThisEntry * (haushalteMFH / haushalteGesamtOriginal);
+              costForThisEntry += (flyersAnteilMFH / 1000) * (appPrices.distribution.mfh[preisKategorie] || 0);
             }
           } else {
-            kostenPlz = (totalFlyersForPlz / 1000) * (appPrices.distribution.efh[preisKategorie] || 0);
+            // Fallback, if no mfh/efh data, assume efh price
+            costForThisEntry = (flyersForThisEntry / 1000) * (appPrices.distribution.efh[preisKategorie] || 0);
           }
-          return acc + kostenPlz;
-        }, 0);
+          break;
+      }
 
-        distributionCostItems.push({
-          label: 'Verteilung Alle Haushalte',
-          plzCount: selectedPlzEntries.length,
-          flyers: totalFlyersForDistribution,
-          price: this.roundCurrency(subTotalDistribution),
-          pricePerFlyer: 0,
-          category: 'Alle'
-        });
-        break;
+      distributionCostItems.push({
+        plz: entry.plz4,
+        ort: entry.ort,
+        flyers: flyersForThisEntry,
+        price: this.roundCurrency(costForThisEntry)
+      });
+
+      totalDistributionCost += costForThisEntry;
     }
 
-    return { items: distributionCostItems, total: this.roundCurrency(subTotalDistribution) };
+    return { items: distributionCostItems, total: this.roundCurrency(totalDistributionCost) };
   }
 
   public getSurcharge(surchargeKey: keyof DistributionPrices['surcharges'], appPrices: AppPrices | null): number {

@@ -38,7 +38,6 @@
   <div #mapView class="map-main-container" style="min-height: 100px;">
     <app-map *ngIf="showPlzUiContainer"
              [selectedPlzIds]="mapSelectedPlzIds"
-             [highlightOnHoverPlzIds]="[]"
              [highlightFromTablePlzId]="mapTableHoverPlzId"
              [zoomToPlzId]="mapZoomToPlzId"
              [zoomToPlzIdList]="mapZoomToPlzIdList"
@@ -49,6 +48,11 @@
              (loading)="onMapLoadingStatusChanged($event)"
              (mapReady)="onMapReady($event)">
     </app-map>
+    <div *ngIf="mapIsLoading" class="map-loader">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
   </div>
 
   <app-search-input

@@ -98,12 +98,10 @@ export interface KontaktDetailsState {
 }
 
 export interface DistributionCostItem {
-  label: string;
-  plzCount: number;
+  plz: string;
+  ort: string;
   flyers: number;
-  pricePerFlyer: number;
   price: number;
-  category: string;
 }
 
 export interface KostenState {
@@ -122,12 +120,14 @@ export interface KostenState {
   taxAmount: number;
   grandTotalCalculated: number;
   mindestbestellwertHinweis: string;
+  distributionHeadline: string;
   distributionCostItems: DistributionCostItem[];
   expressZuschlagPrice: number;
   fahrzeugGpsPrice: number;
   zuschlagFormatPrice: number;
   isAnderesFormatSelected: boolean;
   flyerAbholungPrice: number;
+  ausgleichKleinauftragPrice: number;
   printServiceName: string;
   printServiceCost: number;
   mindestbestellwert: number;

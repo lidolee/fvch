@@ -45,9 +45,9 @@ export class OrderDataService {
     totalFlyersForDistribution: 0, flyerAbholungApplicable: false, subTotalDistribution: 0,
     selectedPrintOption: null, selectedDesignPackageName: 'Kein Designpaket', designPackageCost: 0,
     subTotalNetto: 0, taxRatePercent: 0, taxAmount: 0, grandTotalCalculated: 0,
-    mindestbestellwertHinweis: '', distributionCostItems: [], expressZuschlagPrice: 0,
+    mindestbestellwertHinweis: '', distributionHeadline: '', distributionCostItems: [], expressZuschlagPrice: 0,
     fahrzeugGpsPrice: 0, zuschlagFormatPrice: 0, isAnderesFormatSelected: false,
-    flyerAbholungPrice: 0, printServiceName: 'Kein Druckservice', printServiceCost: 0,
+    flyerAbholungPrice: 0, ausgleichKleinauftragPrice: 0, printServiceName: 'Kein Druckservice', printServiceCost: 0,
     mindestbestellwert: 0
   };
 
@@ -178,41 +178,57 @@ export class OrderDataService {
     const calcFormat = produktion.printOption === 'service'
       ? produktion.printServiceDetails.format
       : produktion.anlieferDetails.format;
-    console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] calculateAllCosts called. Zielgruppe: ${verteilgebiet.zielgruppe}, TotalFlyers: ${verteilgebiet.totalFlyersCount}`);
 
-    const designPackageCost = this.calculatorService.calculateDesignPackagePrice(produktion.designPackage, appPrices.design);
-    const selectedDesignPackageName = this.calculatorService.getDesignPackageName(produktion.designPackage, designPackageCost);
-    const printService = this.calculatorService.calculatePrintServiceCost(produktion.printServiceDetails);
-    const verteilzuschlag = this.calculatorService.calculateVerteilzuschlag(calcFormat, verteilgebiet.totalFlyersCount, appPrices);
+    // Core distribution costs
     const distribution = this.calculatorService.calculateDistributionCost(verteilgebiet.selectedPlzEntries, appPrices);
+    const mindestVerteilung = this.calculatorService.getSurcharge('mindestbestellwert', appPrices);
+
+    let ausgleichKleinauftragPrice = 0;
+    if (distribution.total > 0 && distribution.total < mindestVerteilung) {
+      ausgleichKleinauftragPrice = this.calculatorService.roundCurrency(mindestVerteilung - distribution.total);
+    }
 
     const expressZuschlagApplicable = verteilgebiet.expressConfirmed && distribution.total > 0;
     const expressZuschlagPrice = expressZuschlagApplicable
-      ? this.calculatorService.roundCurrency(distribution.total * this.calculatorService.getSurcharge('express', appPrices))
+      ? this.calculatorService.roundCurrency((distribution.total + ausgleichKleinauftragPrice) * this.calculatorService.getSurcharge('express', appPrices))
       : 0;
 
     const fahrzeugGpsApplicable = true;
     const fahrzeugGpsPrice = fahrzeugGpsApplicable ? this.calculatorService.getSurcharge('fahrzeugGPS', appPrices) : 0;
 
     const flyerAbholungApplicable = produktion.anlieferDetails.anlieferung === 'abholung';
-    const flyerAbholungPrice = flyerAbholungApplicable
-      ? this.calculatorService.getSurcharge('abholungFlyer', appPrices)
-      : 0;
+    const flyerAbholungPrice = flyerAbholungApplicable ? this.calculatorService.getSurcharge('abholungFlyer', appPrices) : 0;
 
-    const subTotalNetto = this.calculatorService.roundCurrency(
-      distribution.total + expressZuschlagPrice + fahrzeugGpsPrice + flyerAbholungPrice +
-      designPackageCost + printService.cost + verteilzuschlag.price
+    const verteilzuschlag = this.calculatorService.calculateVerteilzuschlag(calcFormat, verteilgebiet.totalFlyersCount, appPrices);
+
+    // Totals for distribution group
+    const subTotalDistribution = this.calculatorService.roundCurrency(
+      distribution.total +
+      ausgleichKleinauftragPrice +
+      expressZuschlagPrice +
+      fahrzeugGpsPrice +
+      flyerAbholungPrice +
+      verteilzuschlag.price
     );
 
+    // Production costs
+    const designPackageCost = this.calculatorService.calculateDesignPackagePrice(produktion.designPackage, appPrices.design);
+    const selectedDesignPackageName = this.calculatorService.getDesignPackageName(produktion.designPackage, designPackageCost);
+    const printService = this.calculatorService.calculatePrintServiceCost(produktion.printServiceDetails);
+
+    // Final totals
+    const subTotalNetto = this.calculatorService.roundCurrency(subTotalDistribution + designPackageCost + printService.cost);
     const taxRate = appPrices.tax["vat-ch"] || 0;
     const taxAmount = this.calculatorService.roundCurrency(subTotalNetto * taxRate);
-    let grandTotalCalculated = this.calculatorService.roundCurrency(subTotalNetto + taxAmount);
+    const grandTotalCalculated = this.calculatorService.roundCurrency(subTotalNetto + taxAmount);
 
-    const mindestbestellwert = this.calculatorService.getSurcharge('mindestbestellwert', appPrices);
-    let mindestbestellwertHinweis = '';
-    if (verteilgebiet.totalFlyersCount > 0 && grandTotalCalculated < mindestbestellwert) {
-      mindestbestellwertHinweis = `Der Mindestbestellwert von CHF ${mindestbestellwert.toFixed(2)} wurde nicht erreicht. Die Differenz wird aufgerechnet.`;
-      grandTotalCalculated = mindestbestellwert;
+    let distributionHeadline = '';
+    if (distribution.items.length > 0) {
+      switch (verteilgebiet.zielgruppe) {
+        case 'Alle Haushalte': distributionHeadline = 'Verteilung Alle Haushalte'; break;
+        case 'Mehrfamilienhäuser': distributionHeadline = 'Verteilung Mehrfamilienhäuser'; break;
+        case 'Ein- und Zweifamilienhäuser': distributionHeadline = 'Verteilung Ein- und Zweifamilienhäuser'; break;
+      }
     }
 
     return {
@@ -222,7 +238,7 @@ export class OrderDataService {
       zuschlagFormatAnzeigeText: verteilzuschlag.anzeigeText,
       totalFlyersForDistribution: verteilgebiet.totalFlyersCount,
       flyerAbholungApplicable,
-      subTotalDistribution: distribution.total,
+      subTotalDistribution,
       selectedPrintOption: produktion.printOption,
       selectedDesignPackageName,
       designPackageCost,
@@ -230,16 +246,18 @@ export class OrderDataService {
       taxRatePercent: taxRate * 100,
       taxAmount,
       grandTotalCalculated,
-      mindestbestellwertHinweis,
+      mindestbestellwertHinweis: '',
+      distributionHeadline,
       distributionCostItems: distribution.items,
       expressZuschlagPrice,
       fahrzeugGpsPrice,
       zuschlagFormatPrice: verteilzuschlag.price,
       isAnderesFormatSelected: verteilzuschlag.isAnderes,
       flyerAbholungPrice,
+      ausgleichKleinauftragPrice,
       printServiceName: printService.name,
       printServiceCost: printService.cost,
-      mindestbestellwert
+      mindestbestellwert: mindestVerteilung + fahrzeugGpsPrice
     };
   }
 
