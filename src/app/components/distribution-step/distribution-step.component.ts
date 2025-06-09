@@ -93,11 +93,15 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
 
   ngOnInit(): void {
     console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] ngOnInit - User: ${"lidolee"}`);
+
+    this.initializeDates();
+
     this.orderDataService.verteilgebiet$.pipe(
       takeUntil(this.destroy$),
     ).subscribe(
       (verteilgebiet: VerteilgebietDataState) => {
         console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] orderDataService.verteilgebiet$ emitted:`, JSON.parse(JSON.stringify(verteilgebiet)));
+
         this.expressSurchargeConfirmed = verteilgebiet.expressConfirmed;
 
         if (verteilgebiet.verteilungStartdatum) {
@@ -107,7 +111,6 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
           }
         } else if (this.defaultStandardStartDate) {
           this.verteilungStartdatum = this.formatDateToYyyyMmDd(this.defaultStandardStartDate);
-          this.orderDataService.updateVerteilungStartdatum(this.defaultStandardStartDate);
         }
 
         this.currentZielgruppeState = verteilgebiet.zielgruppe;
@@ -124,18 +127,10 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
       }
     );
 
-    this.initializeDates();
-
-
     if (this.initialStadt && !this.activeProcessingStadt) {
       console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] initialStadt provided on init: ${this.initialStadt}. Processing...`);
       this.processStadtnameFromInput(this.initialStadt);
     }
-
-    Promise.resolve().then(() => {
-      this.updateOrderDataServiceExpressStatus();
-      this.updateAndEmitOverallValidationState();
-    });
   }
 
   ngOnDestroy(): void {
@@ -187,12 +182,11 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     minStartDate.setUTCDate(today.getUTCDate() + 1);
     this.minVerteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
     this.defaultStandardStartDate = this.addWorkingDays(new Date(today), 3);
-    let initialDateToSet: Date | null = null;
-    const currentServiceDate$ = this.orderDataService.state$.pipe(map(s => s.verteilgebiet.verteilungStartdatum));
 
-    firstValueFrom(currentServiceDate$).then(serviceDate => {
-      if (serviceDate && !isNaN(new Date(serviceDate).getTime())) {
-        const date = new Date(serviceDate);
+    firstValueFrom(this.orderDataService.verteilgebiet$).then(serviceState => {
+      let initialDateToSet: Date | null = null;
+      if (serviceState.verteilungStartdatum && !isNaN(new Date(serviceState.verteilungStartdatum).getTime())) {
+        const date = new Date(serviceState.verteilungStartdatum);
         if (date >= minStartDate) {
           initialDateToSet = date;
         }
@@ -201,15 +195,19 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
       if (!initialDateToSet) {
         initialDateToSet = new Date(this.defaultStandardStartDate);
       }
+
       if (initialDateToSet < minStartDate) {
         initialDateToSet = new Date(minStartDate);
       }
-      this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialDateToSet);
-      if (!serviceDate || new Date(serviceDate).getTime() !== initialDateToSet.getTime()) {
+
+      const serviceDateHasTime = serviceState.verteilungStartdatum ? new Date(serviceState.verteilungStartdatum).getTime() : 0;
+      if (serviceDateHasTime !== initialDateToSet.getTime()) {
         this.orderDataService.updateVerteilungStartdatum(initialDateToSet);
+      } else {
+        this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialDateToSet);
+        this.checkExpressSurcharge();
+        this.cdr.markForCheck();
       }
-      this.checkExpressSurcharge();
-      this.cdr.markForCheck();
     });
   }
 
@@ -254,34 +252,19 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   }
 
   public onStartDateChange(): void {
-    this.expressSurchargeConfirmed = false;
     let selectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
     const minDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
 
-    if (!minDate) {
-      console.error(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] minVerteilungStartdatum is not set!`);
-      this.showExpressSurcharge = false;
-      this.updateOrderDataServiceExpressStatus();
-      this.updateAndEmitOverallValidationState();
-      this.cdr.markForCheck();
-      return;
-    }
-
-    if (!selectedDate || selectedDate < minDate) {
-      selectedDate = new Date(minDate);
-      this.verteilungStartdatum = this.formatDateToYyyyMmDd(selectedDate);
+    if (!selectedDate || (minDate && selectedDate < minDate)) {
+      selectedDate = minDate;
     }
 
     this.orderDataService.updateVerteilungStartdatum(selectedDate);
-    this.checkExpressSurcharge();
-    this.updateOrderDataServiceExpressStatus();
-    this.updateAndEmitOverallValidationState();
-    this.cdr.markForCheck();
   }
 
   private checkExpressSurcharge(): void {
     if (!this.verteilungStartdatum || !this.defaultStandardStartDate) {
-      if (this.showExpressSurcharge) { this.showExpressSurcharge = false; this.cdr.markForCheck(); }
+      if (this.showExpressSurcharge) { this.showExpressSurcharge = false; }
       return;
     }
     const selectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
@@ -290,40 +273,24 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     if (!selectedDate || isNaN(selectedDate.getTime()) ||
       !minAllowedDate || isNaN(minAllowedDate.getTime()) ||
       isNaN(this.defaultStandardStartDate.getTime())) {
-      if (this.showExpressSurcharge) { this.showExpressSurcharge = false; this.cdr.markForCheck(); }
+      if (this.showExpressSurcharge) { this.showExpressSurcharge = false; }
       return;
     }
 
     const needsExpress = selectedDate < this.defaultStandardStartDate && selectedDate >= minAllowedDate;
-    const newShowExpressFlag = needsExpress && !this.expressSurchargeConfirmed;
-
-    if (this.showExpressSurcharge !== newShowExpressFlag) {
-      this.showExpressSurcharge = newShowExpressFlag;
-      this.cdr.markForCheck();
-    }
+    this.showExpressSurcharge = needsExpress && !this.expressSurchargeConfirmed;
   }
 
   public avoidExpressSurcharge(): void {
-    this.expressSurchargeConfirmed = false;
     if (this.defaultStandardStartDate) {
-      this.verteilungStartdatum = this.formatDateToYyyyMmDd(this.defaultStandardStartDate);
-      this.onStartDateChange();
+      this.orderDataService.updateVerteilungStartdatum(this.defaultStandardStartDate);
     } else {
       console.error(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] defaultStandardStartDate not set for avoidExpressSurcharge`);
-      this.cdr.markForCheck();
     }
   }
 
   public confirmExpressSurcharge(): void {
-    this.expressSurchargeConfirmed = true;
-    this.showExpressSurcharge = false;
-    this.updateOrderDataServiceExpressStatus();
-    this.updateAndEmitOverallValidationState();
-    this.cdr.markForCheck();
-  }
-
-  private updateOrderDataServiceExpressStatus(): void {
-    this.orderDataService.updateExpressConfirmed(this.expressSurchargeConfirmed);
+    this.orderDataService.updateExpressConfirmed(true);
   }
 
   public async _processAndSelectLocation(locationName: string, isFromUrlOrInitial: boolean): Promise<void> {

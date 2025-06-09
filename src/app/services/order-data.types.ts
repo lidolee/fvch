@@ -112,6 +112,7 @@ export interface KostenState {
   totalFlyersForDistribution: number;
   flyerAbholungApplicable: boolean;
   subTotalDistribution: number;
+  verteilungTotal: number;
   selectedPrintOption: PrintOptionType | null;
   selectedDesignPackageName: string;
   designPackageCost: number;

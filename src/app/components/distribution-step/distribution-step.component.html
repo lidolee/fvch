@@ -192,26 +192,23 @@
   </div>
 </div>
 
-<div class="row mb-3" *ngIf="showExpressSurcharge">
-  <div class="col-sm-8 offset-sm-4">
-    <div class="alert alert-light" role="alert">
-      <div class="d-flex align-items-center mb-2">
-        <span class="alert-title"><i class="mdi mdi-alert-box me-2 fs-5"></i>Express-Zuschlag</span>
+<!-- Express Surcharge Modal -->
+<div class="modal fade" [class.show]="showExpressSurcharge" [style.display]="showExpressSurcharge ? 'block' : 'none'" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="mdi mdi-alert-box me-2 fs-5"></i>Express-Zuschlag</h5>
       </div>
-      <div>Kurzfristiges Startdatum <strong class="text-danger">50% Express-Zuschlag</strong></div>
-      <div class="mt-2">Start ab <strong>{{ getFormattedDefaultStandardDateForDisplay() }}</strong> oder später: kein Zuschlag.</div>
-      <div class="row gx-3">
-        <div class="col-6">
-          <button type="button" class="btn btn-sm w-100 btn-outline-danger mt-3" (click)="avoidExpressSurcharge()">
-            Express vermeiden
-          </button>
-        </div>
-        <div class="col-6">
-          <button type="button" class="btn btn-sm w-100 btn-outline-success mt-3" (click)="confirmExpressSurcharge()">
-            Express buchen
-          </button>
-        </div>
+      <div class="modal-body">
+        <p class="text-danger">Für das gewählte Startdatum fällt ein <strong>Express-Zuschlag von 50%</strong> auf die Verteilkosten an.</p>
+        <p>Möchten Sie mit diesem Datum fortfahren?</p>
+        <p class="text-muted small">Standard-Verteilstart ohne Zuschlag wäre ab dem <strong>{{ getFormattedDefaultStandardDateForDisplay() }}</strong> möglich.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="avoidExpressSurcharge()">Express vermeiden</button>
+        <button type="button" class="btn btn-sm btn-success" (click)="confirmExpressSurcharge()">Express buchen</button>
       </div>
     </div>
   </div>
 </div>
+<div class="modal-backdrop fade" [class.show]="showExpressSurcharge" *ngIf="showExpressSurcharge"></div>

@@ -24,6 +24,15 @@
               <td class="item-subtotal text-end">{{ item.price | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
             </tr>
           </ng-container>
+
+          <tr class="table-light">
+            <td class="item-label fw-bold">Flyer Total</td>
+            <td class="item-quantity text-end fw-bold">
+              <span *ngIf="!kosten.isAnderesFormatSelected">{{ kosten.totalFlyersForDistribution | number:'1.0-0':'de-CH' }}</span>
+            </td>
+            <td class="item-subtotal text-end fw-bold">{{ kosten.verteilungTotal | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+          </tr>
+
           <tr *ngIf="kosten.ausgleichKleinauftragPrice > 0">
             <td class="item-label">Ausgleich Kleinauftrag<sup>3</sup></td>
             <td class="item-quantity text-end"></td>
