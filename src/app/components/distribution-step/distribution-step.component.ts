@@ -475,7 +475,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   }
 
   public triggerKmlUpload(): void {
-    this.kmlFileName = 'test.kml';
+    this.kmlFileName = 'perimeter.kml';
     this.updateAndEmitOverallValidationState();
   }
 
