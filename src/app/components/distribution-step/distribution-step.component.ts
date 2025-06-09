@@ -88,11 +88,11 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
       selectedHighlightedPolygonOptions: { strokeColor: "#D60096", strokeOpacity: 0.9, strokeWeight: 2.5, fillColor: "#D60096", fillOpacity: 0.6 },
       typeaheadHoverPolygonOptions: { strokeColor: "#0063D6", strokeOpacity: 0.7, strokeWeight: 2, fillColor: "#0063D6", fillOpacity: 0.25 }
     };
-    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] Constructor - User: ${"lidolee"}`);
+    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] Constructor`);
   }
 
   ngOnInit(): void {
-    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] ngOnInit - User: ${"lidolee"}`);
+    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] ngOnInit`);
 
     this.initializeDates();
 
@@ -135,7 +135,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
 
   ngOnDestroy(): void {
     this.destroy$.next(); this.destroy$.complete();
-    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] ngOnDestroy - User: ${"lidolee"}`);
+    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] ngOnDestroy`);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -172,7 +172,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   }
 
   ngAfterViewInit(): void {
-    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] ngAfterViewInit - User: ${"lidolee"}`);
+    console.log(`[${"2025-06-07 21:27:02"}] [DistributionStepComponent] ngAfterViewInit`);
   }
 
   private initializeDates(): void {

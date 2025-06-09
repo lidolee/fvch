@@ -52,11 +52,11 @@ export class OfferProcessComponent implements OnInit, OnDestroy {
       distinctUntilChanged(),
       takeUntil(this.destroy$)
     );
-    console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] Constructor - User: ${"lidolee"}`);
+    console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] Constructor`);
   }
 
   ngOnInit(): void {
-    console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] ngOnInit - User: ${"lidolee"}`);
+    console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] ngOnInit`);
     this.orderDataService.verteilgebiet$.pipe(
       map((verteilgebiet: VerteilgebietDataState) => verteilgebiet.zielgruppe),
       distinctUntilChanged(),
@@ -82,7 +82,7 @@ export class OfferProcessComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] ngOnDestroy - User: ${"lidolee"}`);
+    console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] ngOnDestroy`);
   }
 
   public onNavChange(event: NgbNavChangeEvent): void {
