@@ -7,12 +7,13 @@
       <th scope="col" class="canton text-start">KT</th>
       <th scope="col" class="flyer-max text-end"
           [class.highlight-column]="highlightFlyerMaxColumn"
-          [title]="'Maximale Anzahl basierend auf der aktuellen Zielgruppe: ' + currentZielgruppe">Max. {{ currentZielgruppe === 'Alle Haushalte' ? '' : (currentZielgruppe === 'Mehrfamilienhäuser' ? 'MFH' : 'EFH') }}</th>
+          [title]="'Maximale Anzahl basierend auf der aktuellen Zielgruppe: ' + currentZielgruppe">Flyer<!--{{ currentZielgruppe === 'Alle Haushalte' ? '' : (currentZielgruppe === 'Mehrfamilienhäuser' ? 'MFH' : 'EFH') }}--></th>
 
+      <!-- Conditional Header for Definitive Count -->
       <th scope="col" class="flyer-limit text-start"
           *ngIf="currentZielgruppe !== 'Alle Haushalte'"
           [title]="'Definitive Wunschmenge, die wir für diese PLZ verteilen.'">
-        Definitiv {{ currentZielgruppe === 'Mehrfamilienhäuser' ? 'MFH' : 'EFH' }}
+        Definitiv<!-- {{ currentZielgruppe === 'Mehrfamilienhäuser' ? 'MFH' : 'EFH' }}-->
       </th>
 
       <th scope="col" class="actions text-end">&nbsp;</th>
@@ -29,6 +30,7 @@
         {{ getAudienceCalculatedFlyerCount(entry) | number:'1.0-0':'de-CH' }}
       </td>
 
+      <!-- Conditional Input for MFH -->
       <td class="flyer-limit text-end" *ngIf="currentZielgruppe === 'Mehrfamilienhäuser'">
         <input class="form-control form-control-sm text-end"
                type="number"
@@ -40,6 +42,7 @@
                placeholder=""/>
       </td>
 
+      <!-- Conditional Input for EFH -->
       <td class="flyer-limit text-end" *ngIf="currentZielgruppe === 'Ein- und Zweifamilienhäuser'">
         <input class="form-control form-control-sm text-end"
                type="number"
@@ -68,6 +71,7 @@
         {{ getTotalAudienceCalculatedFlyers() | number:'1.0-0':'de-CH' }}
       </td>
 
+      <!-- This cell is for the "Definitive" total column -->
       <td class="text-end fw-bold" *ngIf="currentZielgruppe !== 'Alle Haushalte'">
         <ng-container *ngIf="currentZielgruppe === 'Mehrfamilienhäuser'">
           {{ getTotalDefinitiveMfhFlyers() | number:'1.0-0':'de-CH' }}
@@ -77,7 +81,6 @@
         </ng-container>
       </td>
 
-      <td *ngIf="currentZielgruppe === 'Alle Haushalte'"></td>
       <td></td>
     </tr>
     </tfoot>
