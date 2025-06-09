@@ -181,7 +181,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     const minStartDate = new Date(today);
     minStartDate.setUTCDate(today.getUTCDate() + 1);
     this.minVerteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
-    this.defaultStandardStartDate = this.addWorkingDays(new Date(today), 3);
+    this.defaultStandardStartDate = this.addWorkingDays(new Date(today), 4);
 
     firstValueFrom(this.orderDataService.verteilgebiet$).then(serviceState => {
       let initialDateToSet: Date | null = null;

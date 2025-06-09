@@ -163,6 +163,16 @@
   <div class="perimeter-container reminder" >
     <div class="reminder-title">Verteilung nach GPS-Perimeter</div>
     <p>Für die Verteilung nach GPS-Perimeter benötigen wir Ihr gewünschtes Zielgebiet, um die Flyeranzahl und Kosten zu berechnen.</p>
+
+    <div class="my-4">
+      <div class="ratio ratio-16x9">
+        <video controls>
+          <source src="assets/img/perimeter.webm" type="video/webm">
+          Ihr Browser unterstützt das Video-Tag nicht.
+        </video>
+      </div>
+    </div>
+
     <ol>
       <li>Öffnen Sie <a href="https://earth.google.com" target="_blank" rel="noopener noreferrer"><strong>Google Earth</strong></a></li>
       <li>Neue <strong>lokale KML-Datei</strong> erstellen <span class="badge text-bg-secondary">CTRL + K</span><br /><i class="mdi mdi-arrow-right-thin"></i> Projektname: GPS-Perimeter – Ihre Firma</li>
@@ -175,7 +185,7 @@
 
     <div class="mt-3">
       <div class="input-group">
-        <input class="form-control" type="file" id="fileUpload"/>
+        <input class="form-control" type="file" id="kmlFileUpload"/>
         <button type="button" class="btn btn-sm btn-primary" (click)="triggerKmlUpload()"> <i class="mdi mdi-upload"></i> hochladen</button>
       </div>
       <div *ngIf="kmlFileName" class="mt-2 small">Hochgeladen: {{ kmlFileName }}</div>
@@ -183,15 +193,6 @@
     <hr>
     <div>
       <span><strong>Preise ab CHF 250.– pro 1'000 Flyer</strong><br/>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte.</span>
-    </div>
-  </div>
-
-  <div class="my-4">
-    <div class="ratio ratio-16x9">
-      <video controls>
-        <source src="assets/img/perimeter.webm" type="video/webm">
-        Ihr Browser unterstützt das Video-Tag nicht.
-      </video>
     </div>
   </div>
 </div>
