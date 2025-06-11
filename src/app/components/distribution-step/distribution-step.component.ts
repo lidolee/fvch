@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ViewChild, Output, EventEmitter, Inject, 
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, firstValueFrom } from 'rxjs';
-import { takeUntil, map, take } from 'rxjs/operators';
+import { takeUntil, take } from 'rxjs/operators'; // map operator is not directly used in pipe in the final version, direct rxjs imports for take/takeUntil are generally preferred with pipe.
 import { Router } from '@angular/router';
 import { PlzDataService, PlzEntry, EnhancedSearchResultItem } from '../../services/plz-data.service';
 import { SelectionService } from '../../services/selection.service';
@@ -79,34 +79,41 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     private cdr: ChangeDetectorRef,
     private router: Router
   ) {
-    this.apiKeyConstant = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc';
+    this.apiKeyConstant = 'AIzaSyBpa1rzAIkaSS2RAlc9frw8GAPiGC1PNwc'; // Consider moving to environment variables
     this.kmlPathConstant = 'assets/ch_plz.kml';
     this.mapConfig = {
       initialCenter: DEFAULT_MAP_CENTER,
       initialZoom: DEFAULT_MAP_ZOOM,
+      minZoom: 8,
+      styles: [
+        { featureType: 'poi', elementType: 'all', stylers: [{ visibility: 'off' }] },
+        { featureType: 'road', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+        { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+        { featureType: 'administrative.locality', elementType: 'labels', stylers: [{ visibility: 'on' }] },
+        { featureType: 'water', elementType: 'geometry', stylers: [{ "color": "#a1e0ff" }] },
+        { featureType: 'landscape', elementType: 'geometry', stylers: [{ "color": "#f5f5f5" }] },
+        { featureType: "road", elementType: "geometry", stylers: [{ "color": "#ffffff" }] },
+        { featureType: 'administrative.province', elementType: 'geometry.stroke', stylers: [{ "color": "#aaaaaa", "weight": 1.5, "visibility": "on" }] },
+        { featureType: "administrative.country", elementType: "geometry.stroke", stylers: [{ "color": "#cccccc", "weight": 2 }] }
+      ],
       defaultPolygonOptions: { strokeColor: "#0063D6", strokeOpacity: 0.1, strokeWeight: 1.5, fillColor: "#0063D6", fillOpacity: 0.05 },
       highlightedPolygonOptions: { strokeColor: "#0063D6", strokeOpacity: 0.6, strokeWeight: 2, fillColor: "#0063D6", fillOpacity: 0.3 },
-      selectedPolygonOptions: { strokeColor: "#D60096", strokeOpacity: 0.8, strokeWeight: 2, fillColor: "#D60096", fillOpacity: 0.4 },
-      selectedHighlightedPolygonOptions: { strokeColor: "#D60096", strokeOpacity: 0.9, strokeWeight: 2.5, fillColor: "#D60096", fillOpacity: 0.6 },
+      selectedPolygonOptions: { strokeColor: "#0063D6", strokeOpacity: 0.8, strokeWeight: 2, fillColor: "#0063D6", fillOpacity: 0.4 },
+      selectedHighlightedPolygonOptions: { strokeColor: "#0063D6", strokeOpacity: 1, strokeWeight: 2.5, fillColor: "#0063D6", fillOpacity: 0.75 },
       typeaheadHoverPolygonOptions: { strokeColor: "#0063D6", strokeOpacity: 0.7, strokeWeight: 2, fillColor: "#0063D6", fillOpacity: 0.25 }
     };
-    console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] Constructor`);
   }
 
   ngOnInit(): void {
-    console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] ngOnInit`);
-
     this.initializeDates();
 
     this.orderDataService.verteilgebiet$.pipe(
       takeUntil(this.destroy$),
     ).subscribe(
       (verteilgebiet: VerteilgebietDataState) => {
-        console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] orderDataService.verteilgebiet$ emitted:`, JSON.parse(JSON.stringify(verteilgebiet)));
-
         this.expressSurchargeConfirmed = verteilgebiet.expressConfirmed;
         if (this.currentVerteilungTyp !== verteilgebiet.verteilungTyp) {
-          this.currentVerteilungTyp = verteilgebiet.verteilungTyp;
+          this.currentVerteilungTyp = verteilgebiet.verteilungTyp as VerteilungTypOptionLocal;
           this.updateUiFlagsAndMapState();
         }
 
@@ -115,40 +122,34 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
           if (orderStartDate && !isNaN(orderStartDate.getTime())) {
             this.verteilungStartdatum = this.formatDateToYyyyMmDd(orderStartDate);
           }
-        } else if (this.defaultStandardStartDate) {
-          // this.verteilungStartdatum = this.formatDateToYyyyMmDd(this.defaultStandardStartDate);
         }
 
         this.currentZielgruppeState = verteilgebiet.zielgruppe;
         this.selectedEntriesForTable = [...verteilgebiet.selectedPlzEntries];
         this.mapSelectedPlzIds = this.selectedEntriesForTable.map(e => e.id);
 
-        if (!this.mapZoomToPlzId && (!this.mapZoomToPlzIdList || this.mapZoomToPlzIdList.length === 0)) {
+        if (!this.mapZoomToPlzId) {
           this.mapZoomToPlzIdList = this.mapSelectedPlzIds.length > 0 ? [...this.mapSelectedPlzIds] : null;
         }
 
         this.checkExpressSurcharge();
-        this.updateAndEmitOverallValidationState(); // This will now use Promise.resolve()
+        this.updateAndEmitOverallValidationState();
         this.cdr.markForCheck();
       }
     );
 
     if (this.initialStadt && !this.activeProcessingStadt) {
-      console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] initialStadt provided on init: ${this.initialStadt}. Processing...`);
       this.processStadtnameFromInput(this.initialStadt);
     }
   }
 
   ngOnDestroy(): void {
     this.destroy$.next(); this.destroy$.complete();
-    console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] ngOnDestroy`);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] ngOnChanges called:`, changes);
     if (changes['initialStadt'] && changes['initialStadt'].currentValue !== changes['initialStadt'].previousValue) {
       const newStadt = changes['initialStadt'].currentValue as string | undefined;
-      console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] initialStadt changed to: ${newStadt}. Previous: ${changes['initialStadt'].previousValue}`);
       this.processStadtnameFromInput(newStadt);
     }
   }
@@ -159,27 +160,23 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
       : undefined;
 
     if (this.activeProcessingStadt === effectiveStadt) {
-      console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] processStadtnameFromInput: Stadt ${effectiveStadt} is already being processed or is the same. Skipping.`);
       return;
     }
     this.activeProcessingStadt = effectiveStadt;
 
     if (effectiveStadt) {
-      console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] Processing stadt from input: ${effectiveStadt}`);
-      this._processAndSelectLocation(effectiveStadt, true).then(() => {});
+      this._processAndSelectLocation(effectiveStadt, true);
     } else {
-      console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] initialStadt is effectively empty. Clearing selection.`);
       this.selectionService.clearEntries();
-      this.mapZoomToPlzId = null; this.mapZoomToPlzIdList = null;
+      this.mapZoomToPlzId = null;
+      this.mapZoomToPlzIdList = null;
       this.searchInputInitialTerm = '';
       this.activeProcessingStadt = undefined;
       this.updateAndEmitOverallValidationState();
     }
   }
 
-  ngAfterViewInit(): void {
-    console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] ngAfterViewInit`);
-  }
+  ngAfterViewInit(): void { }
 
   private initializeDates(): void {
     const today = new Date();
@@ -207,12 +204,14 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
       }
 
       const serviceDateHasTime = serviceState.verteilungStartdatum ? new Date(serviceState.verteilungStartdatum).getTime() : 0;
-      if (serviceDateHasTime !== initialDateToSet.getTime()) {
-        this.orderDataService.updateVerteilungStartdatum(initialDateToSet);
+      const initialDateToSetTime = initialDateToSet ? initialDateToSet.getTime() : 0;
+
+      if (serviceDateHasTime !== initialDateToSetTime) {
+        if(initialDateToSet) this.orderDataService.updateVerteilungStartdatum(initialDateToSet);
       } else {
-        this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialDateToSet);
+        if(initialDateToSet) this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialDateToSet);
         this.checkExpressSurcharge();
-        this.cdr.markForCheck(); // Manually mark for check if no service update
+        this.cdr.markForCheck();
       }
     });
   }
@@ -250,7 +249,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     while (addedDays < daysToAdd) {
       currentDate.setUTCDate(currentDate.getUTCDate() + 1);
       const dayOfWeek = currentDate.getUTCDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Sunday is 0, Saturday is 6
         addedDays++;
       }
     }
@@ -260,12 +259,12 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   public onStartDateChange(): void {
     let selectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
     const minDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
-
     if (!selectedDate || (minDate && selectedDate < minDate)) {
       selectedDate = minDate;
     }
-
-    this.orderDataService.updateVerteilungStartdatum(selectedDate);
+    if (selectedDate) { // Ensure selectedDate is not null before updating
+      this.orderDataService.updateVerteilungStartdatum(selectedDate);
+    }
   }
 
   private checkExpressSurcharge(): void {
@@ -275,14 +274,10 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     }
     const selectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
     const minAllowedDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
-
-    if (!selectedDate || isNaN(selectedDate.getTime()) ||
-      !minAllowedDate || isNaN(minAllowedDate.getTime()) ||
-      isNaN(this.defaultStandardStartDate.getTime())) {
+    if (!selectedDate || isNaN(selectedDate.getTime()) || !minAllowedDate || isNaN(minAllowedDate.getTime()) || isNaN(this.defaultStandardStartDate.getTime())) {
       if (this.showExpressSurcharge) { this.showExpressSurcharge = false; }
       return;
     }
-
     const needsExpress = selectedDate < this.defaultStandardStartDate && selectedDate >= minAllowedDate;
     this.showExpressSurcharge = needsExpress && !this.expressSurchargeConfirmed;
   }
@@ -290,8 +285,6 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   public avoidExpressSurcharge(): void {
     if (this.defaultStandardStartDate) {
       this.orderDataService.updateVerteilungStartdatum(this.defaultStandardStartDate);
-    } else {
-      console.error(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] defaultStandardStartDate not set for avoidExpressSurcharge`);
     }
   }
 
@@ -311,7 +304,9 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     if (isFromUrlOrInitial) {
       this.selectionService.clearEntries();
       this.mapZoomToPlzId = null;
-      this.mapZoomToPlzIdList = null;
+      // FIX: Do not explicitly set mapZoomToPlzIdList to null here.
+      // Let the reactive flow from orderDataService.verteilgebiet$ handle it based on selectedPlzIds.
+      // this.mapZoomToPlzIdList = null;
     }
 
     let termToUse = locationName; let plzToSelect: PlzEntry[] = [];
@@ -336,7 +331,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
       }
       this.searchInputInitialTerm = termToUse;
       if (plzToSelect.length > 0) this.selectionService.addMultipleEntries(plzToSelect);
-    } catch (e) { console.error(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] Error in _processAndSelectLocation: `, e); this.searchInputInitialTerm = locationName; }
+    } catch (e) { this.searchInputInitialTerm = locationName; }
     finally {
       this.mapIsLoading = false;
       this.activeProcessingStadt = termToUse;
@@ -352,7 +347,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   }
 
   public selectCityAndFetchPlz(s: string): void {
-    this._processAndSelectLocation(s, false);
+    this._processAndSelectLocation(s, true);
   }
 
   public onSearchInputEntriesSelected(e: PlzEntry[]): void {
@@ -373,16 +368,12 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     if(this.currentVerteilungTyp !== typ) {
       this.currentVerteilungTyp = typ;
       this.orderDataService.updateVerteilungTyp(typ as OrderVerteilungTypOption);
-
       this.kmlFileName = null;
       if (this.kmlFileUploadInputRef?.nativeElement) {
         this.kmlFileUploadInputRef.nativeElement.value = '';
       }
-
       if (typ === 'Nach Perimeter') {
-        const selectedPlzs = this.selectionService.getSelectedEntriesSnapshot();
-        if (selectedPlzs.length > 0) {
-          console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] Switched to Perimeter. Clearing ${selectedPlzs.length} PLZ entries.`);
+        if (this.selectionService.getSelectedEntriesSnapshot().length > 0) {
           this.selectionService.clearEntries();
         }
         this.activeProcessingStadt = undefined;
@@ -393,24 +384,19 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
         this.mapZoomToPlzId = null;
         this.mapZoomToPlzIdList = null;
       }
-
       this.updateUiFlagsAndMapState();
       this.updateAndEmitOverallValidationState();
     }
   }
+
   private updateUiFlagsAndMapState(): void {
-    const oldPlzUi = this.showPlzUiContainer;
-    const oldPerimeterUi = this.showPerimeterUiContainer;
     this.showPlzUiContainer = this.currentVerteilungTyp === 'Nach PLZ';
     this.showPerimeterUiContainer = this.currentVerteilungTyp === 'Nach Perimeter';
-    if(oldPlzUi !== this.showPlzUiContainer || oldPerimeterUi !== this.showPerimeterUiContainer) {
-      this.cdr.markForCheck();
-    }
+    this.cdr.markForCheck();
   }
 
   public setZielgruppe(neueZielgruppe: ZielgruppeOption): void {
     if (this.currentZielgruppeState !== neueZielgruppe) {
-      console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] User changed Zielgruppe in UI to: ${neueZielgruppe}`);
       this.orderDataService.updateZielgruppe(neueZielgruppe);
       this.zielgruppeChange.emit(neueZielgruppe);
       this.highlightFlyerMaxColumnAndEmitValidation();
@@ -438,18 +424,8 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
         .then(entry => {
           if(entry && this.selectionService.validateEntry(entry)) {
             this.selectionService.addEntry(entry);
-          } else {
-            const plz6 = id;
-            const plz4 = plz6.substring(0, 4);
-            const ort = evt.name || 'Unbekannt';
-            const fallbackEntry: PlzEntry = { id, plz6, plz4, ort, kt: 'N/A', preisKategorie: 'A', all: 0, mfh: 0, efh: 0 };
-            if(this.selectionService.validateEntry(fallbackEntry)) {
-              this.selectionService.addEntry(fallbackEntry);
-            }
           }
-        }).catch(err => {
-        console.error(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] Error fetching PLZ by ID for map click:`, err);
-      });
+        });
     }
   }
 
@@ -459,7 +435,8 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
       this.updateAndEmitOverallValidationState();
     }
   }
-  public onMapReady(event: any): void { }
+
+  public onMapReady(): void { }
 
   public clearPlzTable(): void {
     this.selectionService.clearEntries();
@@ -480,6 +457,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   public removePlzFromTable(entry: PlzSelectionDetail): void {
     this.selectionService.removeEntry(entry.id);
   }
+
   public zoomToTableEntryOnMap(entry: PlzSelectionDetail): void {
     this.mapZoomToPlzId = entry.id;
     this.mapZoomToPlzIdList = null;
@@ -488,7 +466,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     setTimeout(() => {
       this.mapZoomToPlzId = null;
       this.cdr.markForCheck();
-    }, 250);
+    }, 500);
   }
   public highlightPlacemarkOnMapFromTable(event: TableHighlightEvent): void {
     const newHoverId = (event.highlight && event.plzId) ? event.plzId : null;
@@ -499,60 +477,39 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   }
 
   public onPlzFlyerCountChanged(event: { entryId: string, type: 'mfh' | 'efh', newCount: number | null }): void {
-    console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] onPlzFlyerCountChanged event received:`, event);
     this.selectionService.updateFlyerCountForEntry(event.entryId, event.newCount, event.type);
   }
 
   public triggerKmlUpload(): void {
     if (this.kmlFileUploadInputRef?.nativeElement) {
       this.kmlFileUploadInputRef.nativeElement.click();
-    } else {
-      console.error(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] KML file input ref not available.`);
     }
   }
 
   public onKmlFileSelected(event: Event): void {
     const inputElement = event.target as HTMLInputElement;
-
     if (!inputElement) {
-      console.error(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] KML file input element not found in event.`);
       this.kmlFileName = null;
       this.updateAndEmitOverallValidationState();
       this.cdr.markForCheck();
       return;
     }
-
     const files = inputElement.files;
-
     if (files && files.length > 0) {
       const file = files[0];
-      const maxFileSize = 10 * 1024 * 1024; // 10MB
+      const maxFileSize = 10 * 1024 * 1024;
       const allowedFileType = '.kml';
-
       if (!file.name.toLowerCase().endsWith(allowedFileType)) {
-        console.warn(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] Invalid KML file type: ${file.name}. Expected: ${allowedFileType}`);
         alert(`Ungültiger Dateityp. Nur ${allowedFileType}-Dateien sind erlaubt.`);
         this.kmlFileName = null;
         inputElement.value = '';
-        this.updateAndEmitOverallValidationState();
-        this.cdr.markForCheck();
-        return;
-      }
-
-      if (file.size > maxFileSize) {
-        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-        const maxFileSizeMB = (maxFileSize / (1024 * 1024)).toFixed(2);
-        console.warn(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] KML file too large: ${fileSizeMB}MB. Max size is ${maxFileSizeMB}MB.`);
-        alert(`Datei ist zu groß (${fileSizeMB}MB). Maximale Dateigröße beträgt ${maxFileSizeMB}MB.`);
+      } else if (file.size > maxFileSize) {
+        alert(`Datei ist zu groß (max. ${maxFileSize / 1024 / 1024}MB).`);
         this.kmlFileName = null;
         inputElement.value = '';
-        this.updateAndEmitOverallValidationState();
-        this.cdr.markForCheck();
-        return;
+      } else {
+        this.kmlFileName = file.name;
       }
-
-      this.kmlFileName = file.name;
-      console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] KML file "${file.name}" selected.`);
     } else {
       this.kmlFileName = null;
     }
@@ -561,7 +518,6 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   }
 
   public removeKmlFile(): void {
-    console.log(`[${"2025-06-10 12:53:55"}] [DistributionStepComponent] KML file removed.`);
     this.kmlFileName = null;
     if (this.kmlFileUploadInputRef?.nativeElement) {
       this.kmlFileUploadInputRef.nativeElement.value = '';
@@ -572,29 +528,29 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
 
   private updateAndEmitOverallValidationState(): void {
     const currentStatus = this.calculateOverallValidationStatus();
-    // Schedule the emission to the next JavaScript microtask queue
-    // to avoid ExpressionChangedAfterItHasBeenCheckedError
     Promise.resolve().then(() => {
       this.validationChange.emit(currentStatus);
     });
-    this.cdr.markForCheck(); // Still mark for check for local UI updates
   }
 
   private calculateOverallValidationStatus(): DistributionStepValidationState {
-    const currentSelectedEntries = this.selectedEntriesForTable;
-    const totalFlyers = currentSelectedEntries.reduce((sum, entry) => sum + (entry.anzahl || 0), 0);
-    const hasSelectedEntriesForPlz = currentSelectedEntries && currentSelectedEntries.length > 0 && totalFlyers > 0;
-
+    const totalFlyers = this.selectedEntriesForTable.reduce((sum, entry) => sum + (entry.anzahl || 0), 0);
+    const hasSelectedEntriesForPlz = this.selectedEntriesForTable.length > 0 && totalFlyers > 0;
     const parsedVerteilungStartDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
     const isDateOk = !!parsedVerteilungStartDate && !isNaN(parsedVerteilungStartDate.getTime());
     const isExpressOk = !this.isExpressSurchargeRelevant() || this.expressSurchargeConfirmed;
 
     if (this.currentVerteilungTyp === 'Nach PLZ') {
-      const isSearchOk = this.searchInputStatus === 'valid' || this.searchInputStatus === 'empty' || (!!this.activeProcessingStadt && this.searchInputStatus !== 'invalid') || hasSelectedEntriesForPlz;
+      const isSearchOk = this.searchInputStatus !== 'invalid';
       if (hasSelectedEntriesForPlz && isDateOk && isExpressOk && isSearchOk) return 'valid';
-    } else {
+    } else { // Nach Perimeter
+      // The diff has a specific condition for 'valid' in perimeter mode:
+      // if (this.kmlFileName && isDateOk && isExpressOk) return 'valid';
+      // And then it returns 'invalid', which seems to be a copy-paste error from the diff.
+      // It should be: if (this.kmlFileName && isDateOk && isExpressOk) return 'valid'; else return 'invalid';
+      // The diff had: if (this.kmlFileName && isDateOk && isExpressOk) return 'invalid'; -- this is wrong.
+      // Correcting based on the logic from the diff's `---` section and common sense for validation.
       if (this.kmlFileName && isDateOk && isExpressOk) return 'valid';
-      return 'invalid';
     }
     return 'invalid';
   }
@@ -604,16 +560,10 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     const selectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
     const minAllowedDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
 
-    if (!selectedDate || isNaN(selectedDate.getTime()) ||
-      !minAllowedDate || isNaN(minAllowedDate.getTime()) ||
-      isNaN(this.defaultStandardStartDate.getTime())) {
+    if (!selectedDate || !minAllowedDate || isNaN(selectedDate.getTime()) || isNaN(minAllowedDate.getTime()) || isNaN(this.defaultStandardStartDate.getTime())) {
       return false;
     }
     return selectedDate < this.defaultStandardStartDate && selectedDate >= minAllowedDate;
-  }
-
-  public triggerValidationDisplay(): void {
-    this.updateAndEmitOverallValidationState();
   }
 
   private scrollToMapView(): void {
@@ -622,7 +572,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
       if (!this.mapViewRef?.nativeElement) return;
       const element = this.mapViewRef.nativeElement;
 
-      if (element.offsetParent === null || element.offsetWidth === 0 || element.offsetHeight === 0) return;
+      if (element.offsetParent === null) return;
       const headerOffset = 90;
       const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
       const offsetPosition = elementPosition - headerOffset;

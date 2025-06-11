@@ -46,7 +46,7 @@
              [mapOptions]="mapConfig"
              (plzClicked)="onPlzClickedOnMap($event)"
              (loading)="onMapLoadingStatusChanged($event)"
-             (mapReady)="onMapReady($event)">
+             (mapReady)="onMapReady()">
     </app-map>
     <div *ngIf="mapIsLoading" class="map-loader">
       <div class="spinner-border text-primary" role="status">
@@ -156,8 +156,6 @@
   </div>
 </div>
 
-<!-- PERIMETER ///////////////////////////////////////////////////////////// -->
-
 <div *ngIf="showPerimeterUiContainer">
 
   <div class="perimeter-container reminder" >
@@ -184,8 +182,6 @@
       <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><i class="mdi mdi-arrow-right-thin"></i> KML-Datei exportieren</li>
       <li>KML-Datei hochladen</li>
     </ol>
-
-    <!-- UPLOAD KML FILE /////////////////////////////////////////////////// -->
 
     <div class="mt-3 card p-4">
       <p class="text-muted">Bitte laden Sie Ihr GPS-Perimeter als <strong>KML-Datei</strong> hoch - max. 10 MB.</p>
@@ -219,7 +215,6 @@
   </div>
 </div>
 
-<!-- Express Surcharge Modal -->
 <div class="modal fade" [class.show]="showExpressSurcharge" [style.display]="showExpressSurcharge ? 'block' : 'none'" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">

@@ -11,7 +11,7 @@
     <button type="button" class="choice-card" [class.active]="produktion.printOption === 'anliefern'" (click)="onPrintOptionSelect('anliefern')">
       <i class="mdi mdi-truck-delivery card-icon"></i>
       <span class="card-content">
-        <span class="card-title">Eigene Flyer anliefern</span>
+        <span class="card-title">Eigene Flyer vorhanden</span>
         <span class="card-description">Kostenlos</span>
       </span>
       <span class="card-indicator"></span>
@@ -218,120 +218,124 @@
     </fieldset>
   </div>
 
-  <h3 class="section-title"><span>2. Flyer Design</span></h3>
+  <!-- DESIGN PACKAGE SELECTION - ONLY WHEN PRODUCTION CHOICE IS MADE ////// -->
 
-  <div class="choice-card-group design-package-group">
-    <div class="choice-card clickable-card design-package" [class.selected]="produktion.designPackage === 'basis'" (click)="onDesignPackageSelect('basis')">
-      <div class="card-header">
-        <h5 class="package-name">Basis Paket</h5>
-        <p class="package-slogan">Für hochwertige Designs</p>
-        <p class="package-price">CHF 399</p>
-        <p class="package-price-old">statt CHF 449</p>
+  <div *ngIf="produktion.printOption ==='anliefern' || produktion.printOption === 'service'">
+    <h3 class="section-title"><span>2. Flyer Design</span></h3>
+
+    <div class="choice-card-group design-package-group">
+      <div class="choice-card clickable-card design-package" [class.selected]="produktion.designPackage === 'basis'" (click)="onDesignPackageSelect('basis')">
+        <div class="card-header">
+          <h5 class="package-name">Basis Paket</h5>
+          <p class="package-slogan">Für hochwertige Designs</p>
+          <p class="package-price">CHF 399</p>
+          <p class="package-price-old">statt CHF 449</p>
+        </div>
+        <div class="card-body">
+          <ul class="features list-unstyled">
+            <li><i class="mdi mdi-star-four-points-small"></i> 1 Designvorschlag</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> 1 Korrektur</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> Druckfähiges PDF</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> Swiss Quality-Check</li>
+          </ul>
+        </div>
+        <div class="card-footer">
+          <span class="savings-info" *ngIf="produktion.designPackage !== 'basis'">Sie sparen CHF 50</span>
+          <button type="button" class="btn btn-sm w-100" [class.btn-primary]="produktion.designPackage === 'basis'" [class.btn-outline-primary]="produktion.designPackage !== 'basis'" (click)="$event.stopPropagation(); onDesignPackageSelect('basis')">
+            {{ produktion.designPackage === 'basis' ? 'Ausgewählt' : 'Auswählen' }}
+          </button>
+        </div>
+        <i *ngIf="produktion.designPackage === 'basis'" class="mdi mdi-check-circle selected-indicator-package"></i>
       </div>
-      <div class="card-body">
-        <ul class="features list-unstyled">
-          <li><i class="mdi mdi-star-four-points-small"></i> 1 Designvorschlag</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> 1 Korrektur</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> Druckfähiges PDF</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> Swiss Quality-Check</li>
-        </ul>
+
+      <div class="choice-card clickable-card design-package bestseller" [class.selected]="produktion.designPackage === 'plus'" (click)="onDesignPackageSelect('plus')">
+        <div class="card-header">
+          <h5 class="package-name">Plus Paket <span class="badge text-bg-secondary bestseller-badge">Bestseller</span></h5>
+          <p class="package-slogan">Für KMU mit Designanspruch</p>
+          <p class="package-price">CHF 899</p>
+          <p class="package-price-old">statt CHF 999</p>
+        </div>
+        <div class="card-body">
+          <ul class="features list-unstyled">
+            <li><i class="mdi mdi-star-four-points-small"></i> 2 Designvorschläge</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> 3 Korrekturen</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> Druckfähiges PDF</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> Swiss Quality-Check</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> Quelldateien inklusive</li>
+          </ul>
+        </div>
+        <div class="card-footer">
+          <span class="savings-info" *ngIf="produktion.designPackage !== 'plus'">Sie sparen CHF 100</span>
+          <button type="button" class="btn btn-sm w-100" [class.btn-primary]="produktion.designPackage === 'plus'" [class.btn-outline-primary]="produktion.designPackage !== 'plus'" (click)="$event.stopPropagation(); onDesignPackageSelect('plus')">
+            {{ produktion.designPackage === 'plus' ? 'Ausgewählt' : 'Auswählen' }}
+          </button>
+        </div>
+        <i *ngIf="produktion.designPackage === 'plus'" class="mdi mdi-check-circle selected-indicator-package"></i>
       </div>
-      <div class="card-footer">
-        <span class="savings-info" *ngIf="produktion.designPackage !== 'basis'">Sie sparen CHF 50</span>
-        <button type="button" class="btn btn-sm w-100" [class.btn-primary]="produktion.designPackage === 'basis'" [class.btn-outline-primary]="produktion.designPackage !== 'basis'" (click)="$event.stopPropagation(); onDesignPackageSelect('basis')">
-          {{ produktion.designPackage === 'basis' ? 'Ausgewählt' : 'Auswählen' }}
+
+      <div class="choice-card clickable-card design-package" [class.selected]="produktion.designPackage === 'premium'" (click)="onDesignPackageSelect('premium')">
+        <div class="card-header">
+          <h5 class="package-name">Premium Paket</h5>
+          <p class="package-slogan">Für starkes Marketing</p>
+          <p class="package-price">CHF 1’999</p>
+          <p class="package-price-old">statt CHF 2’499</p>
+        </div>
+        <div class="card-body">
+          <ul class="features list-unstyled">
+            <li><i class="mdi mdi-star-four-points-small"></i> 3 Designvorschläge</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> 5 Korrekturen</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> Druckfähiges PDF</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> Swiss Quality-Check</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> Quelldateien inklusive</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> Logo & Branding Beratung</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> Marketing-Strategie</li>
+          </ul>
+        </div>
+        <div class="card-footer">
+          <span class="savings-info" *ngIf="produktion.designPackage !== 'premium'">Sie sparen CHF 500</span>
+          <button type="button" class="btn btn-sm w-100" [class.btn-primary]="produktion.designPackage === 'premium'" [class.btn-outline-primary]="produktion.designPackage !== 'premium'" (click)="$event.stopPropagation(); onDesignPackageSelect('premium')">
+            {{ produktion.designPackage === 'premium' ? 'Ausgewählt' : 'Auswählen' }}
+          </button>
+        </div>
+        <i *ngIf="produktion.designPackage === 'premium'" class="mdi mdi-check-circle selected-indicator-package"></i>
+      </div>
+
+      <div class="choice-card clickable-card design-package" [class.selected]="produktion.designPackage === 'eigenes'" (click)="onDesignPackageSelect('eigenes')">
+        <div class="card-header">
+          <h5 class="package-name">Eigenes Design</h5>
+          <p class="package-slogan">Sie haben bereits ein Design</p>
+          <p class="package-price">Kostenlos</p>
+        </div>
+        <div class="card-body">
+          <ul class="features list-unstyled">
+            <li *ngIf="produktion.printOption === 'anliefern'"><i class="mdi mdi-star-four-points-small"></i> Sie liefern uns Ihre Flyer</li>
+            <li *ngIf="produktion.printOption === 'service'"><i class="mdi mdi-star-four-points-small"></i> Sie liefern ein druckfertiges PDF</li>
+            <li><i class="mdi mdi-star-four-points-small"></i> Swiss Quality-Check</li>
+          </ul>
+        </div>
+        <div class="card-footer">
+          <button type="button" class="btn btn-sm w-100" [class.btn-primary]="produktion.designPackage === 'eigenes'" [class.btn-outline-primary]="produktion.designPackage !== 'eigenes'" (click)="$event.stopPropagation(); onDesignPackageSelect('eigenes')">
+            {{ produktion.designPackage === 'eigenes' ? 'Ausgewählt' : 'Auswählen' }}
+          </button>
+        </div>
+        <i *ngIf="produktion.designPackage === 'eigenes'" class="mdi mdi-check-circle selected-indicator-package"></i>
+      </div>
+    </div>
+
+    <!-- UPLOAD PDF FILE ///////////////////////////////////////////////////// -->
+
+    <div *ngIf="produktion.designPackage === 'eigenes'" class="mt-3 card p-4">
+      <p class="text-muted small">Bitte laden Sie Ihr Flyer-Design als <strong>PDF-Datei</strong> hoch - max. 30 MB.</p>
+      <div class="input-group">
+        <input class="form-control" type="file" id="pdfFileUpload" #pdfFileUpload (change)="onPdfFileSelected($event)" accept=".pdf,application/pdf"/>
+        <button type="button" class="btn btn-sm btn-primary" (click)="triggerPdfUpload()"> <i class="mdi mdi-upload"></i> hochladen</button>
+      </div>
+      <div *ngIf="pdfFileName" class="mt-2 small">
+        Ausgewählte Datei: {{ pdfFileName }}
+        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" (click)="removePdfFile()" title="PDF-Datei entfernen">
+          <i class="mdi mdi-close-circle"></i>
         </button>
       </div>
-      <i *ngIf="produktion.designPackage === 'basis'" class="mdi mdi-check-circle selected-indicator-package"></i>
-    </div>
-
-    <div class="choice-card clickable-card design-package bestseller" [class.selected]="produktion.designPackage === 'plus'" (click)="onDesignPackageSelect('plus')">
-      <div class="card-header">
-        <h5 class="package-name">Plus Paket <span class="badge text-bg-secondary bestseller-badge">Bestseller</span></h5>
-        <p class="package-slogan">Für KMU mit Designanspruch</p>
-        <p class="package-price">CHF 899</p>
-        <p class="package-price-old">statt CHF 999</p>
-      </div>
-      <div class="card-body">
-        <ul class="features list-unstyled">
-          <li><i class="mdi mdi-star-four-points-small"></i> 2 Designvorschläge</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> 3 Korrekturen</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> Druckfähiges PDF</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> Swiss Quality-Check</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> Quelldateien inklusive</li>
-        </ul>
-      </div>
-      <div class="card-footer">
-        <span class="savings-info" *ngIf="produktion.designPackage !== 'plus'">Sie sparen CHF 100</span>
-        <button type="button" class="btn btn-sm w-100" [class.btn-primary]="produktion.designPackage === 'plus'" [class.btn-outline-primary]="produktion.designPackage !== 'plus'" (click)="$event.stopPropagation(); onDesignPackageSelect('plus')">
-          {{ produktion.designPackage === 'plus' ? 'Ausgewählt' : 'Auswählen' }}
-        </button>
-      </div>
-      <i *ngIf="produktion.designPackage === 'plus'" class="mdi mdi-check-circle selected-indicator-package"></i>
-    </div>
-
-    <div class="choice-card clickable-card design-package" [class.selected]="produktion.designPackage === 'premium'" (click)="onDesignPackageSelect('premium')">
-      <div class="card-header">
-        <h5 class="package-name">Premium Paket</h5>
-        <p class="package-slogan">Für starkes Marketing</p>
-        <p class="package-price">CHF 1’999</p>
-        <p class="package-price-old">statt CHF 2’499</p>
-      </div>
-      <div class="card-body">
-        <ul class="features list-unstyled">
-          <li><i class="mdi mdi-star-four-points-small"></i> 3 Designvorschläge</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> 5 Korrekturen</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> Druckfähiges PDF</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> Swiss Quality-Check</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> Quelldateien inklusive</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> Logo & Branding Beratung</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> Marketing-Strategie</li>
-        </ul>
-      </div>
-      <div class="card-footer">
-        <span class="savings-info" *ngIf="produktion.designPackage !== 'premium'">Sie sparen CHF 500</span>
-        <button type="button" class="btn btn-sm w-100" [class.btn-primary]="produktion.designPackage === 'premium'" [class.btn-outline-primary]="produktion.designPackage !== 'premium'" (click)="$event.stopPropagation(); onDesignPackageSelect('premium')">
-          {{ produktion.designPackage === 'premium' ? 'Ausgewählt' : 'Auswählen' }}
-        </button>
-      </div>
-      <i *ngIf="produktion.designPackage === 'premium'" class="mdi mdi-check-circle selected-indicator-package"></i>
-    </div>
-
-    <div class="choice-card clickable-card design-package" [class.selected]="produktion.designPackage === 'eigenes'" (click)="onDesignPackageSelect('eigenes')">
-      <div class="card-header">
-        <h5 class="package-name">Eigenes Design</h5>
-        <p class="package-slogan">Sie haben bereits ein Design</p>
-        <p class="package-price">Kostenlos</p>
-      </div>
-      <div class="card-body">
-        <ul class="features list-unstyled">
-          <li><i class="mdi mdi-star-four-points-small"></i> Sie liefern uns Ihre Flyer</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> Sie liefern ein druckfertiges PDF</li>
-          <li><i class="mdi mdi-star-four-points-small"></i> Swiss Quality-Check</li>
-        </ul>
-      </div>
-      <div class="card-footer">
-        <button type="button" class="btn btn-sm w-100" [class.btn-primary]="produktion.designPackage === 'eigenes'" [class.btn-outline-primary]="produktion.designPackage !== 'eigenes'" (click)="$event.stopPropagation(); onDesignPackageSelect('eigenes')">
-          {{ produktion.designPackage === 'eigenes' ? 'Ausgewählt' : 'Auswählen' }}
-        </button>
-      </div>
-      <i *ngIf="produktion.designPackage === 'eigenes'" class="mdi mdi-check-circle selected-indicator-package"></i>
-    </div>
-  </div>
-
-  <!-- UPLOAD PDF FILE ///////////////////////////////////////////////////// -->
-
-  <div *ngIf="produktion.designPackage === 'eigenes'" class="mt-3 card p-4">
-    <p class="text-muted small">Bitte laden Sie Ihr Flyer-Design als <strong>PDF-Datei</strong> hoch - max. 30 MB.</p>
-    <div class="input-group">
-      <input class="form-control" type="file" id="pdfFileUpload" #pdfFileUpload (change)="onPdfFileSelected($event)" accept=".pdf,application/pdf"/>
-      <button type="button" class="btn btn-sm btn-primary" (click)="triggerPdfUpload()"> <i class="mdi mdi-upload"></i> hochladen</button>
-    </div>
-    <div *ngIf="pdfFileName" class="mt-2 small">
-      Ausgewählte Datei: {{ pdfFileName }}
-      <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" (click)="removePdfFile()" title="PDF-Datei entfernen">
-        <i class="mdi mdi-close-circle"></i>
-      </button>
     </div>
   </div>
 
