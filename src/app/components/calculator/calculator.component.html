@@ -2,86 +2,112 @@
   <h3 class="calculator-title">Kostenübersicht</h3>
 
   <div class="cost-summary">
-    <div class="cost-group">
-      <h4 class="cost-group-title"><span>Flyer Verteilung</span></h4>
-      <div class="table-responsive" *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0">
-        <table class="table calculation-table">
-          <thead>
-          <tr>
-            <th class="item-label">Beschreibung</th>
-            <th class="item-quantity text-end">Flyer</th>
-            <th class="item-subtotal text-end">Preis</th>
-          </tr>
-          </thead>
-          <tbody>
-          <ng-container *ngIf="kosten.distributionCostItems.length > 0">
+    <ng-container *ngIf="!kosten.isPerimeterOfferte">
+      <div class="cost-group">
+        <h4 class="cost-group-title"><span>Flyer Verteilung</span></h4>
+        <div class="table-responsive" *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0">
+          <table class="table calculation-table">
+            <thead>
             <tr>
-              <th class="item-label" colspan="3">{{ kosten.distributionHeadline }}</th>
+              <th class="item-label">Beschreibung</th>
+              <th class="item-quantity text-end">Flyer</th>
+              <th class="item-subtotal text-end">Preis</th>
             </tr>
-            <tr *ngFor="let item of kosten.distributionCostItems">
-              <td class="item-label">{{ item.plz }} {{ item.ort }}</td>
-              <td class="item-quantity text-end">{{ item.flyers | number:'1.0-0':'de-CH' }}</td>
-              <td class="item-subtotal text-end">{{ item.price | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+            </thead>
+            <tbody>
+            <ng-container *ngIf="kosten.distributionCostItems.length > 0">
+              <tr>
+                <td class="item-label fw-bold" colspan="3">{{ kosten.distributionHeadline }}</td>
+              </tr>
+              <tr *ngFor="let item of kosten.distributionCostItems">
+                <td class="item-label">{{ item.plz }} {{ item.ort }}</td>
+                <td class="item-quantity text-end">{{ item.flyers | number:'1.0-0':'de-CH' }}</td>
+                <td class="item-subtotal text-end">{{ item.price | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+              </tr>
+            </ng-container>
+
+            <tr class="table-light">
+              <td class="item-label fw-bold">Flyer Total</td>
+              <td class="item-quantity text-end fw-bold">
+                <span *ngIf="!kosten.isAnderesFormatSelected">{{ kosten.totalFlyersForDistribution | number:'1.0-0':'de-CH' }}</span>
+              </td>
+              <td class="item-subtotal text-end fw-bold">{{ kosten.verteilungTotal | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
             </tr>
-          </ng-container>
 
-          <tr class="table-light">
-            <td class="item-label fw-bold">Flyer Total</td>
-            <td class="item-quantity text-end fw-bold">
-              <span *ngIf="!kosten.isAnderesFormatSelected">{{ kosten.totalFlyersForDistribution | number:'1.0-0':'de-CH' }}</span>
-            </td>
-            <td class="item-subtotal text-end fw-bold">{{ kosten.verteilungTotal | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
-          </tr>
+            <tr *ngIf="kosten.ausgleichKleinauftragPrice > 0">
+              <td class="item-label">Ausgleich Kleinauftrag<sup>3</sup></td>
+              <td class="item-quantity text-end"></td>
+              <td class="item-subtotal text-end">{{ kosten.ausgleichKleinauftragPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+        <div *ngIf="kosten.selectedPlzEntriesLength === 0" class="text-muted small">
+          Bitte wählen Sie mind. 1 PLZ aus.
+        </div>
+        <div *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution === 0" class="text-muted small">
+          Flyer Verteilung ist nicht möglich, da keine Flyer für die gewählte Zielgruppe anfallen.
+        </div>
+      </div>
+    </ng-container>
 
-          <tr *ngIf="kosten.ausgleichKleinauftragPrice > 0">
-            <td class="item-label">Ausgleich Kleinauftrag<sup>3</sup></td>
-            <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">{{ kosten.ausgleichKleinauftragPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
-          </tr>
-          <tr *ngIf="kosten.expressZuschlagApplicable">
-            <td class="item-label">Express Zuschlag 50%</td>
-            <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">{{ kosten.expressZuschlagPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
-          </tr>
-          <tr *ngIf="kosten.fahrzeugGpsApplicable && kosten.totalFlyersForDistribution > 0">
-            <td class="item-label">Servicepauschale<sup>1</sup></td>
-            <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">{{ kosten.fahrzeugGpsPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
-          </tr>
-          <tr *ngIf="zuschlagFormatAnzeige$ | async">
-            <td class="item-label">
-              <span *ngIf="kosten.isAnderesFormatSelected">Zuschlag Anderes Format<sup>2</sup></span>
-              <span *ngIf="!kosten.isAnderesFormatSelected && kosten.zuschlagFormatAnzeigeText">{{ kosten.zuschlagFormatAnzeigeText }}</span>
-            </td>
-            <td class="item-quantity text-end">
-              <span *ngIf="!kosten.isAnderesFormatSelected">{{ kosten.totalFlyersForDistribution | number:'1.0-0':'de-CH' }}</span>
-            </td>
-            <td class="item-subtotal text-end">
-              <span *ngIf="kosten.isAnderesFormatSelected">—</span>
-              <span *ngIf="!kosten.isAnderesFormatSelected">{{ kosten.zuschlagFormatPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</span>
-            </td>
-          </tr>
-          <tr *ngIf="kosten.flyerAbholungApplicable">
-            <td class="item-label">Flyer Abholung</td>
-            <td class="item-quantity text-end"></td>
-            <td class="item-subtotal text-end">{{ kosten.flyerAbholungPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
-          </tr>
-          </tbody>
-          <tfoot>
-          <tr class="table-light" *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0">
-            <td colspan="2" class="fw-bold">Zwischensumme Verteilung</td>
-            <td class="text-end fw-bold">{{ kosten.subTotalDistribution | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
-          </tr>
-          </tfoot>
-        </table>
+    <ng-container *ngIf="kosten.isPerimeterOfferte">
+      <div class="cost-group">
+        <h4 class="cost-group-title"><span>Flyer Verteilung</span></h4>
+        <div class="table-responsive">
+          <table class="table calculation-table">
+            <tbody>
+            <tr>
+              <td>{{ kosten.distributionHeadline }}</td>
+              <td class="text-end">
+                <span>Wird separat offeriert<sup>2</sup></span>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div *ngIf="kosten.selectedPlzEntriesLength === 0" class="text-muted small">
-        Bitte wählen Sie mind. 1 PLZ aus oder laden Sie Ihr GPS-Perimeter hoch.
+    </ng-container>
+
+    <ng-container *ngIf="(kosten.totalFlyersForDistribution > 0 && !kosten.isPerimeterOfferte) || kosten.isPerimeterOfferte">
+      <div class="cost-group" *ngIf="kosten.expressZuschlagApplicable || kosten.fahrzeugGpsApplicable || (zuschlagFormatAnzeige$ | async) || kosten.flyerAbholungApplicable">
+        <h4 class="cost-group-title"><span>Zuschläge & Pauschalen</span></h4>
+        <div class="table-responsive">
+          <table class="table calculation-table">
+            <tbody>
+            <tr *ngIf="kosten.expressZuschlagApplicable">
+              <td class="item-label">Express Zuschlag 50%</td>
+              <td class="item-subtotal text-end">{{ kosten.expressZuschlagPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+            </tr>
+            <tr *ngIf="kosten.fahrzeugGpsApplicable">
+              <td class="item-label">Servicepauschale<sup>1</sup></td>
+              <td class="item-subtotal text-end">{{ kosten.fahrzeugGpsPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+            </tr>
+            <tr *ngIf="zuschlagFormatAnzeige$ | async">
+              <td class="item-label">
+                <span *ngIf="kosten.isAnderesFormatSelected">Zuschlag Anderes Format<sup>2</sup></span>
+                <span *ngIf="!kosten.isAnderesFormatSelected">{{ kosten.zuschlagFormatAnzeigeText }}</span>
+              </td>
+              <td class="item-subtotal text-end">
+                <span *ngIf="kosten.isAnderesFormatSelected || kosten.isPerimeterOfferte">—</span>
+                <span *ngIf="!kosten.isAnderesFormatSelected && !kosten.isPerimeterOfferte">{{ kosten.zuschlagFormatPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</span>
+              </td>
+            </tr>
+            <tr *ngIf="kosten.flyerAbholungApplicable">
+              <td class="item-label">Flyer Abholung</td>
+              <td class="item-subtotal text-end">{{ kosten.flyerAbholungPrice | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+            </tr>
+            </tbody>
+            <tfoot>
+            <tr class="table-light">
+              <td class="fw-bold">Zwischensumme Verteilung</td>
+              <td class="text-end fw-bold">{{ kosten.subTotalDistribution | currency:' ':'symbol':'1.2-2':'de-CH' }}</td>
+            </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
-      <div *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution === 0" class="text-muted small">
-        Flyer Verteilung ist nicht möglich, da keine Flyer ausgewählt wurden.
-      </div>
-    </div>
+    </ng-container>
 
     <div class="cost-group" *ngIf="kosten.selectedPrintOption === 'service'">
       <h4 class="cost-group-title"><span>Flyer Druck</span></h4>
@@ -114,7 +140,7 @@
       </div>
     </div>
 
-    <div class="cost-group total-summary mt-4" *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0">
+    <div class="cost-group total-summary mt-4" *ngIf="(!kosten.isPerimeterOfferte && kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0) || kosten.isPerimeterOfferte">
       <div class="table-responsive">
         <table class="table calculation-table">
           <tbody>
@@ -135,15 +161,18 @@
       </div>
     </div>
 
-    <div class="text-muted small my-4 hinweise-calculator" *ngIf="kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0">
+    <div class="text-muted small my-4 hinweise-calculator" *ngIf="(!kosten.isPerimeterOfferte && kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0) || kosten.isPerimeterOfferte">
       <strong>Hinweise</strong><br>
       <ol>
         <li>Servicepauschale deckt Fahrtkosten, detaillierte Routenplanung und GPS-Tracking für Ihre Verteilung ab.</li>
-        <li>Spezielle Formate und Druckaufträge erfordern eine manuelle Prüfung. Der genaue Preis wird Ihnen anschliessend per E-Mail mitgeteilt</li>
+        <li>Spezielle Formate, Druckaufträge und Verteilung nach GPS-Perimeter erfordern eine manuelle Prüfung. Der genaue Preis wird Ihnen anschliessend per E-Mail mitgeteilt.</li>
         <li>Der Ausgleich zum Mindestbestellwert für die Verteilung (CHF 250) dient der Abdeckung von Fixkosten wie Planung und Logistik.</li>
       </ol>
     </div>
 
+    <div *ngIf="kosten.selectedPlzEntriesLength === 0 && !kosten.isPerimeterOfferte" class="text-muted small">
+      Bitte wählen Sie mind. 1 PLZ aus oder laden Sie Ihr GPS-Perimeter hoch.
+    </div>
   </div>
 
   <div class="actions-container mt-4">

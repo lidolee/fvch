@@ -1,5 +1,7 @@
 export type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
 
+export type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
+
 export interface PlzSelectionDetail {
   id: string;
   plz6: string;
@@ -75,6 +77,7 @@ export interface VerteilgebietDataState {
   expressConfirmed: boolean;
   totalFlyersCount: number;
   zielgruppe: ZielgruppeOption;
+  verteilungTyp: VerteilungTypOption;
 }
 
 export interface ProduktionDataState {
@@ -82,6 +85,7 @@ export interface ProduktionDataState {
   printOption: PrintOptionType | null;
   anlieferDetails: AnlieferDetails;
   printServiceDetails: PrintServiceDetails;
+  eigenesDesignPdfUploaded?: boolean;
 }
 
 export interface KontaktDetailsState {
@@ -100,8 +104,8 @@ export interface KontaktDetailsState {
 export interface DistributionCostItem {
   plz: string;
   ort: string;
-  flyers: number;
-  price: number;
+  flyers: number; // 'count' wurde zu 'flyers' umbenannt, um mit dem Template übereinzustimmen
+  price: number;  // 'total' wurde zu 'price' umbenannt
 }
 
 export interface KostenState {
@@ -132,6 +136,7 @@ export interface KostenState {
   printServiceName: string;
   printServiceCost: number;
   mindestbestellwert: number;
+  isPerimeterOfferte?: boolean; // NEU
 }
 
 export interface StepValidationStatus {

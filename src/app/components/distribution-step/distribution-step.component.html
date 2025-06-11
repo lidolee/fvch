@@ -190,10 +190,15 @@
     <div class="mt-3 card p-4">
       <p class="text-muted">Bitte laden Sie Ihr GPS-Perimeter als <strong>KML-Datei</strong> hoch - max. 10 MB.</p>
       <div class="input-group">
-        <input class="form-control" type="file" id="kmlFileUpload" #kmlFileUpload/>
+        <input class="form-control" type="file" id="kmlFileUpload" #kmlFileUpload (change)="onKmlFileSelected($event)" accept=".kml"/>
         <button type="button" class="btn btn-sm btn-primary" (click)="triggerKmlUpload()"> <i class="mdi mdi-upload"></i> hochladen</button>
       </div>
-      <div *ngIf="kmlFileName" class="mt-2 small">Hochgeladen: {{ kmlFileName }}</div>
+      <div *ngIf="kmlFileName" class="mt-2 small">
+        Ausgewählte Datei: {{ kmlFileName }}
+        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" (click)="removeKmlFile()" title="KML-Datei entfernen">
+          <i class="mdi mdi-close-circle"></i>
+        </button>
+      </div>
     </div>
   </div>
 </div>
