@@ -104,8 +104,8 @@ export interface KontaktDetailsState {
 export interface DistributionCostItem {
   plz: string;
   ort: string;
-  flyers: number; // 'count' wurde zu 'flyers' umbenannt, um mit dem Template übereinzustimmen
-  price: number;  // 'total' wurde zu 'price' umbenannt
+  flyers: number;
+  price: number | string; // Geändert: number | string
 }
 
 export interface KostenState {
@@ -115,28 +115,28 @@ export interface KostenState {
   zuschlagFormatAnzeigeText: string;
   totalFlyersForDistribution: number;
   flyerAbholungApplicable: boolean;
-  subTotalDistribution: number;
-  verteilungTotal: number;
+  subTotalDistribution: number | string; // Geändert
+  verteilungTotal: number | string; // Geändert
   selectedPrintOption: PrintOptionType | null;
   selectedDesignPackageName: string;
-  designPackageCost: number;
-  subTotalNetto: number;
+  designPackageCost: number; // Bleibt number, da immer angezeigt
+  subTotalNetto: number | string; // Geändert
   taxRatePercent: number;
-  taxAmount: number;
-  grandTotalCalculated: number;
+  taxAmount: number | string; // Geändert
+  grandTotalCalculated: number | string; // Geändert
   mindestbestellwertHinweis: string;
   distributionHeadline: string;
-  distributionCostItems: DistributionCostItem[];
-  expressZuschlagPrice: number;
-  fahrzeugGpsPrice: number;
-  zuschlagFormatPrice: number;
+  distributionCostItems: DistributionCostItem[]; // Typ DistributionCostItem enthält bereits price: number | string
+  expressZuschlagPrice: number | string; // Geändert
+  fahrzeugGpsPrice: number; // Bleibt number, da immer angezeigt
+  zuschlagFormatPrice: number | string; // Geändert
   isAnderesFormatSelected: boolean;
-  flyerAbholungPrice: number;
-  ausgleichKleinauftragPrice: number;
+  flyerAbholungPrice: number | string; // Geändert
+  ausgleichKleinauftragPrice: number | string; // Geändert
   printServiceName: string;
-  printServiceCost: number;
+  printServiceCost: number | string; // Geändert
   mindestbestellwert: number;
-  isPerimeterOfferte?: boolean; // NEU
+  isPerimeterOfferte?: boolean;
 }
 
 export interface StepValidationStatus {

@@ -63,14 +63,22 @@ export class CalculatorComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.kosten$.pipe(takeUntil(this.destroy$)).subscribe(kosten => {
-      if (kosten.mindestbestellwertHinweis && kosten.mindestbestellwert > 0) {
-        if (kosten.grandTotalCalculated < kosten.mindestbestellwert) {
-          const bruttoDifferenz = kosten.mindestbestellwert - kosten.grandTotalCalculated;
-          this.mindestAbnahmePauschalePrice = this.calculatorServiceInstance.roundCurrency(bruttoDifferenz);
+      // Typsichere Überprüfung, bevor auf grandTotalCalculated und mindestbestellwert zugegriffen wird
+      if (kosten && typeof kosten.grandTotalCalculated === 'number') {
+        // kosten.mindestbestellwert ist laut Typdefinition immer eine Zahl (number)
+        if (kosten.mindestbestellwertHinweis && kosten.mindestbestellwert > 0) { // Dieser Vergleich ist OK
+          if (kosten.grandTotalCalculated < kosten.mindestbestellwert) { // Beide sind hier als 'number' bekannt
+            const bruttoDifferenz = kosten.mindestbestellwert - kosten.grandTotalCalculated; // Operation zwischen zwei 'number'
+            this.mindestAbnahmePauschalePrice = this.calculatorServiceInstance.roundCurrency(bruttoDifferenz);
+          } else {
+            this.mindestAbnahmePauschalePrice = 0;
+          }
         } else {
           this.mindestAbnahmePauschalePrice = 0;
         }
       } else {
+        // Fallback, wenn grandTotalCalculated keine Zahl ist (z.B. bei Perimeter-Offerte)
+        // oder kosten.mindestbestellwert unerwartet keine Zahl wäre.
         this.mindestAbnahmePauschalePrice = 0;
       }
       this.cdr.markForCheck();

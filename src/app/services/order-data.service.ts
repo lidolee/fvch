@@ -5,11 +5,11 @@ import {
   AllOrderDataState, VerteilgebietDataState, ProduktionDataState, KontaktDetailsState,
   KostenState, StepValidationStatus, DesignPackageType, PrintOptionType,
   AnlieferDetails, PrintServiceDetails, PlzSelectionDetail, ZielgruppeOption,
-  VerteilungTypOption, DistributionCostItem // DistributionCostItem importiert
+  VerteilungTypOption, DistributionCostItem
 } from './order-data.types';
 import { CalculatorService, AppPrices } from './calculator.service';
 import { SelectionService } from './selection.service';
-import { PlzEntry } from './plz-data.service'; // Korrekter Import für PlzEntry
+import { PlzEntry } from './plz-data.service';
 
 @Injectable({
   providedIn: 'root'
@@ -24,7 +24,7 @@ export class OrderDataService {
   });
 
   public readonly produktionStateSubject = new BehaviorSubject<ProduktionDataState>({
-    designPackage: null,
+    designPackage: null, // Wird jetzt immer Pflicht sein
     printOption: null,
     anlieferDetails: { format: null, anlieferung: null },
     printServiceDetails: { format: null, grammatur: null, art: null, ausfuehrung: null, auflage: 0, reserve: 0 },
@@ -52,7 +52,7 @@ export class OrderDataService {
       this.selectionService.selectedEntries$,
       this.verteilgebietStateSubject
     ]).pipe(
-      map(([selectedPlzEntriesFromService, verteilgebietStateBase]) => { // selectedPlzEntriesFromService ist PlzEntry[]
+      map(([selectedPlzEntriesFromService, verteilgebietStateBase]) => {
         const typedSelectedEntries: PlzSelectionDetail[] = selectedPlzEntriesFromService.map((entry: PlzEntry) => {
           const manualMfh = entry.manual_flyer_count_mfh ?? null;
           const manualEfh = entry.manual_flyer_count_efh ?? null;
@@ -64,10 +64,9 @@ export class OrderDataService {
             case 'Mehrfamilienhäuser': anzahl = selected_flyer_count_mfh; break;
             case 'Ein- und Zweifamilienhäuser': anzahl = selected_flyer_count_efh; break;
           }
-          // Sicherstellen, dass alle PlzSelectionDetail Felder vorhanden sind
           return {
             ...entry,
-            id: entry.id, // Explizit für Klarheit
+            id: entry.id,
             plz6: entry.plz6,
             plz4: entry.plz4,
             ort: entry.ort,
@@ -76,7 +75,7 @@ export class OrderDataService {
             all: entry.all,
             mfh: entry.mfh,
             efh: entry.efh,
-            isSelected: (entry as any).isSelected, // Cast wenn isSelected nicht in PlzEntry ist
+            isSelected: (entry as any).isSelected,
             isHighlighted: (entry as any).isHighlighted,
             manual_flyer_count_mfh: manualMfh,
             manual_flyer_count_efh: manualEfh,
@@ -124,11 +123,11 @@ export class OrderDataService {
       kosten: this.kosten$,
       validierungsStatus: this.validierungsStatus$,
     }).pipe(
-      tap(newState => console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Global state$ emitting...`)),
+      tap(newState => console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Global state$ emitting... Lidolee: ${new Date().toISOString()}`)),
       shareReplay(1)
     );
 
-    console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Constructor - Initialization complete.`);
+    console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Constructor - Initialization complete. Lidolee: ${new Date().toISOString()}`);
   }
 
   private getCurrentTimestamp(): string { return new Date().toISOString(); }
@@ -138,143 +137,152 @@ export class OrderDataService {
     const calcFormat = produktion.printOption === 'service' ? produktion.printServiceDetails.format : produktion.anlieferDetails.format;
 
     let distribution: { items: DistributionCostItem[]; total: number } = { items: [], total: 0 };
-    let ausgleichKleinauftragPrice = 0;
+    let ausgleichKleinauftragPriceNum = 0;
     const mindestVerteilung = this.calculatorService.getSurcharge('mindestbestellwert', appPrices);
     let distributionHeadline = '';
     let mindestbestellwertHinweis = '';
 
     if (isPerimeterOfferte) {
       distributionHeadline = 'Verteilung nach Perimeter';
-      // Verteilungskosten sind 0 und werden separat offeriert
       distribution = { items: [], total: 0 };
-      ausgleichKleinauftragPrice = 0;
-      // Hinweis für KML Upload wird von der UI gehandhabt
-    } else { // Nach PLZ
+      ausgleichKleinauftragPriceNum = 0;
+    } else {
       if (verteilgebiet.selectedPlzEntries.length > 0 && verteilgebiet.totalFlyersCount > 0) {
         distribution = this.calculatorService.calculateDistributionCost(verteilgebiet.selectedPlzEntries, appPrices);
         distributionHeadline = `Verteilung ${verteilgebiet.zielgruppe}`;
         if (distribution.total > 0 && distribution.total < mindestVerteilung) {
-          ausgleichKleinauftragPrice = this.calculatorService.roundCurrency(mindestVerteilung - distribution.total);
+          ausgleichKleinauftragPriceNum = this.calculatorService.roundCurrency(mindestVerteilung - distribution.total);
         }
       } else if (verteilgebiet.selectedPlzEntries.length > 0 && verteilgebiet.totalFlyersCount === 0) {
         distributionHeadline = `Verteilung ${verteilgebiet.zielgruppe}`;
         mindestbestellwertHinweis = 'Flyer Verteilung ist nicht möglich, da keine Flyer für die gewählte Zielgruppe in den PLZ anfallen.';
       } else {
-        // Keine PLZ ausgewählt, wird von UI gehandhabt. Headline bleibt leer.
         mindestbestellwertHinweis = 'Bitte wählen Sie mind. 1 PLZ aus.';
       }
     }
 
-    // Express Zuschlag
     const expressZuschlagApplicable = verteilgebiet.expressConfirmed && (isPerimeterOfferte || distribution.total > 0);
     let expressRelevantBase = 0;
     if (!isPerimeterOfferte) {
-      expressRelevantBase = distribution.total + ausgleichKleinauftragPrice;
+      expressRelevantBase = distribution.total + ausgleichKleinauftragPriceNum;
     } else {
-      // Für Perimeter: Express-Zuschlag könnte auf eine Grundpauschale oder andere Kosten (Design, Druck-Handling) anfallen.
-      // Annahme: Wenn Perimeter und Express, dann auf den Mindestbestellwert als Basis, falls keine anderen Kosten da sind.
-      // Dies muss ggf. genauer definiert werden. Vorerst 0, wenn keine anderen Kosten anfallen.
-      // Hier nehmen wir an, dass Express auf die Servicepauschale und Abholung anfallen könnte, falls diese gewählt sind.
       expressRelevantBase = this.calculatorService.getSurcharge('fahrzeugGPS', appPrices) +
         (produktion.anlieferDetails.anlieferung === 'abholung' ? this.calculatorService.getSurcharge('abholungFlyer', appPrices) : 0);
-      // Wenn Design oder Druck (auch wenn separat offeriert) gewählt, könnten diese auch Basis sein.
-      // Für die automatische Kalkulation hier komplex.
     }
-    const expressZuschlagPrice = expressZuschlagApplicable && expressRelevantBase > 0
+    const expressZuschlagPriceNum = expressZuschlagApplicable && expressRelevantBase > 0
       ? this.calculatorService.roundCurrency(expressRelevantBase * (this.calculatorService.getSurcharge('express', appPrices) / 100))
       : 0;
 
-
-    const fahrzeugGpsApplicable = true;
-    const fahrzeugGpsPrice = fahrzeugGpsApplicable ? this.calculatorService.getSurcharge('fahrzeugGPS', appPrices) : 0;
+    const fahrzeugGpsPriceNum = this.calculatorService.getSurcharge('fahrzeugGPS', appPrices);
 
     const flyerAbholungApplicable = produktion.anlieferDetails.anlieferung === 'abholung';
-    const flyerAbholungPrice = flyerAbholungApplicable ? this.calculatorService.getSurcharge('abholungFlyer', appPrices) : 0;
+    const flyerAbholungPriceNum = flyerAbholungApplicable ? this.calculatorService.getSurcharge('abholungFlyer', appPrices) : 0;
 
     let verteilzuschlag = { price: 0, anzeigeText: '', isAnderes: false, key: null as any };
     if (calcFormat) {
       if (!isPerimeterOfferte && verteilgebiet.totalFlyersCount > 0) {
         verteilzuschlag = this.calculatorService.calculateVerteilzuschlag(calcFormat, verteilgebiet.totalFlyersCount, appPrices);
       } else if (isPerimeterOfferte) {
-        const tempVerteilzuschlag = this.calculatorService.calculateVerteilzuschlag(calcFormat, 1, appPrices); // Dummy für Text
+        const tempVerteilzuschlag = this.calculatorService.calculateVerteilzuschlag(calcFormat, 1, appPrices);
         verteilzuschlag.isAnderes = tempVerteilzuschlag.isAnderes;
         if (tempVerteilzuschlag.isAnderes) {
           verteilzuschlag.anzeigeText = "Formatzuschlag für Sonderformat (auf Anfrage)";
-        } else if (tempVerteilzuschlag.price > 0 || tempVerteilzuschlag.key !== null) { // Auch wenn Preis 0 ist aber ein Standardformat gewählt
+        } else if (tempVerteilzuschlag.price > 0 || tempVerteilzuschlag.key !== null) {
           verteilzuschlag.anzeigeText = tempVerteilzuschlag.anzeigeText.replace(/\+ CHF .* \/ 1'000 Flyer/, "(auf Anfrage)");
-          if (!verteilzuschlag.anzeigeText && tempVerteilzuschlag.key) { // Fallback falls anzeigeText leer
+          if (!verteilzuschlag.anzeigeText && tempVerteilzuschlag.key) {
             if (tempVerteilzuschlag.key === 'Lang') verteilzuschlag.anzeigeText = 'Formatzuschlag DIN Lang (auf Anfrage)';
             else if (tempVerteilzuschlag.key === 'A4') verteilzuschlag.anzeigeText = 'Formatzuschlag A4 (auf Anfrage)';
             else if (tempVerteilzuschlag.key === 'A3') verteilzuschlag.anzeigeText = 'Formatzuschlag A3 (auf Anfrage)';
           }
         }
-        verteilzuschlag.price = 0; // Preis ist Teil der separaten Offerte
+        verteilzuschlag.price = 0;
       }
     }
+    const verteilzuschlagPriceNum = verteilzuschlag.price;
 
-    const subTotalDistribution = this.calculatorService.roundCurrency(
+    const subTotalDistributionNum = this.calculatorService.roundCurrency(
       (isPerimeterOfferte ? 0 : distribution.total) +
-      (isPerimeterOfferte ? 0 : ausgleichKleinauftragPrice) +
-      expressZuschlagPrice +
-      fahrzeugGpsPrice +
-      flyerAbholungPrice +
-      (isPerimeterOfferte ? 0 : verteilzuschlag.price) // Formatzuschlag nur bei PLZ in die Summe
+      (isPerimeterOfferte ? 0 : ausgleichKleinauftragPriceNum) +
+      expressZuschlagPriceNum +
+      fahrzeugGpsPriceNum +
+      flyerAbholungPriceNum +
+      (isPerimeterOfferte ? 0 : verteilzuschlagPriceNum)
     );
 
-    const designPackageCost = this.calculatorService.calculateDesignPackagePrice(produktion.designPackage, appPrices.design);
-    const selectedDesignPackageName = this.calculatorService.getDesignPackageName(produktion.designPackage, designPackageCost);
+    const designPackageCostNum = this.calculatorService.calculateDesignPackagePrice(produktion.designPackage, appPrices.design);
+    const selectedDesignPackageName = this.calculatorService.getDesignPackageName(produktion.designPackage, designPackageCostNum);
 
     let printService = { name: 'Kein Druckservice', cost: 0 };
     if (produktion.printOption === 'service') {
-      printService = this.calculatorService.calculatePrintServiceCost(produktion.printServiceDetails); // Nimmt Auflage aus Details
+      printService = this.calculatorService.calculatePrintServiceCost(produktion.printServiceDetails);
       if (isPerimeterOfferte) {
         printService.name = produktion.printServiceDetails.format
           ? `Druckservice (${produktion.printServiceDetails.format}, Details nach KML)`
           : `Druckservice (Details nach KML)`;
-        printService.cost = 0; // Kosten für Perimeter-Druck sind separat
+        printService.cost = 0;
       }
     }
+    const printServiceCostNum = printService.cost;
 
-    const subTotalNetto = this.calculatorService.roundCurrency(subTotalDistribution + designPackageCost + printService.cost);
+    const subTotalNettoNum = this.calculatorService.roundCurrency(subTotalDistributionNum + designPackageCostNum + printServiceCostNum);
     const taxRate = appPrices.tax["vat-ch"] || 0;
-    const taxAmount = this.calculatorService.roundCurrency(subTotalNetto * taxRate);
-    const grandTotalCalculated = this.calculatorService.roundTo5Rappen(subTotalNetto + taxAmount);
+    const taxAmountNum = this.calculatorService.roundCurrency(subTotalNettoNum * taxRate);
+    const grandTotalCalculatedNum = this.calculatorService.roundTo5Rappen(subTotalNettoNum + taxAmountNum);
 
-    return {
+    let kostenStateErgebnis: KostenState = {
       selectedPlzEntriesLength: verteilgebiet.selectedPlzEntries.length,
       expressZuschlagApplicable,
-      fahrzeugGpsApplicable,
+      fahrzeugGpsApplicable: true,
       zuschlagFormatAnzeigeText: verteilzuschlag.anzeigeText,
       totalFlyersForDistribution: verteilgebiet.totalFlyersCount,
       flyerAbholungApplicable,
-      subTotalDistribution,
-      verteilungTotal: distribution.total, // Roh-Verteilungstotal, auch wenn Perimeter (dann 0)
+      subTotalDistribution: subTotalDistributionNum,
+      verteilungTotal: distribution.total,
       selectedPrintOption: produktion.printOption,
       selectedDesignPackageName,
-      designPackageCost,
-      subTotalNetto,
+      designPackageCost: designPackageCostNum,
+      subTotalNetto: subTotalNettoNum,
       taxRatePercent: taxRate * 100,
-      taxAmount,
-      grandTotalCalculated,
+      taxAmount: taxAmountNum,
+      grandTotalCalculated: grandTotalCalculatedNum,
       mindestbestellwertHinweis,
       distributionHeadline,
-      distributionCostItems: distribution.items, // Leer bei Perimeter
-      expressZuschlagPrice,
-      fahrzeugGpsPrice,
-      zuschlagFormatPrice: isPerimeterOfferte ? 0 : verteilzuschlag.price, // Preis 0 bei Perimeter
+      distributionCostItems: distribution.items.map(item => ({...item, price: item.price as number})),
+      expressZuschlagPrice: expressZuschlagPriceNum,
+      fahrzeugGpsPrice: fahrzeugGpsPriceNum,
+      zuschlagFormatPrice: verteilzuschlagPriceNum,
       isAnderesFormatSelected: verteilzuschlag.isAnderes,
-      flyerAbholungPrice,
-      ausgleichKleinauftragPrice,
+      flyerAbholungPrice: flyerAbholungPriceNum,
+      ausgleichKleinauftragPrice: ausgleichKleinauftragPriceNum,
       printServiceName: printService.name,
-      printServiceCost: printService.cost, // Ist 0 bei Perimeter
-      mindestbestellwert: mindestVerteilung + fahrzeugGpsPrice, // Basis Mindestbestellwert
+      printServiceCost: printServiceCostNum,
+      mindestbestellwert: mindestVerteilung + fahrzeugGpsPriceNum,
       isPerimeterOfferte
     };
+
+    if (isPerimeterOfferte) {
+      const manuellePruefungText = "—";
+      const emDashText = "—";
+
+      kostenStateErgebnis.verteilungTotal = manuellePruefungText;
+      kostenStateErgebnis.distributionCostItems = [];
+      kostenStateErgebnis.ausgleichKleinauftragPrice = manuellePruefungText;
+      kostenStateErgebnis.expressZuschlagPrice = manuellePruefungText;
+      kostenStateErgebnis.flyerAbholungPrice = manuellePruefungText;
+      kostenStateErgebnis.zuschlagFormatPrice = manuellePruefungText;
+      kostenStateErgebnis.printServiceCost = manuellePruefungText;
+
+      kostenStateErgebnis.subTotalDistribution = emDashText;
+      kostenStateErgebnis.subTotalNetto = emDashText;
+      kostenStateErgebnis.taxAmount = emDashText;
+      kostenStateErgebnis.grandTotalCalculated = "Preis per Email";
+
+      kostenStateErgebnis.mindestbestellwertHinweis = 'Die Kosten für die Verteilung nach Perimeter werden nach manueller Prüfung separat offeriert.';
+    }
+
+    return kostenStateErgebnis;
   }
 
-  // Die validateAllSteps Methode bleibt vorerst unverändert, da die KML-Upload-Logik
-  // außerhalb dieses Services liegt und von der DistributionStepComponent gehandhabt wird.
-  // Die `isStep1Valid` Logik hier ist eine serverseitige Konsistenzprüfung.
   private validateAllSteps(verteilgebiet: VerteilgebietDataState, produktion: ProduktionDataState, kontakt: KontaktDetailsState, kosten: KostenState): StepValidationStatus {
     let isStep1Valid = false;
     const isDateOk = !!verteilgebiet.verteilungStartdatum;
@@ -282,50 +290,48 @@ export class OrderDataService {
 
     if (verteilgebiet.verteilungTyp === 'Nach PLZ') {
       isStep1Valid = verteilgebiet.selectedPlzEntries.length > 0 && verteilgebiet.totalFlyersCount > 0 && isDateOk && isExpressOk;
-    } else { // Nach Perimeter
-      // Die eigentliche KML-Validierung geschieht in DistributionStepComponent.
-      // Für die globale Gültigkeit des Bestellprozesses hier:
-      isStep1Valid = isDateOk && isExpressOk; // Annahme: KML-Upload wird von Komponente sichergestellt
+    } else {
+      isStep1Valid = isDateOk && isExpressOk;
     }
 
+    // --- Anpassungen für Schritt 2 Validierung ---
     let isStep2Valid = false;
-    const designSelected = produktion.designPackage !== null;
     const printSelected = produktion.printOption !== null;
 
-    if (!designSelected && !printSelected) {
-      isStep2Valid = true;
-    } else {
-      let designPartValid = true;
-      if (designSelected) {
-        designPartValid = !!produktion.designPackage;
-        if (produktion.designPackage === 'eigenes') {
-          designPartValid = designPartValid && !!produktion.eigenesDesignPdfUploaded;
-        }
-      }
-
-      let printPartValid = true;
-      if (printSelected) {
-        if (produktion.printOption === 'anliefern' || produktion.printOption === 'eigenes') { // 'eigenes' ist wie 'anliefern'
-          printPartValid = !!produktion.anlieferDetails.format && !!produktion.anlieferDetails.anlieferung;
-        } else if (produktion.printOption === 'service') {
-          let auflageConditionMet = false;
-          if (verteilgebiet.verteilungTyp === 'Nach Perimeter') {
-            auflageConditionMet = produktion.printServiceDetails.auflage === 0; // Auflage muss 0 sein für Perimeter
-          } else {
-            auflageConditionMet = produktion.printServiceDetails.auflage > 0;
-          }
-          printPartValid = !!produktion.printServiceDetails.format &&
-            !!produktion.printServiceDetails.grammatur &&
-            !!produktion.printServiceDetails.art &&
-            !!produktion.printServiceDetails.ausfuehrung &&
-            auflageConditionMet &&
-            produktion.printServiceDetails.reserve !== null && produktion.printServiceDetails.reserve >= 0;
-        } else {
-          printPartValid = false;
-        }
-      }
-      isStep2Valid = designPartValid && printPartValid;
+    // Designpaket ist IMMER Pflicht
+    let designPartValid = !!produktion.designPackage;
+    if (designPartValid && produktion.designPackage === 'eigenes') {
+      // PDF Upload ist nur Pflicht, wenn Designpaket "eigenes" gewählt wurde
+      designPartValid = designPartValid && !!produktion.eigenesDesignPdfUploaded;
     }
+
+    let printPartValid = true; // Standardmäßig gültig, wenn keine Druckoption gewählt
+    if (printSelected) { // Nur validieren, wenn eine Druckoption tatsächlich gewählt wurde
+      if (produktion.printOption === 'anliefern' || produktion.printOption === 'eigenes') {
+        printPartValid = !!produktion.anlieferDetails.format && !!produktion.anlieferDetails.anlieferung;
+      } else if (produktion.printOption === 'service') {
+        let auflageConditionMet = false;
+        if (verteilgebiet.verteilungTyp === 'Nach Perimeter') {
+          auflageConditionMet = produktion.printServiceDetails.auflage === 0;
+        } else {
+          auflageConditionMet = produktion.printServiceDetails.auflage > 0;
+        }
+        printPartValid = !!produktion.printServiceDetails.format &&
+          !!produktion.printServiceDetails.grammatur &&
+          !!produktion.printServiceDetails.art &&
+          !!produktion.printServiceDetails.ausfuehrung &&
+          auflageConditionMet &&
+          produktion.printServiceDetails.reserve !== null && produktion.printServiceDetails.reserve >= 0;
+      } else {
+        // Sollte nicht vorkommen, wenn printOption null ist, wird es oben abgedeckt.
+        // Falls doch ein ungültiger Wert für printOption existiert:
+        printPartValid = false;
+      }
+    }
+
+    isStep2Valid = designPartValid && printPartValid;
+    // --- Ende Anpassungen Schritt 2 Validierung ---
+
     const isStep3Valid = !!kontakt.salutation && !!kontakt.firstName && !!kontakt.lastName && !!kontakt.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(kontakt.email);
 
     return { isStep1Valid, isStep2Valid, isStep3Valid, isOrderProcessValid: isStep1Valid && isStep2Valid && isStep3Valid };
@@ -360,7 +366,7 @@ export class OrderDataService {
     const current = this.produktionStateSubject.getValue();
     const newState = { ...current, designPackage: pkg };
     if (pkg !== 'eigenes') {
-      newState.eigenesDesignPdfUploaded = false;
+      newState.eigenesDesignPdfUploaded = false; // PDF Status zurücksetzen, wenn nicht "eigenes" Design
     }
     this.produktionStateSubject.next(newState);
   }
@@ -387,6 +393,7 @@ export class OrderDataService {
 
   public updateEigenesDesignPdfStatus(uploaded: boolean): void {
     const current = this.produktionStateSubject.getValue();
+    // Status nur aktualisieren, wenn es sich tatsächlich ändert
     if (current.eigenesDesignPdfUploaded !== uploaded) {
       this.produktionStateSubject.next({ ...current, eigenesDesignPdfUploaded: uploaded });
     }
