@@ -23,7 +23,7 @@
                 <td class="item-label">{{ item.plz }} {{ item.ort }}</td>
                 <td class="item-quantity text-end">{{ item.flyers | number:'1.0-0':'de-CH' }}</td>
                 <td class="item-subtotal text-end">
-                  <ng-container *ngIf="typeof item.price === 'number'; else stringPricePDI">{{ item.price | currency:'CHF':'code':'1.2-2':'de-CH' }}</ng-container>
+                  <ng-container *ngIf="typeof item.price === 'number'; else stringPricePDI">{{ item.price | number:'1.2-2':'de-CH' }}</ng-container>
                   <ng-template #stringPricePDI>{{ item.price }}</ng-template>
                 </td>
               </tr>
@@ -35,7 +35,7 @@
                 <span *ngIf="!kosten.isAnderesFormatSelected">{{ kosten.totalFlyersForDistribution | number:'1.0-0':'de-CH' }}</span>
               </td>
               <td class="item-subtotal text-end fw-bold">
-                <ng-container *ngIf="typeof kosten.verteilungTotal === 'number'; else stringPriceVT">{{ kosten.verteilungTotal | currency:'CHF':'code':'1.2-2':'de-CH' }}</ng-container>
+                <ng-container *ngIf="typeof kosten.verteilungTotal === 'number'; else stringPriceVT">{{ kosten.verteilungTotal | number:'1.2-2':'de-CH' }}</ng-container>
                 <ng-template #stringPriceVT>{{ kosten.verteilungTotal }}</ng-template>
               </td>
             </tr>
@@ -44,7 +44,7 @@
               <td class="item-label">Ausgleich Kleinauftrag<sup>3</sup></td>
               <td class="item-quantity text-end"></td>
               <td class="item-subtotal text-end">
-                <ng-container *ngIf="typeof kosten.ausgleichKleinauftragPrice === 'number'; else stringPriceKAP">{{ kosten.ausgleichKleinauftragPrice | currency:'CHF':'code':'1.2-2':'de-CH' }}</ng-container>
+                <ng-container *ngIf="typeof kosten.ausgleichKleinauftragPrice === 'number'; else stringPriceKAP">{{ kosten.ausgleichKleinauftragPrice | number:'1.2-2':'de-CH' }}</ng-container>
                 <ng-template #stringPriceKAP>{{ kosten.ausgleichKleinauftragPrice }}</ng-template>
               </td>
             </tr>
@@ -82,14 +82,14 @@
             <tr *ngIf="kosten.expressZuschlagApplicable">
               <td class="item-label">Express Zuschlag 50%</td>
               <td class="item-subtotal text-end">
-                <ng-container *ngIf="typeof kosten.expressZuschlagPrice === 'number'; else stringPriceEZP">{{ kosten.expressZuschlagPrice | currency:'CHF':'code':'1.2-2':'de-CH' }}</ng-container>
+                <ng-container *ngIf="typeof kosten.expressZuschlagPrice === 'number'; else stringPriceEZP">{{ kosten.expressZuschlagPrice | number:'1.2-2':'de-CH' }}</ng-container>
                 <ng-template #stringPriceEZP>{{ kosten.expressZuschlagPrice }}</ng-template>
               </td>
             </tr>
             <tr *ngIf="kosten.fahrzeugGpsApplicable">
               <td class="item-label">Servicepauschale<sup>1</sup></td>
               <td class="item-subtotal text-end">
-                {{ kosten.fahrzeugGpsPrice | currency:'CHF':'code':'1.2-2':'de-CH' }}
+                {{ kosten.fahrzeugGpsPrice | number:'1.2-2':'de-CH' }}
               </td>
             </tr>
             <tr *ngIf="zuschlagFormatAnzeige$ | async">
@@ -100,10 +100,10 @@
               <td class="item-subtotal text-end">
                 <ng-container *ngIf="typeof kosten.zuschlagFormatPrice === 'number'; else stringPriceZFP">
                   <span *ngIf="kosten.isAnderesFormatSelected || kosten.isPerimeterOfferte">
-                    <ng-container *ngIf="kosten.zuschlagFormatPrice !== 0">{{ kosten.zuschlagFormatPrice | currency:'CHF':'code':'1.2-2':'de-CH' }}</ng-container>
+                    <ng-container *ngIf="kosten.zuschlagFormatPrice !== 0">{{ kosten.zuschlagFormatPrice | number:'1.2-2':'de-CH' }}</ng-container>
                     <ng-container *ngIf="kosten.zuschlagFormatPrice === 0">—</ng-container>
                   </span>
-                  <span *ngIf="!kosten.isAnderesFormatSelected && !kosten.isPerimeterOfferte">{{ kosten.zuschlagFormatPrice | currency:'CHF':'code':'1.2-2':'de-CH' }}</span>
+                  <span *ngIf="!kosten.isAnderesFormatSelected && !kosten.isPerimeterOfferte">{{ kosten.zuschlagFormatPrice | number:'1.2-2':'de-CH' }}</span>
                 </ng-container>
                 <ng-template #stringPriceZFP>{{ kosten.zuschlagFormatPrice }}</ng-template>
               </td>
@@ -111,7 +111,7 @@
             <tr *ngIf="kosten.flyerAbholungApplicable">
               <td class="item-label">Flyer Abholung</td>
               <td class="item-subtotal text-end">
-                <ng-container *ngIf="typeof kosten.flyerAbholungPrice === 'number'; else stringPriceFAP">{{ kosten.flyerAbholungPrice | currency:'CHF':'code':'1.2-2':'de-CH' }}</ng-container>
+                <ng-container *ngIf="typeof kosten.flyerAbholungPrice === 'number'; else stringPriceFAP">{{ kosten.flyerAbholungPrice | number:'1.2-2':'de-CH' }}</ng-container>
                 <ng-template #stringPriceFAP>{{ kosten.flyerAbholungPrice }}</ng-template>
               </td>
             </tr>
@@ -120,7 +120,7 @@
             <tr class="table-light">
               <td class="fw-bold">Zwischensumme Verteilung</td>
               <td class="text-end fw-bold">
-                <ng-container *ngIf="typeof kosten.subTotalDistribution === 'number'; else stringPriceSTD">{{ kosten.subTotalDistribution | currency:'CHF':'code':'1.2-2':'de-CH' }}</ng-container>
+                <ng-container *ngIf="typeof kosten.subTotalDistribution === 'number'; else stringPriceSTD">{{ kosten.subTotalDistribution | number:'1.2-2':'de-CH' }}</ng-container>
                 <ng-template #stringPriceSTD>{{ kosten.subTotalDistribution }}</ng-template>
               </td>
             </tr>
@@ -139,7 +139,7 @@
             <td>{{ kosten.printServiceName }}</td>
             <td class="text-end">
               <ng-container *ngIf="typeof kosten.printServiceCost === 'number'">
-                <span *ngIf="kosten.printServiceCost">{{ kosten.printServiceCost | currency:'CHF':'code':'1.2-2':'de-CH' }}</span>
+                <span *ngIf="kosten.printServiceCost">{{ kosten.printServiceCost | number:'1.2-2':'de-CH' }}</span>
                 <span *ngIf="!kosten.printServiceCost">Wird separat offeriert<sup>2</sup></span>
               </ng-container>
               <ng-container *ngIf="typeof kosten.printServiceCost === 'string'">
@@ -160,7 +160,7 @@
           <tr class="table-light">
             <td class="item-label fw-bold">{{ kosten.selectedDesignPackageName }}</td>
             <td class="item-subtotal text-end fw-bold">
-              {{ kosten.designPackageCost | currency:'CHF':'code':'1.2-2':'de-CH' }}
+              {{ kosten.designPackageCost | number:'1.2-2':'de-CH' }}
             </td>
           </tr>
           </tbody>
@@ -175,21 +175,21 @@
           <tr class="table-light">
             <td class="fw-bold">Zwischentotal</td>
             <td class="text-end fw-bold">
-              <ng-container *ngIf="typeof kosten.subTotalNetto === 'number'; else stringPriceSTN">{{ kosten.subTotalNetto | currency:'CHF':'code':'1.2-2':'de-CH' }}</ng-container>
+              <ng-container *ngIf="typeof kosten.subTotalNetto === 'number'; else stringPriceSTN">{{ kosten.subTotalNetto | number:'1.2-2':'de-CH' }}</ng-container>
               <ng-template #stringPriceSTN>{{ kosten.subTotalNetto }}</ng-template>
             </td>
           </tr>
           <tr class="table-light">
             <td>Mehrwertsteuer {{ kosten.taxRatePercent }}%</td>
             <td class="text-end">
-              <ng-container *ngIf="typeof kosten.taxAmount === 'number'; else stringPriceTA">{{ kosten.taxAmount | currency:'CHF':'code':'1.2-2':'de-CH' }}</ng-container>
+              <ng-container *ngIf="typeof kosten.taxAmount === 'number'; else stringPriceTA">{{ kosten.taxAmount | number:'1.2-2':'de-CH' }}</ng-container>
               <ng-template #stringPriceTA>{{ kosten.taxAmount }}</ng-template>
             </td>
           </tr>
           <tr class="table-light">
             <td class="fw-bold fs-5">Total provisorisch</td>
             <td class="text-end fw-bold fs-5">
-              <ng-container *ngIf="typeof kosten.grandTotalCalculated === 'number'; else stringPriceGTC">{{ kosten.grandTotalCalculated | currency:'CHF':'code':'1.2-2':'de-CH' }}</ng-container>
+              <ng-container *ngIf="typeof kosten.grandTotalCalculated === 'number'; else stringPriceGTC">{{ kosten.grandTotalCalculated | number:'1.2-2':'de-CH' }}</ng-container>
               <ng-template #stringPriceGTC>{{ kosten.grandTotalCalculated }}</ng-template>
             </td>
           </tr>
@@ -203,7 +203,7 @@
       <ol>
         <li>Servicepauschale deckt Fahrtkosten, detaillierte Routenplanung und GPS-Tracking für Ihre Verteilung ab.</li>
         <li>Spezielle Formate, Druckaufträge und Verteilung nach GPS-Perimeter erfordern eine manuelle Prüfung. Der genaue Preis wird Ihnen anschliessend per E-Mail mitgeteilt.</li>
-        <li *ngIf="!kosten.isPerimeterOfferte && (kosten.mindestbestellwert - kosten.fahrzeugGpsPrice > 0)">Der Mindestbestellwert ({{ (kosten.mindestbestellwert - kosten.fahrzeugGpsPrice) | currency:'CHF':'code':'1.0-0':'de-CH' }}) für die Verteilung dient der Abdeckung von Fixkosten wie Planung und Logistik.</li>
+        <li *ngIf="!kosten.isPerimeterOfferte && (kosten.mindestbestellwert - kosten.fahrzeugGpsPrice > 0)">Der Mindestbestellwert ({{ (kosten.mindestbestellwert - kosten.fahrzeugGpsPrice) | number:'1.0-0':'de-CH' }}) für die Verteilung dient der Abdeckung von Fixkosten wie Planung und Logistik.</li>
       </ol>
     </div>
 

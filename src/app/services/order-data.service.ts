@@ -1,15 +1,207 @@
 import { Injectable } from '@angular/core';
-import { Observable, combineLatest, BehaviorSubject } from 'rxjs';
-import { map, distinctUntilChanged, tap, shareReplay, filter } from 'rxjs/operators';
-import {
-  AllOrderDataState, VerteilgebietDataState, ProduktionDataState, KontaktDetailsState,
-  KostenState, StepValidationStatus, DesignPackageType, PrintOptionType,
-  AnlieferDetails, PrintServiceDetails, PlzSelectionDetail, ZielgruppeOption,
-  VerteilungTypOption, DistributionCostItem
-} from './order-data.types';
-import { CalculatorService, AppPrices } from './calculator.service';
+import { BehaviorSubject, Observable, combineLatest} from 'rxjs';
+import { map, shareReplay, filter, distinctUntilChanged, tap } from 'rxjs/operators';
+
+import { CalculatorService } from './calculator.service';
 import { SelectionService } from './selection.service';
-import { PlzEntry } from './plz-data.service';
+
+const PRICES_JSON_PATH = 'assets/prices.json';
+
+// --- START: Types from order-data.types.ts ---
+export type ZielgruppeOption = 'Alle Haushalte' | 'Mehrfamilienhäuser' | 'Ein- und Zweifamilienhäuser';
+export type VerteilungTypOption = 'Nach PLZ' | 'Nach Perimeter';
+
+// InternalPlzEntry is for the data coming from SelectionService
+// It needs to be compatible for mapping to PlzSelectionDetail
+export interface InternalPlzEntry {
+  id: string;
+  plz6: string;
+  plz4: string;
+  ort: string;
+  kt: string;
+  preisKategorie?: string;
+  all?: number;
+  mfh?: number;
+  efh?: number;
+  isSelected?: boolean;
+  isHighlighted?: boolean;
+  manual_flyer_count_mfh?: number | null;
+  manual_flyer_count_efh?: number | null;
+}
+
+export interface PlzSelectionDetail {
+  id: string;
+  plz6: string;
+  plz4: string;
+  ort: string;
+  kt: string;
+  preisKategorie?: string;
+  all?: number;
+  mfh?: number;
+  efh?: number;
+  isSelected?: boolean;
+  isHighlighted?: boolean;
+  manual_flyer_count_mfh: number | null;
+  manual_flyer_count_efh: number | null;
+  selected_flyer_count_mfh: number;
+  selected_flyer_count_efh: number;
+  is_manual_count?: boolean;
+  selected_display_flyer_count?: number;
+  anzahl: number;
+  zielgruppe: ZielgruppeOption;
+}
+
+export type DesignPackageType = 'basis' | 'plus' | 'premium' | 'eigenes' | null; // Added null for unselection state
+
+export type PrintOptionType = 'eigenes' | 'service' | 'anliefern' | null;
+
+export type FlyerFormatType =
+  | 'A6' | 'A5' | 'A4' | 'DIN-Lang' | 'DIN_Lang'
+  | 'A3' | 'Anderes_Format' | 'anderes' | null;
+
+export type AnlieferungType = 'selbstanlieferung' | 'abholung' | 'selbst' | null;
+
+export type DruckArtType = 'einseitig' | 'zweiseitig' | null;
+
+export type DruckGrammaturType =
+  | '90' | '115' | '130' | '170' | '250' | '300'
+  | '90g' | '115g' | '130g' | '135g' | '170g' | '250g' | '300g'
+  | null;
+
+export type DruckAusfuehrungType = 'standard' | 'express' | 'glaenzend' | 'matt' | null;
+
+export interface AnlieferDetails {
+  format: FlyerFormatType | null;
+  anlieferung: AnlieferungType | null;
+}
+
+export interface PrintServiceDetails {
+  format: FlyerFormatType | null;
+  grammatur: DruckGrammaturType | null;
+  art: DruckArtType | null;
+  ausfuehrung: DruckAusfuehrungType | null;
+  auflage: number;
+  reserve: number;
+}
+
+export interface VerteilgebietDataState {
+  selectedPlzEntries: PlzSelectionDetail[];
+  verteilungStartdatum: Date | null;
+  expressConfirmed: boolean;
+  totalFlyersCount: number;
+  zielgruppe: ZielgruppeOption;
+  verteilungTyp: VerteilungTypOption;
+}
+
+export interface ProduktionDataState {
+  designPackage: DesignPackageType | null;
+  printOption: PrintOptionType | null;
+  anlieferDetails: AnlieferDetails;
+  printServiceDetails: PrintServiceDetails;
+  eigenesDesignPdfUploaded?: boolean;
+}
+
+export interface KontaktDetailsState {
+  salutation: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone?: string | null;
+  company?: string | null;
+  address?: string | null;
+  zip?: string | null;
+  city?: string | null;
+  notes?: string | null;
+}
+
+export interface DistributionCostItem {
+  plz: string;
+  ort: string;
+  flyers: number;
+  price: number | string;
+}
+
+export interface KostenState {
+  selectedPlzEntriesLength: number;
+  expressZuschlagApplicable: boolean;
+  fahrzeugGpsApplicable: boolean;
+  zuschlagFormatAnzeigeText: string;
+  totalFlyersForDistribution: number;
+  flyerAbholungApplicable: boolean;
+  subTotalDistribution: number | string;
+  verteilungTotal: number | string;
+  selectedPrintOption: PrintOptionType | null;
+  selectedDesignPackageName: string;
+  designPackageCost: number;
+  subTotalNetto: number | string;
+  taxRatePercent: number;
+  taxAmount: number | string;
+  grandTotalCalculated: number | string;
+  mindestbestellwertHinweis: string;
+  distributionHeadline: string;
+  distributionCostItems: DistributionCostItem[];
+  expressZuschlagPrice: number | string;
+  fahrzeugGpsPrice: number;
+  zuschlagFormatPrice: number | string;
+  isAnderesFormatSelected: boolean;
+  flyerAbholungPrice: number | string;
+  ausgleichKleinauftragPrice: number | string;
+  printServiceName: string;
+  printServiceCost: number | string;
+  mindestbestellwert: number;
+  isPerimeterOfferte?: boolean;
+}
+
+// Explicitly define StepValidationStatus and AllOrderDataState from order-data.types.ts
+export interface StepValidationStatus {
+  isStep1Valid: boolean;
+  isStep2Valid: boolean;
+  isStep3Valid: boolean;
+  isOrderProcessValid: boolean;
+}
+
+export interface AllOrderDataState {
+  verteilgebiet: VerteilgebietDataState;
+  produktion: ProduktionDataState;
+  kontaktDetails: KontaktDetailsState;
+  kosten: KostenState;
+  validierungsStatus: StepValidationStatus;
+}
+
+
+// Types for AppPrices to be compatible with CalculatorService
+export interface AppDesignPrices {
+  basis: number;
+  plus: number;
+  premium: number;
+  eigenes: number;
+}
+export interface AppVerteilungZuschlagFormatPrices {
+  Lang: number;
+  A4: number;
+  A3: number;
+}
+export interface AppSurchargesPrices {
+  mindestbestellwert: number;
+  express: number;
+  fahrzeugGPS: number;
+  abholungFlyer: number;
+}
+export interface AppDistributionPrices {
+  mfh: { [key: string]: number };
+  efh: { [key: string]: number };
+  verteilungZuschlagFormat: AppVerteilungZuschlagFormatPrices;
+  surcharges: AppSurchargesPrices;
+}
+export interface AppPrices {
+  design: AppDesignPrices;
+  distribution: AppDistributionPrices;
+  tax: {
+    "vat-ch": number;
+  };
+}
+// --- END: Types from order-data.types.ts ---
+
 
 @Injectable({
   providedIn: 'root'
@@ -24,7 +216,7 @@ export class OrderDataService {
   });
 
   public readonly produktionStateSubject = new BehaviorSubject<ProduktionDataState>({
-    designPackage: null, // Wird jetzt immer Pflicht sein
+    designPackage: null,
     printOption: null,
     anlieferDetails: { format: null, anlieferung: null },
     printServiceDetails: { format: null, grammatur: null, art: null, ausfuehrung: null, auflage: 0, reserve: 0 },
@@ -39,8 +231,8 @@ export class OrderDataService {
   public readonly produktion$: Observable<ProduktionDataState> = this.produktionStateSubject.asObservable();
   public readonly kontaktDetails$: Observable<KontaktDetailsState> = this.kontaktDetailsSubject.asObservable();
   public readonly kosten$: Observable<KostenState>;
-  public readonly validierungsStatus$: Observable<StepValidationStatus>;
-  public readonly state$: Observable<AllOrderDataState>;
+  public readonly validierungsStatus$: Observable<StepValidationStatus>; // Using the explicit StepValidationStatus
+  public readonly state$: Observable<AllOrderDataState>; // Using the explicit AllOrderDataState
 
   constructor(
     private calculatorService: CalculatorService,
@@ -53,11 +245,12 @@ export class OrderDataService {
       this.verteilgebietStateSubject
     ]).pipe(
       map(([selectedPlzEntriesFromService, verteilgebietStateBase]) => {
-        const typedSelectedEntries: PlzSelectionDetail[] = selectedPlzEntriesFromService.map((entry: PlzEntry) => {
-          const manualMfh = entry.manual_flyer_count_mfh ?? null;
-          const manualEfh = entry.manual_flyer_count_efh ?? null;
-          const selected_flyer_count_mfh = manualMfh !== null ? manualMfh : (entry.mfh ?? 0);
-          const selected_flyer_count_efh = manualEfh !== null ? manualEfh : (entry.efh ?? 0);
+        const typedSelectedEntries: PlzSelectionDetail[] = selectedPlzEntriesFromService.map((entry: InternalPlzEntry): PlzSelectionDetail => {
+          const manualMfhForDetail: number | null = entry.manual_flyer_count_mfh ?? null;
+          const manualEfhForDetail: number | null = entry.manual_flyer_count_efh ?? null;
+
+          const selected_flyer_count_mfh = manualMfhForDetail !== null ? manualMfhForDetail : (entry.mfh ?? 0);
+          const selected_flyer_count_efh = manualEfhForDetail !== null ? manualEfhForDetail : (entry.efh ?? 0);
           let anzahl = 0;
           switch (verteilgebietStateBase.zielgruppe) {
             case 'Alle Haushalte': anzahl = entry.all ?? 0; break;
@@ -65,7 +258,6 @@ export class OrderDataService {
             case 'Ein- und Zweifamilienhäuser': anzahl = selected_flyer_count_efh; break;
           }
           return {
-            ...entry,
             id: entry.id,
             plz6: entry.plz6,
             plz4: entry.plz4,
@@ -75,14 +267,16 @@ export class OrderDataService {
             all: entry.all,
             mfh: entry.mfh,
             efh: entry.efh,
-            isSelected: (entry as any).isSelected,
-            isHighlighted: (entry as any).isHighlighted,
-            manual_flyer_count_mfh: manualMfh,
-            manual_flyer_count_efh: manualEfh,
+            isSelected: entry.isSelected,
+            isHighlighted: entry.isHighlighted,
+            manual_flyer_count_mfh: manualMfhForDetail,
+            manual_flyer_count_efh: manualEfhForDetail,
             selected_flyer_count_mfh,
             selected_flyer_count_efh,
             anzahl,
-            zielgruppe: verteilgebietStateBase.zielgruppe
+            zielgruppe: verteilgebietStateBase.zielgruppe,
+            is_manual_count: (entry as any).is_manual_count,
+            selected_display_flyer_count: (entry as any).selected_display_flyer_count,
           };
         });
 
@@ -103,7 +297,7 @@ export class OrderDataService {
     const kostenAndValidation$ = combineLatest([
       this.verteilgebiet$,
       this.produktion$,
-      this.calculatorService.prices$.pipe(filter((p): p is AppPrices => !!p && Object.keys(p).length > 0))
+      this.calculatorService.prices$.pipe(filter((p): p is AppPrices => !!p && typeof p === 'object' && Object.keys(p).length > 0))
     ]).pipe(
       map(([verteilgebiet, produktion, appPrices]) => {
         const kosten = this.calculateAllCosts(verteilgebiet, produktion, appPrices);
@@ -123,11 +317,11 @@ export class OrderDataService {
       kosten: this.kosten$,
       validierungsStatus: this.validierungsStatus$,
     }).pipe(
-      tap(newState => console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Global state$ emitting... Lidolee: ${new Date().toISOString()}`)),
+      tap(newState => console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Global state$ emitting...`)),
       shareReplay(1)
     );
 
-    console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Constructor - Initialization complete. Lidolee: ${new Date().toISOString()}`);
+    console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Constructor - Initialization complete.`);
   }
 
   private getCurrentTimestamp(): string { return new Date().toISOString(); }
@@ -161,22 +355,33 @@ export class OrderDataService {
       }
     }
 
-    const expressZuschlagApplicable = verteilgebiet.expressConfirmed && (isPerimeterOfferte || distribution.total > 0);
-    let expressRelevantBase = 0;
+    const flyerAbholungSurchargeRelevantTerm: AnlieferungType = 'abholung';
+    const flyerAbholungApplicable = produktion.anlieferDetails.anlieferung === flyerAbholungSurchargeRelevantTerm;
+
+    let expressRelevantBase: number;
     if (!isPerimeterOfferte) {
       expressRelevantBase = distribution.total + ausgleichKleinauftragPriceNum;
     } else {
       expressRelevantBase = this.calculatorService.getSurcharge('fahrzeugGPS', appPrices) +
-        (produktion.anlieferDetails.anlieferung === 'abholung' ? this.calculatorService.getSurcharge('abholungFlyer', appPrices) : 0);
+        (flyerAbholungApplicable ? 50 : 0);
     }
+    const expressZuschlagApplicable = verteilgebiet.expressConfirmed && (isPerimeterOfferte || expressRelevantBase > 0);
+
     const expressZuschlagPriceNum = expressZuschlagApplicable && expressRelevantBase > 0
-      ? this.calculatorService.roundCurrency(expressRelevantBase * (this.calculatorService.getSurcharge('express', appPrices) / 100))
+      ? this.calculatorService.roundCurrency(expressRelevantBase * this.calculatorService.getSurcharge('express', appPrices))
       : 0;
 
-    const fahrzeugGpsPriceNum = this.calculatorService.getSurcharge('fahrzeugGPS', appPrices);
+    const fahrzeugGpsApplicable = true;
+    const fahrzeugGpsPriceNum = fahrzeugGpsApplicable ? this.calculatorService.getSurcharge('fahrzeugGPS', appPrices) : 0;
 
-    const flyerAbholungApplicable = produktion.anlieferDetails.anlieferung === 'abholung';
-    const flyerAbholungPriceNum = flyerAbholungApplicable ? this.calculatorService.getSurcharge('abholungFlyer', appPrices) : 0;
+    let flyerAbholungPriceNum = 0;
+    if (flyerAbholungApplicable) {
+      if (isPerimeterOfferte) {
+        flyerAbholungPriceNum = 50;
+      } else {
+        flyerAbholungPriceNum = this.calculatorService.getSurcharge('abholungFlyer', appPrices);
+      }
+    }
 
     let verteilzuschlag = { price: 0, anzeigeText: '', isAnderes: false, key: null as any };
     if (calcFormat) {
@@ -198,7 +403,7 @@ export class OrderDataService {
         verteilzuschlag.price = 0;
       }
     }
-    const verteilzuschlagPriceNum = verteilzuschlag.price;
+    const verteilzuschlagPriceNum = isPerimeterOfferte ? 0 : verteilzuschlag.price;
 
     const subTotalDistributionNum = this.calculatorService.roundCurrency(
       (isPerimeterOfferte ? 0 : distribution.total) +
@@ -206,87 +411,69 @@ export class OrderDataService {
       expressZuschlagPriceNum +
       fahrzeugGpsPriceNum +
       flyerAbholungPriceNum +
-      (isPerimeterOfferte ? 0 : verteilzuschlagPriceNum)
+      verteilzuschlagPriceNum
     );
 
     const designPackageCostNum = this.calculatorService.calculateDesignPackagePrice(produktion.designPackage, appPrices.design);
     const selectedDesignPackageName = this.calculatorService.getDesignPackageName(produktion.designPackage, designPackageCostNum);
 
-    let printService = { name: 'Kein Druckservice', cost: 0 };
+    let printService: { name: string, cost: number | string } = { name: 'Kein Druckservice', cost: 0 };
     if (produktion.printOption === 'service') {
-      printService = this.calculatorService.calculatePrintServiceCost(produktion.printServiceDetails);
+      const calculatedPrintService = this.calculatorService.calculatePrintServiceCost(produktion.printServiceDetails);
+      printService.name = calculatedPrintService.name;
+      printService.cost = calculatedPrintService.cost;
+
       if (isPerimeterOfferte) {
         printService.name = produktion.printServiceDetails.format
           ? `Druckservice (${produktion.printServiceDetails.format}, Details nach KML)`
           : `Druckservice (Details nach KML)`;
-        printService.cost = 0;
+        printService.cost = "auf Anfrage";
       }
     }
-    const printServiceCostNum = printService.cost;
 
-    const subTotalNettoNum = this.calculatorService.roundCurrency(subTotalDistributionNum + designPackageCostNum + printServiceCostNum);
+    const numericPrintServiceCost = typeof printService.cost === 'number' ? printService.cost : 0;
+    const subTotalNettoNum = this.calculatorService.roundCurrency(subTotalDistributionNum + designPackageCostNum + numericPrintServiceCost);
     const taxRate = appPrices.tax["vat-ch"] || 0;
     const taxAmountNum = this.calculatorService.roundCurrency(subTotalNettoNum * taxRate);
     const grandTotalCalculatedNum = this.calculatorService.roundTo5Rappen(subTotalNettoNum + taxAmountNum);
 
-    let kostenStateErgebnis: KostenState = {
+    return {
       selectedPlzEntriesLength: verteilgebiet.selectedPlzEntries.length,
       expressZuschlagApplicable,
-      fahrzeugGpsApplicable: true,
+      fahrzeugGpsApplicable,
       zuschlagFormatAnzeigeText: verteilzuschlag.anzeigeText,
       totalFlyersForDistribution: verteilgebiet.totalFlyersCount,
       flyerAbholungApplicable,
-      subTotalDistribution: subTotalDistributionNum,
-      verteilungTotal: distribution.total,
+      subTotalDistribution: isPerimeterOfferte && subTotalDistributionNum === 0 && (distribution.total === 0 || typeof distribution.total === 'string') ? "auf Anfrage" : subTotalDistributionNum,
+      verteilungTotal: isPerimeterOfferte && distribution.total === 0 ? "auf Anfrage" : distribution.total,
       selectedPrintOption: produktion.printOption,
       selectedDesignPackageName,
       designPackageCost: designPackageCostNum,
-      subTotalNetto: subTotalNettoNum,
+      subTotalNetto: isPerimeterOfferte && subTotalNettoNum === 0 && numericPrintServiceCost === 0 && designPackageCostNum === 0 && subTotalDistributionNum === 0 ? "auf Anfrage" : subTotalNettoNum,
       taxRatePercent: taxRate * 100,
-      taxAmount: taxAmountNum,
-      grandTotalCalculated: grandTotalCalculatedNum,
+      taxAmount: isPerimeterOfferte && taxAmountNum === 0 && subTotalNettoNum === 0 ? "auf Anfrage" : taxAmountNum,
+      grandTotalCalculated: isPerimeterOfferte && grandTotalCalculatedNum === 0 && subTotalNettoNum === 0 ? "auf Anfrage" : grandTotalCalculatedNum,
       mindestbestellwertHinweis,
       distributionHeadline,
-      distributionCostItems: distribution.items.map(item => ({...item, price: item.price as number})),
+      distributionCostItems: distribution.items,
       expressZuschlagPrice: expressZuschlagPriceNum,
       fahrzeugGpsPrice: fahrzeugGpsPriceNum,
-      zuschlagFormatPrice: verteilzuschlagPriceNum,
+      zuschlagFormatPrice: isPerimeterOfferte && verteilzuschlagPriceNum === 0 && verteilzuschlag.isAnderes ? "auf Anfrage" : verteilzuschlagPriceNum,
       isAnderesFormatSelected: verteilzuschlag.isAnderes,
       flyerAbholungPrice: flyerAbholungPriceNum,
       ausgleichKleinauftragPrice: ausgleichKleinauftragPriceNum,
       printServiceName: printService.name,
-      printServiceCost: printServiceCostNum,
+      printServiceCost: printService.cost,
       mindestbestellwert: mindestVerteilung + fahrzeugGpsPriceNum,
-      isPerimeterOfferte
+      isPerimeterOfferte: isPerimeterOfferte,
     };
-
-    if (isPerimeterOfferte) {
-      const manuellePruefungText = "—";
-      const emDashText = "—";
-
-      kostenStateErgebnis.verteilungTotal = manuellePruefungText;
-      kostenStateErgebnis.distributionCostItems = [];
-      kostenStateErgebnis.ausgleichKleinauftragPrice = manuellePruefungText;
-      kostenStateErgebnis.expressZuschlagPrice = manuellePruefungText;
-      kostenStateErgebnis.flyerAbholungPrice = manuellePruefungText;
-      kostenStateErgebnis.zuschlagFormatPrice = manuellePruefungText;
-      kostenStateErgebnis.printServiceCost = manuellePruefungText;
-
-      kostenStateErgebnis.subTotalDistribution = emDashText;
-      kostenStateErgebnis.subTotalNetto = emDashText;
-      kostenStateErgebnis.taxAmount = emDashText;
-      kostenStateErgebnis.grandTotalCalculated = "Preis per Email";
-
-      kostenStateErgebnis.mindestbestellwertHinweis = 'Die Kosten für die Verteilung nach Perimeter werden nach manueller Prüfung separat offeriert.';
-    }
-
-    return kostenStateErgebnis;
   }
 
   private validateAllSteps(verteilgebiet: VerteilgebietDataState, produktion: ProduktionDataState, kontakt: KontaktDetailsState, kosten: KostenState): StepValidationStatus {
     let isStep1Valid = false;
     const isDateOk = !!verteilgebiet.verteilungStartdatum;
-    const isExpressOk = !kosten.expressZuschlagApplicable || verteilgebiet.expressConfirmed;
+    const expressZuschlagIsNumericAndPositive = typeof kosten.expressZuschlagPrice === 'number' && kosten.expressZuschlagPrice > 0;
+    const isExpressOk = expressZuschlagIsNumericAndPositive ? verteilgebiet.expressConfirmed : true;
 
     if (verteilgebiet.verteilungTyp === 'Nach PLZ') {
       isStep1Valid = verteilgebiet.selectedPlzEntries.length > 0 && verteilgebiet.totalFlyersCount > 0 && isDateOk && isExpressOk;
@@ -294,49 +481,48 @@ export class OrderDataService {
       isStep1Valid = isDateOk && isExpressOk;
     }
 
-    // --- Anpassungen für Schritt 2 Validierung ---
     let isStep2Valid = false;
+    const designSelected = produktion.designPackage !== null;
     const printSelected = produktion.printOption !== null;
 
-    // Designpaket ist IMMER Pflicht
-    let designPartValid = !!produktion.designPackage;
-    if (designPartValid && produktion.designPackage === 'eigenes') {
-      // PDF Upload ist nur Pflicht, wenn Designpaket "eigenes" gewählt wurde
-      designPartValid = designPartValid && !!produktion.eigenesDesignPdfUploaded;
-    }
-
-    let printPartValid = true; // Standardmäßig gültig, wenn keine Druckoption gewählt
-    if (printSelected) { // Nur validieren, wenn eine Druckoption tatsächlich gewählt wurde
-      if (produktion.printOption === 'anliefern' || produktion.printOption === 'eigenes') {
-        printPartValid = !!produktion.anlieferDetails.format && !!produktion.anlieferDetails.anlieferung;
-      } else if (produktion.printOption === 'service') {
-        let auflageConditionMet = false;
-        if (verteilgebiet.verteilungTyp === 'Nach Perimeter') {
-          auflageConditionMet = produktion.printServiceDetails.auflage === 0;
-        } else {
-          auflageConditionMet = produktion.printServiceDetails.auflage > 0;
+    if (!designSelected && !printSelected) {
+      isStep2Valid = true;
+    } else {
+      let designPartValid = true;
+      if (designSelected) {
+        designPartValid = !!produktion.designPackage;
+        if (produktion.designPackage === 'eigenes') {
+          designPartValid = designPartValid && !!produktion.eigenesDesignPdfUploaded;
         }
-        printPartValid = !!produktion.printServiceDetails.format &&
-          !!produktion.printServiceDetails.grammatur &&
-          !!produktion.printServiceDetails.art &&
-          !!produktion.printServiceDetails.ausfuehrung &&
-          auflageConditionMet &&
-          produktion.printServiceDetails.reserve !== null && produktion.printServiceDetails.reserve >= 0;
-      } else {
-        // Sollte nicht vorkommen, wenn printOption null ist, wird es oben abgedeckt.
-        // Falls doch ein ungültiger Wert für printOption existiert:
-        printPartValid = false;
       }
+
+      let printPartValid = true;
+      if (printSelected) {
+        if (produktion.printOption === 'anliefern' || produktion.printOption === 'eigenes') {
+          printPartValid = !!produktion.anlieferDetails.format && !!produktion.anlieferDetails.anlieferung;
+        } else if (produktion.printOption === 'service') {
+          let auflageConditionMet = false;
+          if (verteilgebiet.verteilungTyp === 'Nach Perimeter') {
+            auflageConditionMet = true;
+          } else {
+            auflageConditionMet = produktion.printServiceDetails.auflage > 0;
+          }
+          printPartValid = !!produktion.printServiceDetails.format &&
+            !!produktion.printServiceDetails.grammatur &&
+            !!produktion.printServiceDetails.art &&
+            !!produktion.printServiceDetails.ausfuehrung &&
+            auflageConditionMet &&
+            produktion.printServiceDetails.reserve !== null && produktion.printServiceDetails.reserve >= 0;
+        } else {
+          printPartValid = false;
+        }
+      }
+      isStep2Valid = designPartValid && printPartValid;
     }
-
-    isStep2Valid = designPartValid && printPartValid;
-    // --- Ende Anpassungen Schritt 2 Validierung ---
-
     const isStep3Valid = !!kontakt.salutation && !!kontakt.firstName && !!kontakt.lastName && !!kontakt.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(kontakt.email);
 
     return { isStep1Valid, isStep2Valid, isStep3Valid, isOrderProcessValid: isStep1Valid && isStep2Valid && isStep3Valid };
   }
-
 
   public updateVerteilungStartdatum(date: Date | null): void {
     const current = this.verteilgebietStateSubject.getValue();
@@ -364,9 +550,9 @@ export class OrderDataService {
 
   public updateDesignPackage(pkg: DesignPackageType | null): void {
     const current = this.produktionStateSubject.getValue();
-    const newState = { ...current, designPackage: pkg };
+    const newState: ProduktionDataState = { ...current, designPackage: pkg }; // Ensure newState is ProduktionDataState
     if (pkg !== 'eigenes') {
-      newState.eigenesDesignPdfUploaded = false; // PDF Status zurücksetzen, wenn nicht "eigenes" Design
+      newState.eigenesDesignPdfUploaded = false;
     }
     this.produktionStateSubject.next(newState);
   }
@@ -393,9 +579,12 @@ export class OrderDataService {
 
   public updateEigenesDesignPdfStatus(uploaded: boolean): void {
     const current = this.produktionStateSubject.getValue();
-    // Status nur aktualisieren, wenn es sich tatsächlich ändert
+    // Ensure type compatibility if eigenesDesignPdfUploaded is optional
+    const newState: ProduktionDataState = { ...current, eigenesDesignPdfUploaded: uploaded };
     if (current.eigenesDesignPdfUploaded !== uploaded) {
-      this.produktionStateSubject.next({ ...current, eigenesDesignPdfUploaded: uploaded });
+      this.produktionStateSubject.next(newState);
+    } else {
+      this.produktionStateSubject.next(current); // Emit current if no change to avoid issues with distinctUntilChanged
     }
   }
 }
