@@ -47,6 +47,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
 
   private destroy$ = new Subject<void>();
   private activeProcessingStadt: string | undefined = undefined;
+
   public searchInputInitialTerm: string = '';
   public searchInputStatus: SearchInputValidationStatus = 'empty';
   public selectedEntriesForTable: PlzSelectionDetail[] = [];
@@ -59,7 +60,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   public minVerteilungStartdatum: string = '';
   public showExpressSurcharge: boolean = false;
   public expressSurchargeConfirmed: boolean = false;
-
+  public defaultStandardStartDate!: Date;
   public mapSelectedPlzIds: string[] = [];
   public mapTableHoverPlzId: string | null = null;
   public mapZoomToPlzId: string | null = null;
@@ -105,7 +106,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   }
 
   ngOnInit(): void {
-    this.initializeDatesAndExpressLogic();
+    this.initializeDates();
 
     this.orderDataService.verteilgebiet$.pipe(
       takeUntil(this.destroy$),
@@ -120,21 +121,16 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
         if (verteilgebiet.verteilungStartdatum) {
           const orderStartDate = new Date(verteilgebiet.verteilungStartdatum);
           if (orderStartDate && !isNaN(orderStartDate.getTime())) {
-            if (this.verteilungStartdatum !== this.formatDateToYyyyMmDd(orderStartDate)) {
-              this.verteilungStartdatum = this.formatDateToYyyyMmDd(orderStartDate);
-            }
+            this.verteilungStartdatum = this.formatDateToYyyyMmDd(orderStartDate);
           }
-        } else {
-          this.initializeDatesAndExpressLogic();
         }
 
         this.currentZielgruppeState = verteilgebiet.zielgruppe;
         this.selectedEntriesForTable = [...verteilgebiet.selectedPlzEntries];
         this.mapSelectedPlzIds = this.selectedEntriesForTable.map(e => e.id);
 
-        if (!this.mapZoomToPlzId) {
-          this.mapZoomToPlzIdList = this.mapSelectedPlzIds.length > 0 ? [...this.mapSelectedPlzIds] : null;
-        }
+        this.mapZoomToPlzId = null;
+        this.mapZoomToPlzIdList = this.mapSelectedPlzIds.length > 0 ? [...this.mapSelectedPlzIds] : null;
 
         this.checkExpressSurcharge();
         this.updateAndEmitOverallValidationState();
@@ -158,87 +154,87 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     }
   }
 
-  private initializeDatesAndExpressLogic(): void {
-    const today = new Date();
-    const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  private processStadtnameFromInput(stadtName: string | undefined): void {
+    const effectiveStadt = (stadtName && stadtName.trim() !== '' && stadtName.toLowerCase() !== 'undefined')
+      ? decodeURIComponent(stadtName.trim())
+      : undefined;
 
-    const tomorrowUTC = new Date(todayUTC);
-    tomorrowUTC.setUTCDate(tomorrowUTC.getUTCDate() + 1);
-    this.minVerteilungStartdatum = this.formatDateToYyyyMmDd(tomorrowUTC);
-
-    const initialStandardDate = this.calculateTargetDate(todayUTC, 4);
-
-    this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialStandardDate);
-    this.orderDataService.updateVerteilungStartdatum(initialStandardDate);
-    this.checkExpressSurcharge();
-    this.cdr.markForCheck();
-  }
-
-  public onStartDateChange(): void {
-    let selectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
-    const minDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
-
-    if (!selectedDate || (minDate && selectedDate < minDate)) {
-      selectedDate = minDate;
-    }
-
-    if (!selectedDate) return;
-
-    if (selectedDate.getUTCDay() === 0) {
-      selectedDate.setUTCDate(selectedDate.getUTCDate() + 1);
-    }
-
-    this.verteilungStartdatum = this.formatDateToYyyyMmDd(selectedDate);
-    this.orderDataService.updateVerteilungStartdatum(selectedDate);
-    this.checkExpressSurcharge();
-  }
-
-  /**
-   * KORRIGIERTE LOGIK: Zeigt das Modal nur an, wenn Express anfällt UND noch nicht bestätigt wurde.
-   */
-  private checkExpressSurcharge(): void {
-    const selectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
-    if (!selectedDate) {
-      this.showExpressSurcharge = false;
-      this.cdr.markForCheck();
+    if (this.activeProcessingStadt === effectiveStadt) {
       return;
     }
+    this.activeProcessingStadt = effectiveStadt;
 
-    const today = new Date();
-    const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-
-    const expressWindowEndDate = this.calculateTargetDate(todayUTC, 3);
-
-    const needsExpress = selectedDate <= expressWindowEndDate;
-
-    // Die Anzeige ist nur aktiv, wenn Express nötig ist UND der Benutzer noch nicht zugestimmt hat.
-    this.showExpressSurcharge = needsExpress && !this.expressSurchargeConfirmed;
-
-    // Wenn das Datum aus dem Express-Fenster verschoben wird, wird eine eventuelle Bestätigung zurückgesetzt.
-    if (!needsExpress && this.expressSurchargeConfirmed) {
-      this.orderDataService.updateExpressConfirmed(false);
+    if (effectiveStadt) {
+      this._processAndSelectLocation(effectiveStadt, true);
+    } else {
+      this.selectionService.clearEntries();
+      this.activeProcessingStadt = undefined;
+      this.updateAndEmitOverallValidationState();
     }
-
-    this.cdr.markForCheck();
   }
 
-  private calculateTargetDate(baseDateUTC: Date, workdaysToAdd: number): Date {
-    let currentDate = new Date(baseDateUTC.getTime());
-    let addedDays = 0;
-    while (addedDays < workdaysToAdd) {
-      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-      if (currentDate.getUTCDay() !== 0) {
-        addedDays++;
-      }
+  ngAfterViewInit(): void {
+    if (this.mapComponentRef) {
+      // Expliziter Resize-Aufruf nach der Initialisierung der View.
+      setTimeout(() => this.mapComponentRef.triggerResize(), 0);
     }
-    return currentDate;
+  }
+
+  private initializeDates(): void {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const minStartDate = new Date(today);
+    minStartDate.setUTCDate(today.getUTCDate() + 1);
+    this.minVerteilungStartdatum = this.formatDateToYyyyMmDd(minStartDate);
+    this.defaultStandardStartDate = this.addWorkingDays(new Date(today), 4);
+
+    firstValueFrom(this.orderDataService.verteilgebiet$.pipe(take(1))).then(serviceState => {
+      let initialDateToSet: Date | null = null;
+      if (serviceState.verteilungStartdatum && !isNaN(new Date(serviceState.verteilungStartdatum).getTime())) {
+        const date = new Date(serviceState.verteilungStartdatum);
+        if (date >= minStartDate) {
+          initialDateToSet = date;
+        }
+      }
+
+      if (!initialDateToSet) {
+        initialDateToSet = new Date(this.defaultStandardStartDate);
+      }
+
+      if (initialDateToSet < minStartDate) {
+        initialDateToSet = new Date(minStartDate);
+      }
+
+      const serviceDateHasTime = serviceState.verteilungStartdatum ? new Date(serviceState.verteilungStartdatum).getTime() : 0;
+      const initialDateToSetTime = initialDateToSet ? initialDateToSet.getTime() : 0;
+
+      if (serviceDateHasTime !== initialDateToSetTime) {
+        if(initialDateToSet) this.orderDataService.updateVerteilungStartdatum(initialDateToSet);
+      } else {
+        if(initialDateToSet) this.verteilungStartdatum = this.formatDateToYyyyMmDd(initialDateToSet);
+        this.checkExpressSurcharge();
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private formatDateToYyyyMmDd(d: Date): string {
+    if (!d || isNaN(d.getTime())) return '';
+    return `${d.getUTCFullYear()}-${('0' + (d.getUTCMonth() + 1)).slice(-2)}-${('0' + d.getUTCDate()).slice(-2)}`;
+  }
+
+  public getFormattedDefaultStandardDateForDisplay(): string {
+    if (!this.defaultStandardStartDate || isNaN(this.defaultStandardStartDate.getTime())) return '';
+    return `${('0' + this.defaultStandardStartDate.getUTCDate()).slice(-2)}.${('0' + (this.defaultStandardStartDate.getUTCMonth() + 1)).slice(-2)}.${this.defaultStandardStartDate.getUTCFullYear()}`;
   }
 
   private parseYyyyMmDdToDate(s: string): Date | null {
     if (!s) return null;
     const p = s.split('-');
     if (p.length === 3) {
-      const y = parseInt(p[0], 10), m = parseInt(p[1], 10) - 1, d = parseInt(p[2], 10);
+      const y = parseInt(p[0], 10);
+      const m = parseInt(p[1], 10) - 1;
+      const d = parseInt(p[2], 10);
       if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
         const dt = new Date(Date.UTC(y, m, d));
         if (dt.getUTCFullYear() === y && dt.getUTCMonth() === m && dt.getUTCDate() === d) {
@@ -249,63 +245,79 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     return null;
   }
 
-  private formatDateToYyyyMmDd(d: Date): string {
-    if (!d || isNaN(d.getTime())) return '';
-    const year = d.getUTCFullYear();
-    const month = ('0' + (d.getUTCMonth() + 1)).slice(-2);
-    const day = ('0' + d.getUTCDate()).slice(-2);
-    return `${year}-${month}-${day}`;
+  private addWorkingDays(baseDate: Date, daysToAdd: number): Date {
+    let currentDate = new Date(baseDate.getTime());
+    let addedDays = 0;
+    while (addedDays < daysToAdd) {
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+      const dayOfWeek = currentDate.getUTCDay();
+      if (dayOfWeek !== 0) {
+        addedDays++;
+      }
+    }
+    return currentDate;
   }
 
-  public confirmExpressSurcharge(): void {
-    // Diese Methode kann nun simpel den Zustand umschalten.
-    // Die Anzeigelogik in `checkExpressSurcharge` kümmert sich um das Ausblenden.
-    this.orderDataService.updateExpressConfirmed(!this.expressSurchargeConfirmed);
-  }
-
-  private processStadtnameFromInput(stadtName: string | undefined): void {
-    const effectiveStadt = (stadtName && stadtName.trim() !== '' && stadtName.toLowerCase() !== 'undefined')
-      ? decodeURIComponent(stadtName.trim())
-      : undefined;
-
-    if (this.activeProcessingStadt === effectiveStadt) return;
-    this.activeProcessingStadt = effectiveStadt;
-
-    if (effectiveStadt) this._processAndSelectLocation(effectiveStadt, true);
-    else {
-      this.selectionService.clearEntries();
-      this.mapZoomToPlzId = null; this.mapZoomToPlzIdList = null;
-      this.searchInputInitialTerm = ''; this.activeProcessingStadt = undefined;
-      this.updateAndEmitOverallValidationState();
+  public onStartDateChange(): void {
+    let selectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
+    const minDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
+    if (!selectedDate || (minDate && selectedDate < minDate)) {
+      selectedDate = minDate;
+    }
+    if (selectedDate) {
+      if(selectedDate.getUTCDay() === 0){
+        selectedDate.setUTCDate(selectedDate.getUTCDate() + 1);
+      }
+      this.verteilungStartdatum = this.formatDateToYyyyMmDd(selectedDate);
+      this.orderDataService.updateVerteilungStartdatum(selectedDate);
     }
   }
 
-  ngAfterViewInit(): void { }
+  private checkExpressSurcharge(): void {
+    if (!this.verteilungStartdatum || !this.defaultStandardStartDate) {
+      if (this.showExpressSurcharge) { this.showExpressSurcharge = false; }
+      return;
+    }
+    const selectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
+    const minAllowedDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
+    if (!selectedDate || isNaN(selectedDate.getTime()) || !minAllowedDate || isNaN(minAllowedDate.getTime()) || isNaN(this.defaultStandardStartDate.getTime())) {
+      if (this.showExpressSurcharge) { this.showExpressSurcharge = false; }
+      return;
+    }
 
-  public getFormattedDefaultStandardDateForDisplay(): string {
-    const today = new Date();
-    const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-    const date = this.calculateTargetDate(todayUTC, 4);
-    if (!date || isNaN(date.getTime())) return '';
-    return `${('0' + date.getUTCDate()).slice(-2)}.${('0' + (date.getUTCMonth() + 1)).slice(-2)}.${date.getUTCFullYear()}`;
+    const needsExpress = selectedDate < this.defaultStandardStartDate && selectedDate >= minAllowedDate;
+    this.showExpressSurcharge = needsExpress && !this.expressSurchargeConfirmed;
   }
 
   public avoidExpressSurcharge(): void {
-    const today = new Date();
-    const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-    const standardDate = this.calculateTargetDate(todayUTC, 4);
-    this.orderDataService.updateVerteilungStartdatum(standardDate);
+    if (this.defaultStandardStartDate) {
+      this.orderDataService.updateVerteilungStartdatum(this.defaultStandardStartDate);
+    }
+  }
+
+  public confirmExpressSurcharge(): void {
+    this.orderDataService.updateExpressConfirmed(true);
   }
 
   public async _processAndSelectLocation(locationName: string, isFromUrlOrInitial: boolean): Promise<void> {
-    if (!locationName || locationName.trim() === '') { this.activeProcessingStadt = undefined; return; }
-    this.mapIsLoading = true; this.cdr.markForCheck();
+    if (!locationName || locationName.trim() === '') {
+      this.activeProcessingStadt = undefined;
+      return;
+    }
+    this.mapIsLoading = true;
+    this.cdr.markForCheck();
+
     const dataReady = await this.plzDataService.ensureDataReady();
-    if (!dataReady) { this.mapIsLoading = false; this.updateAndEmitOverallValidationState(); this.cdr.markForCheck(); this.activeProcessingStadt = undefined; return; }
+    if (!dataReady) {
+      this.mapIsLoading = false;
+      this.updateAndEmitOverallValidationState();
+      this.cdr.markForCheck();
+      this.activeProcessingStadt = undefined;
+      return;
+    }
 
     if (isFromUrlOrInitial) {
       this.selectionService.clearEntries();
-      this.mapZoomToPlzId = null;
     }
 
     let termToUse = locationName; let plzToSelect: PlzEntry[] = [];
@@ -329,7 +341,12 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
         }
       }
       this.searchInputInitialTerm = termToUse;
+
+      this.mapZoomToPlzId = null;
+      this.mapZoomToPlzIdList = plzToSelect.length > 0 ? plzToSelect.map(p => p.id) : null;
+
       if (plzToSelect.length > 0) this.selectionService.addMultipleEntries(plzToSelect);
+
     } catch (e) { this.searchInputInitialTerm = locationName; }
     finally {
       this.mapIsLoading = false;
@@ -345,24 +362,54 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     }
   }
 
-  public selectCityAndFetchPlz(s: string): void { this._processAndSelectLocation(s, true); }
-  public onSearchInputEntriesSelected(e: PlzEntry[]): void { if(e && e.length > 0) { this.selectionService.addMultipleEntries(e); if(isPlatformBrowser(this.platformId)) setTimeout(()=>this.scrollToMapView(),100); } }
+  public selectCityAndFetchPlz(s: string): void {
+    this._processAndSelectLocation(s, true);
+  }
+
+  public onSearchInputEntriesSelected(e: PlzEntry[]): void {
+    if(e && e.length > 0) {
+      this.selectionService.addMultipleEntries(e);
+      if(isPlatformBrowser(this.platformId)) setTimeout(()=>this.scrollToMapView(),100);
+    }
+  }
   public onSearchInputTermChanged(term: string): void { }
-  public onSearchInputStatusChanged(s: SearchInputValidationStatus): void { if(this.searchInputStatus !== s) { this.searchInputStatus = s; this.updateAndEmitOverallValidationState(); } }
+  public onSearchInputStatusChanged(s: SearchInputValidationStatus): void {
+    if(this.searchInputStatus !== s) {
+      this.searchInputStatus = s;
+      this.updateAndEmitOverallValidationState();
+    }
+  }
 
   public setVerteilungTyp(typ: VerteilungTypOptionLocal): void {
     if(this.currentVerteilungTyp !== typ) {
       this.currentVerteilungTyp = typ;
       this.orderDataService.updateVerteilungTyp(typ as OrderVerteilungTypOption);
       this.kmlFileName = null;
-      if (this.kmlFileUploadInputRef?.nativeElement) this.kmlFileUploadInputRef.nativeElement.value = '';
-      if (typ === 'Nach Perimeter') {
-        if (this.selectionService.getSelectedEntriesSnapshot().length > 0) this.selectionService.clearEntries();
-        this.activeProcessingStadt = undefined; this.searchInputInitialTerm = '';
-        if (this.searchInputComponentRef) this.searchInputComponentRef.clearInput();
-        this.mapZoomToPlzId = null; this.mapZoomToPlzIdList = null;
+      if (this.kmlFileUploadInputRef?.nativeElement) {
+        this.kmlFileUploadInputRef.nativeElement.value = '';
       }
-      this.updateUiFlagsAndMapState(); this.updateAndEmitOverallValidationState();
+      if (typ === 'Nach Perimeter') {
+        if (this.selectionService.getSelectedEntriesSnapshot().length > 0) {
+          this.selectionService.clearEntries();
+        }
+        this.activeProcessingStadt = undefined;
+        this.searchInputInitialTerm = '';
+        if (this.searchInputComponentRef) {
+          this.searchInputComponentRef.clearInput();
+        }
+        this.mapZoomToPlzId = null;
+        this.mapZoomToPlzIdList = null;
+      }
+      // KORREKTUR: Expliziter Befehl an die Karte, sich neu zu zeichnen, wenn sie sichtbar wird.
+      if (typ === 'Nach PLZ') {
+        setTimeout(() => {
+          if (this.mapComponentRef) {
+            this.mapComponentRef.triggerResize();
+          }
+        }, 0);
+      }
+      this.updateUiFlagsAndMapState();
+      this.updateAndEmitOverallValidationState();
     }
   }
 
@@ -381,75 +428,131 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   }
 
   private highlightFlyerMaxColumnAndEmitValidation(): void {
-    this.highlightFlyerMaxColumn = true; this.cdr.markForCheck();
-    setTimeout(() => { this.highlightFlyerMaxColumn = false; this.cdr.markForCheck(); }, COLUMN_HIGHLIGHT_DURATION);
+    this.highlightFlyerMaxColumn = true;
+    this.cdr.markForCheck();
+    setTimeout(() => {
+      this.highlightFlyerMaxColumn = false;
+      this.cdr.markForCheck();
+    }, COLUMN_HIGHLIGHT_DURATION);
     this.updateAndEmitOverallValidationState();
   }
 
   public onPlzClickedOnMap(evt: {id: string; name?: string}): void {
-    const id = evt.id; if(!id) return;
+    const id = evt.id;
+    if(!id) return;
     const isSelected = this.selectedEntriesForTable.some(e => e.id === id);
-    if(isSelected) this.selectionService.removeEntry(id);
-    else {
+    if(isSelected) {
+      this.selectionService.removeEntry(id);
+    } else {
       firstValueFrom(this.plzDataService.getEntryById(id).pipe(takeUntil(this.destroy$)))
-        .then(entry => { if(entry && this.selectionService.validateEntry(entry)) this.selectionService.addEntry(entry); });
+        .then(entry => {
+          if(entry && this.selectionService.validateEntry(entry)) {
+            this.selectionService.addEntry(entry);
+          }
+        });
     }
   }
 
-  public onMapLoadingStatusChanged(isLoading: boolean): void { if(this.mapIsLoading !== isLoading) { this.mapIsLoading = isLoading; this.updateAndEmitOverallValidationState(); } }
+  public onMapLoadingStatusChanged(isLoading: boolean): void {
+    if(this.mapIsLoading !== isLoading) {
+      this.mapIsLoading = isLoading;
+      this.updateAndEmitOverallValidationState();
+    }
+  }
+
   public onMapReady(): void { }
 
   public clearPlzTable(): void {
-    this.selectionService.clearEntries(); this.mapZoomToPlzId = null; this.mapZoomToPlzIdList = null;
-    this.activeProcessingStadt = undefined; this.searchInputInitialTerm = '';
-    if (this.searchInputComponentRef) this.searchInputComponentRef.clearInput();
+    this.selectionService.clearEntries();
+    this.mapZoomToPlzId = null;
+    this.mapZoomToPlzIdList = null;
+    this.activeProcessingStadt = undefined;
+    this.searchInputInitialTerm = '';
+    if (this.searchInputComponentRef) {
+      this.searchInputComponentRef.clearInput();
+    }
     if (isPlatformBrowser(this.platformId)) {
-      this.router.navigate(['/']); setTimeout(()=>this.scrollToMapView(),100);
+      this.router.navigate(['/']);
+      setTimeout(()=>this.scrollToMapView(),100);
     }
     this.updateAndEmitOverallValidationState();
   }
 
-  public removePlzFromTable(entry: PlzSelectionDetail): void { this.selectionService.removeEntry(entry.id); }
+  public removePlzFromTable(entry: PlzSelectionDetail): void {
+    this.selectionService.removeEntry(entry.id);
+  }
+
   public zoomToTableEntryOnMap(entry: PlzSelectionDetail): void {
-    this.mapZoomToPlzId = entry.id; this.mapZoomToPlzIdList = null;
-    this.cdr.markForCheck(); if(isPlatformBrowser(this.platformId)) setTimeout(()=>this.scrollToMapView(),100);
-    setTimeout(() => { this.mapZoomToPlzId = null; this.cdr.markForCheck(); }, 500);
+    this.mapZoomToPlzId = entry.id;
+    this.mapZoomToPlzIdList = null;
+    this.cdr.markForCheck();
+    if(isPlatformBrowser(this.platformId)) setTimeout(()=>this.scrollToMapView(),100);
+    setTimeout(() => {
+      this.mapZoomToPlzId = null;
+      this.cdr.markForCheck();
+    }, 500);
   }
+
   public highlightPlacemarkOnMapFromTable(event: TableHighlightEvent): void {
-    const newHoverId = (event.highlight && event.plzId) ? event.plzId : null;
-    if(this.mapTableHoverPlzId !== newHoverId) { this.mapTableHoverPlzId = newHoverId; this.cdr.markForCheck(); }
+    this.mapTableHoverPlzId = (event.highlight && event.plzId) ? event.plzId : null;
+    this.cdr.markForCheck();
   }
 
-  public onPlzFlyerCountChanged(event: { entryId: string, type: 'mfh' | 'efh', newCount: number | null }): void { this.selectionService.updateFlyerCountForEntry(event.entryId, event.newCount, event.type); }
+  public onPlzFlyerCountChanged(event: { entryId: string, type: 'mfh' | 'efh', newCount: number | null }): void {
+    this.selectionService.updateFlyerCountForEntry(event.entryId, event.newCount, event.type);
+  }
 
-  public triggerKmlUpload(): void { if (this.kmlFileUploadInputRef?.nativeElement) this.kmlFileUploadInputRef.nativeElement.click(); }
+  public triggerKmlUpload(): void {
+    if (this.kmlFileUploadInputRef?.nativeElement) {
+      this.kmlFileUploadInputRef.nativeElement.click();
+    }
+  }
 
   public onKmlFileSelected(event: Event): void {
     const inputElement = event.target as HTMLInputElement;
-    if (!inputElement) { this.kmlFileName = null; this.updateAndEmitOverallValidationState(); this.cdr.markForCheck(); return; }
+    if (!inputElement) {
+      this.kmlFileName = null;
+      this.updateAndEmitOverallValidationState();
+      this.cdr.markForCheck();
+      return;
+    }
     const files = inputElement.files;
     if (files && files.length > 0) {
-      const file = files[0]; const maxFileSize = 10 * 1024 * 1024; const allowedFileType = '.kml';
+      const file = files[0];
+      const maxFileSize = 10 * 1024 * 1024;
+      const allowedFileType = '.kml';
       if (!file.name.toLowerCase().endsWith(allowedFileType)) {
         alert(`Ungültiger Dateityp. Nur ${allowedFileType}-Dateien sind erlaubt.`);
-        this.kmlFileName = null; inputElement.value = '';
+        this.kmlFileName = null;
+        inputElement.value = '';
       } else if (file.size > maxFileSize) {
         alert(`Datei ist zu groß (max. ${maxFileSize / 1024 / 1024}MB).`);
-        this.kmlFileName = null; inputElement.value = '';
-      } else this.kmlFileName = file.name;
-    } else this.kmlFileName = null;
-    this.updateAndEmitOverallValidationState(); this.cdr.markForCheck();
+        this.kmlFileName = null;
+        inputElement.value = '';
+      } else {
+        this.kmlFileName = file.name;
+      }
+    } else {
+      this.kmlFileName = null;
+    }
+    this.updateAndEmitOverallValidationState();
+    this.cdr.markForCheck();
   }
 
   public removeKmlFile(): void {
     this.kmlFileName = null;
-    if (this.kmlFileUploadInputRef?.nativeElement) this.kmlFileUploadInputRef.nativeElement.value = '';
-    this.updateAndEmitOverallValidationState(); this.cdr.markForCheck();
+    if (this.kmlFileUploadInputRef?.nativeElement) {
+      this.kmlFileUploadInputRef.nativeElement.value = '';
+    }
+    this.updateAndEmitOverallValidationState();
+    this.cdr.markForCheck();
   }
 
   private updateAndEmitOverallValidationState(): void {
     const currentStatus = this.calculateOverallValidationStatus();
-    Promise.resolve().then(() => { this.validationChange.emit(currentStatus); });
+    Promise.resolve().then(() => {
+      this.validationChange.emit(currentStatus);
+    });
   }
 
   private calculateOverallValidationStatus(): DistributionStepValidationState {
@@ -462,21 +565,21 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     if (this.currentVerteilungTyp === 'Nach PLZ') {
       const isSearchOk = this.searchInputStatus !== 'invalid';
       if (hasSelectedEntriesForPlz && isDateOk && isExpressOk && isSearchOk) return 'valid';
-    } else {
+    } else { // Nach Perimeter
       if (this.kmlFileName && isDateOk && isExpressOk) return 'valid';
     }
     return 'invalid';
   }
 
   private isExpressSurchargeRelevant(): boolean {
+    if (!this.verteilungStartdatum || !this.defaultStandardStartDate) return false;
     const selectedDate = this.parseYyyyMmDdToDate(this.verteilungStartdatum);
-    if (!selectedDate) return false;
+    const minAllowedDate = this.parseYyyyMmDdToDate(this.minVerteilungStartdatum);
 
-    const today = new Date();
-    const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-
-    const expressEndDate = this.calculateTargetDate(todayUTC, 3);
-    return selectedDate <= expressEndDate;
+    if (!selectedDate || !minAllowedDate || isNaN(selectedDate.getTime()) || isNaN(minAllowedDate.getTime()) || isNaN(this.defaultStandardStartDate.getTime())) {
+      return false;
+    }
+    return selectedDate < this.defaultStandardStartDate && selectedDate >= minAllowedDate;
   }
 
   private scrollToMapView(): void {
@@ -484,6 +587,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     firstValueFrom(this.ngZone.onStable.pipe(takeUntil(this.destroy$), take(1))).then(() => {
       if (!this.mapViewRef?.nativeElement) return;
       const element = this.mapViewRef.nativeElement;
+
       if (element.offsetParent === null) return;
       const headerOffset = 90;
       const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;

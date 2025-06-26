@@ -36,17 +36,17 @@
 <div *ngIf="showPlzUiContainer">
 
   <div #mapView class="map-main-container" style="min-height: 100px;">
-    <app-map *ngIf="showPlzUiContainer"
-             [selectedPlzIds]="mapSelectedPlzIds"
-             [highlightFromTablePlzId]="mapTableHoverPlzId"
-             [zoomToPlzId]="mapZoomToPlzId"
-             [zoomToPlzIdList]="mapZoomToPlzIdList"
-             [kmlPath]="kmlPathConstant"
-             [apiKey]="apiKeyConstant"
-             [mapOptions]="mapConfig"
-             (plzClicked)="onPlzClickedOnMap($event)"
-             (loading)="onMapLoadingStatusChanged($event)"
-             (mapReady)="onMapReady()">
+    <!-- KORREKTUR: Die fehlerhaften Input-Bindings für den Zoom wurden entfernt. -->
+    <app-map
+      #map
+      [kmlPath]="kmlPathConstant"
+      [apiKey]="apiKeyConstant"
+      [mapOptions]="mapConfig"
+      [selectedPlzIds]="mapSelectedPlzIds"
+      [highlightFromTablePlzId]="mapTableHoverPlzId"
+      (plzClicked)="onPlzClickedOnMap($event)"
+      (loading)="onMapLoadingStatusChanged($event)"
+      (mapReady)="onMapReady()">
     </app-map>
     <div *ngIf="mapIsLoading" class="map-loader">
       <div class="spinner-border text-primary" role="status">

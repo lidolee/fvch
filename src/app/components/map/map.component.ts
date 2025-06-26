@@ -3,7 +3,7 @@ import {
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { Subject } from 'rxjs';
-import { takeUntil, take } from 'rxjs/operators';
+import { take, takeUntil } from 'rxjs/operators';
 
 declare var google: any;
 declare var geoXML3: any;
@@ -11,7 +11,6 @@ declare var geoXML3: any;
 const MAP_INIT_RETRY_DELAY_MS = 250;
 const MAX_MAP_INIT_ATTEMPTS = 25;
 const WINDOW_RESIZE_DEBOUNCE_MS = 250;
-const VIEWPORT_WIDTH_CHANGE_THRESHOLD = 5;
 
 let googleMapsScriptLoadingPromise: Promise<void> | null = null;
 
@@ -98,29 +97,25 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
   ngOnChanges(changes: SimpleChanges): void {
     if (!isPlatformBrowser(this.platformId)) return;
 
-    // Verarbeite Änderungen nur, wenn Karte UND KML-Daten geladen sind.
     if (!this.map || !this.kmlDataLoaded) {
-      if (!this.map && !this.mapInitializationScheduled) { // Wenn Karte nicht initialisiert und keine Initialisierung geplant ist
+      if (!this.map && !this.mapInitializationScheduled) {
         this.ngZone.runOutsideAngular(() => {
           requestAnimationFrame(() => this.scheduleMapInitialization());
         });
       }
-      return; // Aufschieben, bis Karte und KML bereit sind
+      return;
     }
 
     let zoomHandled = false;
 
-    // Priorität 1: Zoom auf einzelne PLZ, wenn `zoomToPlzId` geändert wurde und gesetzt ist.
     if (changes['zoomToPlzId'] && this.zoomToPlzId) {
       this.handleZoomToSinglePlz(this.zoomToPlzId);
       zoomHandled = true;
     }
-    // Priorität 2: Zoom auf Liste, wenn `zoomToPlzIdList` geändert wurde und keine einzelne PLZ aktiv ist.
     else if (changes['zoomToPlzIdList']) {
       if (this.zoomToPlzIdList && this.zoomToPlzIdList.length > 0) {
         this.handleZoomToPlzList(this.zoomToPlzIdList);
       } else {
-        // Nur zurücksetzen, wenn die Liste explizit geleert wird und kein Einzelzoom aktiv ist.
         if (!this.zoomToPlzId) {
           this.resetMapZoom();
         }
@@ -128,12 +123,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
       zoomHandled = true;
     }
 
-    // Highlight-Updates werden unabhängig behandelt.
     if (changes['selectedPlzIds'] || changes['highlightOnHoverPlzIds'] || changes['highlightFromTablePlzId']) {
-      this.applyAllMapHighlights(true); // forceAngularUpdate = true, um UI sicher zu aktualisieren
+      this.applyAllMapHighlights(true);
     } else if (!zoomHandled && this.map && this.kmlDataLoaded) {
-      // Wenn keine spezifische Zoom-Änderung, aber andere Inputs könnten Highlights indirekt beeinflussen.
-      // Dies stellt sicher, dass Highlights aktuell sind, z.B. nach externen Aktionen.
       this.applyAllMapHighlights(false);
     }
   }
@@ -165,7 +157,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
 
     this.mapInitializationScheduled = true;
     this.mapInitAttempts = 0;
-    this.kmlDataLoaded = false; // Zurücksetzen beim Planen
+    this.kmlDataLoaded = false;
     this.setInternalLoadingState(true);
 
     this.ngZone.onStable.pipe(take(1), takeUntil(this.destroy$)).subscribe(() => {
@@ -293,19 +285,17 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
           }
           this.kmlDataLoaded = true;
 
-          this.applyAllMapHighlights(true); // Zuerst Highlights anwenden
+          this.applyAllMapHighlights(true);
 
-          // Dann initialen Zoom-Status bestimmen, NACHDEM KML geladen ist
           if (this.zoomToPlzId) {
             this.handleZoomToSinglePlz(this.zoomToPlzId);
           } else if (this.zoomToPlzIdList && this.zoomToPlzIdList.length > 0) {
             this.handleZoomToPlzList(this.zoomToPlzIdList);
           } else if (this.selectedPlzIds && this.selectedPlzIds.length > 0 && this.allPlacemarks.length > 0 ) {
-            // Fallback für initialen Ladevorgang, falls selectedPlzIds bereits gefüllt ist
             this.handleZoomToPlzList(this.selectedPlzIds);
           }
           else {
-            this.resetMapZoom(); // Standard, wenn kein spezifisches Zoomziel
+            this.resetMapZoom();
           }
           this.mapReady.emit();
           this.mapInitializationScheduled = false;
@@ -343,8 +333,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
             if (!this.map) return;
             this.currentHoveredPlacemarkIdForHighlight = plzInfo.id;
             this.applyAllMapHighlights();
-            // hoverPlzDisplayRef Logik für mouseover, falls im HTML verwendet
-            if (this.hoverPlzDisplayRef?.nativeElement && plzInfo.displayText) { // Aus Original
+            if (this.hoverPlzDisplayRef?.nativeElement && plzInfo.displayText) {
               this.hoverPlzDisplayRef.nativeElement.textContent = plzInfo.displayText;
               this.hoverPlzDisplayRef.nativeElement.style.display = 'block';
             }
@@ -353,11 +342,11 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
             if (!this.map) return;
             this.currentHoveredPlacemarkIdForHighlight = null;
             this.applyAllMapHighlights();
-            if (this.hoverPlzDisplayRef?.nativeElement) { // Aus Original
+            if (this.hoverPlzDisplayRef?.nativeElement) {
               this.hoverPlzDisplayRef.nativeElement.style.display = 'none';
             }
           });
-          google.maps.event.addListener(actualPolygon, 'mousemove', (event: any) => { // Aus Original
+          google.maps.event.addListener(actualPolygon, 'mousemove', (event: any) => {
             if (!this.map || !this.hoverPlzDisplayRef?.nativeElement || this.hoverPlzDisplayRef.nativeElement.style.display !== 'block' || !event.domEvent) return;
             this.hoverPlzDisplayRef.nativeElement.style.left = (event.domEvent.clientX + 15) + 'px';
             this.hoverPlzDisplayRef.nativeElement.style.top = (event.domEvent.clientY + 15) + 'px';
@@ -464,9 +453,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
     }
   }
 
-  private handleZoomToPlzList(plzIdList: string[]): void {
-    if (!this.map || !this.allPlacemarks || !this.kmlDataLoaded || plzIdList.length === 0) {
-      if (this.kmlDataLoaded || !plzIdList || plzIdList.length === 0) { // Nur zurücksetzen, wenn KML geladen oder Liste leer ist
+  private handleZoomToPlzList(plzIdList: string[] | null): void {
+    if (!this.map || !this.allPlacemarks || !this.kmlDataLoaded || !plzIdList || plzIdList.length === 0) {
+      if (this.kmlDataLoaded || !plzIdList || plzIdList.length === 0) {
         this.resetMapZoom();
       }
       return;
@@ -494,7 +483,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
       if (foundPlacemarksForBounds > 0 && !totalBounds.isEmpty()) {
         this.map.fitBounds(totalBounds, 15);
         google.maps.event.addListenerOnce(this.map, 'idle', () => {
-          if (plzIdList.length === 1) { // Wenn nur eine PLZ in der Liste, wie Einzelzoom behandeln
+          if (plzIdList.length === 1) {
             let currentZoom = this.map.getZoom();
             if (currentZoom !== undefined && currentZoom > (this.mapOptions.initialZoom + 5)) {
               this.map.setZoom(Math.max(0, currentZoom - 2));
@@ -502,10 +491,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
           }
           this.applyAllMapHighlights(true);
         });
-      } else {
-        // Wenn keine Grenzen gefunden wurden (z.B. für "Baden"), nicht explizit zurücksetzen,
-        // sondern den aktuellen Zoom beibehalten (was der Reset-Zoom sein könnte).
-        // Ein explizites this.resetMapZoom() hier würde den vorherigen Zustand überschreiben.
       }
     });
   }
@@ -515,7 +500,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
       this.ngZone.runOutsideAngular(() => {
         this.map.setCenter(this.mapOptions.initialCenter);
         this.map.setZoom(this.mapOptions.initialZoom);
-        if (this.kmlDataLoaded) { // Highlights nur anwenden, wenn KML da ist
+        if (this.kmlDataLoaded) {
           google.maps.event.addListenerOnce(this.map, 'idle', () => this.applyAllMapHighlights(true));
         }
       });
@@ -545,7 +530,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
         } catch (e) {
           reject(e);
         } finally {
-          try { delete (window as any)[callbackName]; } catch (e) {/* ignore */}
+          try { delete (window as any)[callbackName]; } catch (e) {}
         }
       };
 
@@ -571,7 +556,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
       const tempMapsCallbackName = `temp_${callbackName}`;
       (window as any)[tempMapsCallbackName] = () => {
         loadGeoXmlAndResolve();
-        try { delete (window as any)[tempMapsCallbackName]; } catch (e) {/* ignore */}
+        try { delete (window as any)[tempMapsCallbackName]; } catch (e) {}
       };
 
       const script = document.createElement('script');
@@ -582,6 +567,13 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
       document.head.appendChild(script);
     });
     return googleMapsScriptLoadingPromise;
+  }
+
+  public triggerResize(): void {
+    if (!this.map || !isPlatformBrowser(this.platformId) || !google.maps) return;
+    this.ngZone.runOutsideAngular(() => {
+      google.maps.event.trigger(this.map, 'resize');
+    });
   }
 
   private readonly onWindowResize = (): void => {
