@@ -1,4 +1,4 @@
-import {Injectable} from '@angular/core';
+import {Inject, Injectable, PLATFORM_ID} from '@angular/core';
 import {HttpClient, HttpErrorResponse} from '@angular/common/http';
 import {BehaviorSubject, Observable, of} from 'rxjs';
 import {catchError, map, shareReplay} from 'rxjs/operators';
@@ -6,6 +6,7 @@ import {
   DesignPackageType, DesignPrices, VerteilzuschlagFormatKey, FlyerFormatType,
   PlzSelectionDetail, PrintServiceDetails, DistributionCostItem
 } from './order-data.types';
+import { isPlatformBrowser } from '@angular/common';
 
 const PRICES_JSON_PATH = 'assets/prices.json';
 
@@ -39,8 +40,18 @@ export class CalculatorService {
     shareReplay(1)
   );
 
-  constructor(private http: HttpClient) {
-    this.loadPrices().subscribe();
+  constructor(
+    private http: HttpClient,
+    // Inject PLATFORM_ID to detect if we are on the server or in the browser.
+    @Inject(PLATFORM_ID) private platformId: Object
+  ) {
+    // THIS IS THE FIX: Only attempt to load prices via HTTP if we are in a browser environment.
+    // This prevents the timeout error during Server-Side Rendering (SSR).
+    if (isPlatformBrowser(this.platformId)) {
+      this.loadPrices().subscribe();
+    } else {
+      console.log('SSR Environment: Skipping HttpClient call for prices.json on the server.');
+    }
   }
 
   private loadPrices(): Observable<AppPrices | null> {
