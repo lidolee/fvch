@@ -72,10 +72,10 @@
       .package-name {
         text-transform: uppercase;
         font-size: 16px;
-        font-weight: 900;
+        font-weight: 700;
         color: $gray-900;
         margin-bottom: 6px;
-        letter-spacing: 1px;
+        letter-spacing: .3px;
         display: inline-block;
         width: calc(100% - 36px);
       }
@@ -83,8 +83,8 @@
       .package-slogan {
         text-transform: uppercase;
         font-size: 13px;
-        font-weight: 800;
-        letter-spacing: .5px;
+        font-weight: 600;
+        letter-spacing: .3px;
         color: $gray-600;
         margin-bottom: 18px;
         line-height: 1;
@@ -95,7 +95,7 @@
       .package-price {
         font-family: $font-family-sans-serif;
         font-size: 21px;
-        font-weight: 800;
+        font-weight: 600;
         color: $primary;
         margin: 0 6px 0 0;
         line-height: 1.2;
@@ -127,7 +127,7 @@
         text-transform: uppercase;
         letter-spacing: .3px;
         font-size: 13px;
-        font-weight: 800;
+        font-weight: 600;
         padding: 16px 0 0 0;
         list-style: none;
         width: 100%;
@@ -187,8 +187,8 @@
         font-size: 13px;
         padding-top: 4px !important;
         text-transform: uppercase !important;
-        font-weight: 800 !important;
-        letter-spacing: .5px !important;
+        font-weight: 600 !important;
+        letter-spacing: .3px !important;
       }
 
       &.selected {

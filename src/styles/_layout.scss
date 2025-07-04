@@ -18,9 +18,9 @@ header {
 .page-title {
   @include font-headline();
   text-transform: uppercase;
-  font-weight: 900;
+  font-weight: 700;
   font-size: 24px;
-  letter-spacing: 1px;
+  letter-spacing: .3px;
   color: $gray-600;
   margin-top: 36px;
 }

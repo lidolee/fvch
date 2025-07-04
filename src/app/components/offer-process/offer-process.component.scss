@@ -26,7 +26,7 @@
     text-transform: uppercase;
     font-size: 12px;
     letter-spacing: .3px;
-    font-weight: 900;
+    font-weight: 700;
     background-color: transparent;
     padding: 20px 0 !important;
     line-height: 100%;
@@ -41,7 +41,7 @@
 
     &.active {
       color: $primary;
-      font-weight: 900;
+      font-weight: 700;
     }
 
     .validation-icon {
@@ -64,8 +64,8 @@
       @include font-headline();
       text-transform: uppercase;
       font-size: 16px;
-      letter-spacing: .5px;
-      font-weight: 900;
+      letter-spacing: .3px;
+      font-weight: 700;
       background-color: transparent;
       padding: 20px 16px !important;
       line-height: 100%;
@@ -83,7 +83,7 @@
       &.active {
         background-color: $white;
         color: $primary;
-        font-weight: 900;
+        font-weight: 700;
         border-top: 3px solid $primary;
         border-right: 1px solid $border-color;
         border-bottom: 1px solid transparent;
