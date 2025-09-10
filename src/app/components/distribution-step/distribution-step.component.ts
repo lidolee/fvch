@@ -129,6 +129,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
         this.selectedEntriesForTable = [...verteilgebiet.selectedPlzEntries];
         this.mapSelectedPlzIds = this.selectedEntriesForTable.map(e => e.id);
 
+        // HINZUGEFÜGT: Stellt sicher, dass die Karte auf die gesamte Auswahl zoomt, wenn sich die Auswahl ändert.
         this.mapZoomToPlzId = null;
         this.mapZoomToPlzIdList = this.mapSelectedPlzIds.length > 0 ? [...this.mapSelectedPlzIds] : null;
 
@@ -175,7 +176,6 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
 
   ngAfterViewInit(): void {
     if (this.mapComponentRef) {
-      // Expliziter Resize-Aufruf nach der Initialisierung der View.
       setTimeout(() => this.mapComponentRef.triggerResize(), 0);
     }
   }
@@ -342,6 +342,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
       }
       this.searchInputInitialTerm = termToUse;
 
+      // HINZUGEFÜGT: Stellt sicher, dass die Karte auf die neu ausgewählte Stadt zoomt
       this.mapZoomToPlzId = null;
       this.mapZoomToPlzIdList = plzToSelect.length > 0 ? plzToSelect.map(p => p.id) : null;
 
@@ -400,7 +401,6 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
         this.mapZoomToPlzId = null;
         this.mapZoomToPlzIdList = null;
       }
-      // KORREKTUR: Expliziter Befehl an die Karte, sich neu zu zeichnen, wenn sie sichtbar wird.
       if (typ === 'Nach PLZ') {
         setTimeout(() => {
           if (this.mapComponentRef) {
@@ -483,8 +483,9 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   }
 
   public zoomToTableEntryOnMap(entry: PlzSelectionDetail): void {
+    // HINZUGEFÜGT: Setzt die richtigen Properties für den gezielten Zoom.
     this.mapZoomToPlzId = entry.id;
-    this.mapZoomToPlzIdList = null;
+    this.mapZoomToPlzIdList = null; // Wichtig: Deaktiviert den Gruppen-Zoom
     this.cdr.markForCheck();
     if(isPlatformBrowser(this.platformId)) setTimeout(()=>this.scrollToMapView(),100);
     setTimeout(() => {

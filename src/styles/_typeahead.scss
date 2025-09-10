@@ -67,11 +67,15 @@ ngb-typeahead-window.dropdown-menu {
       width: 100%;
       cursor: pointer;
       display: inline-block;
-      padding: 6px 12px 6px 32px;
+      padding: 6px 16px 6px 16px;
       font-size: 16px;
       text-transform: none;
-      font-weight: 700;
+      font-weight: 500;
+      font-family: "Golos Text", sans-serif;
 
+      .citygroup {
+        color: $black;
+      }
 
       mark {
         padding: 0;
@@ -98,10 +102,14 @@ ngb-typeahead-window.dropdown-menu {
         display: inline-block;
         width: auto;
         vertical-align: middle;
+        color: $gray-800;
+        font-variant: tabular-nums;
       }
 
       .typeahead-col-icon {
-        width: 48px;
+        width: 40px;
+        text-align: right;
+        color: $black;
 
         .mdi {
           font-size: 1.3em;
@@ -114,7 +122,6 @@ ngb-typeahead-window.dropdown-menu {
 
       .typeahead-col-main {
         min-width: 300px;
-        text-transform: uppercase;
       }
 
       .typeahead-col-action {

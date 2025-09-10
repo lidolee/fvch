@@ -25,15 +25,15 @@
          role="option" [id]="(typeaheadInstance?.popupId || 'default-typeahead') + '-' + (i !== undefined ? i : 'unknown_index')">
         <div class="d-flex align-items-center w-100">
             <div class="typeahead-col-icon me-2">
-                <i *ngIf="r.isGroupHeader" class="mdi mdi-select-group" title="Ortsgruppe"></i>
+                <i *ngIf="r.isGroupHeader" class="mdi mdi-home-city" title="Ortsgruppe"></i>
                 <span *ngIf="!r.isGroupHeader">{{ r.plz4 }}</span>
             </div>
             <div class="typeahead-col-main flex-grow-1">
-                <span *ngIf="r.isGroupHeader" class="fw-bold">{{ r.ort || r.plz4 }}</span>
-                <span *ngIf="r.isGroupHeader && r.childPlzCount" class="text-muted small"> ({{r.childPlzCount}} PLZ)</span>
+                <span *ngIf="r.isGroupHeader" class="fw-medium citygroup">{{ r.ort || r.plz4 }}</span>
+                <span *ngIf="r.isGroupHeader && r.childPlzCount" class="text-muted">&nbsp;&nbsp;·&nbsp;&nbsp;{{r.childPlzCount}} PLZ</span>
                 <span *ngIf="!r.isGroupHeader">{{ r.ort }}</span>
             </div>
-            <div class="typeahead-col-kanton text-muted small ms-2" *ngIf="r.kt && r.kt !== 'N/A' && !r.isGroupHeader">{{ r.kt }}</div>
+            <div class="typeahead-col-kanton text-muted ms-2" *ngIf="r.kt && r.kt !== 'N/A' && !r.isGroupHeader">{{ r.kt }}</div>
         </div>
     </div>
 </ng-template>

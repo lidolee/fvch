@@ -10,14 +10,14 @@
             <thead>
             <tr>
               <th class="item-label">Beschreibung</th>
-              <th class="item-quantity text-end">Flyer</th>
-              <th class="item-subtotal text-end">Preis</th>
+              <th class="text-end">Flyer</th>
+              <th class="text-end">Preis CHF</th>
             </tr>
             </thead>
             <tbody>
             <ng-container *ngIf="kosten.distributionCostItems.length > 0">
               <tr>
-                <td class="item-label fw-bold" colspan="3">{{ kosten.distributionHeadline }}</td>
+                <td class="item-label item-headline" colspan="3">{{ kosten.distributionHeadline }}</td>
               </tr>
               <tr *ngFor="let item of kosten.distributionCostItems">
                 <td class="item-label">{{ item.plz }} {{ item.ort }}</td>
@@ -30,11 +30,11 @@
             </ng-container>
 
             <tr class="table-light">
-              <td class="item-label fw-bold">Flyer Total</td>
-              <td class="item-quantity text-end fw-bold">
+              <td class="item-label fw-medium">Flyer Total</td>
+              <td class="item-quantity text-end fw-medium">
                 <span *ngIf="!kosten.isAnderesFormatSelected">{{ kosten.totalFlyersForDistribution | number:'1.0-0':'de-CH' }}</span>
               </td>
-              <td class="item-subtotal text-end fw-bold">
+              <td class="item-subtotal text-end fw-medium">
                 <ng-container *ngIf="typeof kosten.verteilungTotal === 'number'; else stringPriceVT">{{ kosten.verteilungTotal | number:'1.2-2':'de-CH' }}</ng-container>
                 <ng-template #stringPriceVT>{{ kosten.verteilungTotal }}</ng-template>
               </td>
@@ -43,7 +43,7 @@
             <tr *ngIf="(typeof kosten.ausgleichKleinauftragPrice === 'string' && kosten.ausgleichKleinauftragPrice) || (typeof kosten.ausgleichKleinauftragPrice === 'number' && kosten.ausgleichKleinauftragPrice)">
               <td class="item-label">Ausgleich Kleinauftrag<sup>3</sup></td>
               <td class="item-quantity text-end"></td>
-              <td class="item-subtotal text-end">
+              <td class="item-subtotal text-end fw-medium">
                 <ng-container *ngIf="typeof kosten.ausgleichKleinauftragPrice === 'number'; else stringPriceKAP">{{ kosten.ausgleichKleinauftragPrice | number:'1.2-2':'de-CH' }}</ng-container>
                 <ng-template #stringPriceKAP>{{ kosten.ausgleichKleinauftragPrice }}</ng-template>
               </td>
@@ -118,8 +118,8 @@
             </tbody>
             <tfoot>
             <tr class="table-light">
-              <td class="fw-bold">Zwischensumme Verteilung</td>
-              <td class="text-end fw-bold">
+              <td class="fw-medium">Zwischensumme Verteilung</td>
+              <td class="text-end fw-medium">
                 <ng-container *ngIf="typeof kosten.subTotalDistribution === 'number'; else stringPriceSTD">{{ kosten.subTotalDistribution | number:'1.2-2':'de-CH' }}</ng-container>
                 <ng-template #stringPriceSTD>{{ kosten.subTotalDistribution }}</ng-template>
               </td>
@@ -158,8 +158,8 @@
         <table class="table calculation-table">
           <tbody>
           <tr class="table-light">
-            <td class="item-label fw-bold">{{ kosten.selectedDesignPackageName }}</td>
-            <td class="item-subtotal text-end fw-bold">
+            <td class="item-label fw-medium">{{ kosten.selectedDesignPackageName }}</td>
+            <td class="item-subtotal text-end fw-medium">
               {{ kosten.designPackageCost | number:'1.2-2':'de-CH' }}
             </td>
           </tr>
@@ -173,22 +173,22 @@
         <table class="table calculation-table">
           <tbody>
           <tr class="table-light">
-            <td class="fw-bold">Zwischentotal</td>
-            <td class="text-end fw-bold">
+            <td class="fw-medium">Zwischentotal</td>
+            <td class="text-end fw-medium">
               <ng-container *ngIf="typeof kosten.subTotalNetto === 'number'; else stringPriceSTN">{{ kosten.subTotalNetto | number:'1.2-2':'de-CH' }}</ng-container>
               <ng-template #stringPriceSTN>{{ kosten.subTotalNetto }}</ng-template>
             </td>
           </tr>
-          <tr class="table-light">
+          <tr class="table-light price-tax">
             <td>Mehrwertsteuer {{ kosten.taxRatePercent }}%</td>
             <td class="text-end">
               <ng-container *ngIf="typeof kosten.taxAmount === 'number'; else stringPriceTA">{{ kosten.taxAmount | number:'1.2-2':'de-CH' }}</ng-container>
               <ng-template #stringPriceTA>{{ kosten.taxAmount }}</ng-template>
             </td>
           </tr>
-          <tr class="table-light">
-            <td class="fw-bold fs-5">Total provisorisch</td>
-            <td class="text-end fw-bold fs-5">
+          <tr class="table-light price-final">
+            <td>Total provisorisch</td>
+            <td class="text-end">
               <ng-container *ngIf="typeof kosten.grandTotalCalculated === 'number'; else stringPriceGTC">{{ kosten.grandTotalCalculated | number:'1.2-2':'de-CH' }}</ng-container>
               <ng-template #stringPriceGTC>{{ kosten.grandTotalCalculated }}</ng-template>
             </td>
@@ -224,6 +224,6 @@
       <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2" (click)="onRequestPrevious()">Zurück</button>
       <button type="button" class="btn btn-lg btn-success w-50 ms-2" (click)="onRequestSubmit()" [disabled]="currentStepValidationStatus !== 'valid'">Absenden</button>
     </div>
-    <div *ngIf="activeStep === 3" class="secure-box text-center"><i class="mdi mdi-lock-check fs-4">&nbsp;</i>256-Bit TLS Verschlüsselte Übertragung</div>
+    <div *ngIf="activeStep === 3" class="secure-box text-center"><i class="mdi mdi-lock-check fs-4">&nbsp;</i>256-Bit TLS Verschlüsselte Datenübertragung</div>
   </div>
 </div>

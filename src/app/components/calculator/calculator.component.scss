@@ -62,7 +62,7 @@
       .cost-group {
         .cost-group-title {
           @include lined();
-          margin: 24px 0 18px 0;
+          margin: 48px 0 18px 0;
 
           span {
             font-weight: 700;
@@ -94,20 +94,68 @@
           }
 
           td {
-            font-weight: 600;
+            font-weight: 500;
             padding: 10px 8px;
+            color: $gray-700;
           }
+
+          .item-label.fw-bold {
+            font-weight: 600 !important;
+          }
+
+          .item-headline {
+            @include font-headline;
+            text-transform: uppercase;
+            font-size: 14px;
+            font-weight: 700;
+            color: $gray-500;
+            padding-top: 14px;
+            padding-bottom: 14px;
+          }
+
+          .item-subtotal,
+          .item-quantity {
+            font-weight: 400;
+          }
+        }
+      }
+
+      .table-light {
+        .item-quantity {}
+        td {
+          color: $black !important;
+          font-weight: 500 !important;
+          border-bottom: 1px solid $gray-500;
         }
       }
     }
 
+    .total-summary {
+
+      .price-tax {
+        td {
+          border-bottom: 1px solid $gray-500;
+          color: $gray-700 !important;
+        }
+      }
+
+      .price-final {
+         td {
+           font-weight: 600 !important;
+           border-bottom: 1px solid $gray-500;
+           font-size: 17px;
+         }
+       }
+    }
+
     .secure-box {
+      @include font-headline;
       margin-top: 16px;
+      margin-bottom: 32px;
       text-transform: uppercase;
-      font-size: 16px;
-      font-weight: bold;
+      font-size: 13px;
+      font-weight: 600;
       color: $gray-600;
     }
   }
 }
-

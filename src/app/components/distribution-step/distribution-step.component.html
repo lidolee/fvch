@@ -36,7 +36,7 @@
 <div *ngIf="showPlzUiContainer">
 
   <div #mapView class="map-main-container" style="min-height: 100px;">
-    <!-- KORREKTUR: Die fehlerhaften Input-Bindings für den Zoom wurden entfernt. -->
+    <!-- KORREKTUR: Die Input-Bindings für den Zoom wurden hinzugefügt. -->
     <app-map
       #map
       [kmlPath]="kmlPathConstant"
@@ -44,6 +44,8 @@
       [mapOptions]="mapConfig"
       [selectedPlzIds]="mapSelectedPlzIds"
       [highlightFromTablePlzId]="mapTableHoverPlzId"
+      [zoomToPlzId]="mapZoomToPlzId"
+      [zoomToPlzIdList]="mapZoomToPlzIdList"
       (plzClicked)="onPlzClickedOnMap($event)"
       (loading)="onMapLoadingStatusChanged($event)"
       (mapReady)="onMapReady()">

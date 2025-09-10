@@ -437,6 +437,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
         const bounds = this.getPolygonBounds(actualPolygon);
         if (bounds && !bounds.isEmpty()) {
           this.ngZone.runOutsideAngular(() => {
+            google.maps.event.trigger(this.map, 'resize'); // HINZUGEFÜGT: Stellt korrekte Viewport-Grösse sicher
             this.map.fitBounds(bounds, 10);
             if (this.singlePolygonZoomAdjustListener) google.maps.event.removeListener(this.singlePolygonZoomAdjustListener);
             this.singlePolygonZoomAdjustListener = google.maps.event.addListenerOnce(this.map, 'idle', () => {
@@ -481,6 +482,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges
       });
 
       if (foundPlacemarksForBounds > 0 && !totalBounds.isEmpty()) {
+        google.maps.event.trigger(this.map, 'resize'); // HINZUGEFÜGT: Stellt korrekte Viewport-Grösse sicher
         this.map.fitBounds(totalBounds, 15);
         google.maps.event.addListenerOnce(this.map, 'idle', () => {
           if (plzIdList.length === 1) {
