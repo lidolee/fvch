@@ -25,7 +25,7 @@
         <i class="mdi mdi-map-marker-path card-icon"></i>
         <span class="card-content">
           <span class="card-title">Nach Perimeter</span>
-          <span class="card-description">Gebiet auf Karte zeichnen</span>
+          <span class="card-description">Individuelles Zielgebiet</span>
         </span>
         <span class="card-indicator"></span>
       </button>
@@ -34,9 +34,8 @@
 </div>
 
 <div *ngIf="showPlzUiContainer">
-
+  
   <div #mapView class="map-main-container" style="min-height: 100px;">
-    <!-- KORREKTUR: Die Input-Bindings für den Zoom wurden hinzugefügt. -->
     <app-map
       #map
       [kmlPath]="kmlPathConstant"
@@ -56,7 +55,7 @@
       </div>
     </div>
   </div>
-
+  
   <app-search-input
     #searchInputComponent
     class="mt-3"
@@ -67,10 +66,10 @@
     [(ngModel)]="searchInputInitialTerm"
     name="searchInputPlzOrtDistributionStep">
   </app-search-input>
-
+  
   <div *ngIf="searchInputStatus === 'invalid' && searchInputInitialTerm && searchInputInitialTerm.length > 0" class="text-danger small mt-1 ps-1">Eingabe ungültig oder keine Treffer.</div>
   <div *ngIf="searchInputStatus === 'pending'" class="text-muted small mt-1 ps-1">Suche aktiv...</div>
-
+  
   <ng-container *ngIf="selectedEntriesForTable.length > 0">
     <div class="my-4 row">
       <div class="col-sm-12">
@@ -108,14 +107,14 @@
         </div>
       </div>
     </div>
-
+    
     <div>
       <h3 class="section-title mt-4 mb-0"><span>Ihre Auswahl: {{ selectedEntriesForTable.length }} PLZ</span></h3>
       <div class="delete-plz-list text-end mt-2 mb-4">
         <button class="btn btn-sm btn-outline-danger" type="button" (click)="clearPlzTable()"><i class="mdi mdi-playlist-remove fs-6"></i>&nbsp;Liste löschen</button>
       </div>
     </div>
-
+    
     <div>
       <app-plz-selection-table
         [entries]="selectedEntriesForTable"
@@ -128,7 +127,7 @@
       </app-plz-selection-table>
     </div>
   </ng-container>
-
+  
   <ng-template #showBeliebteRegionenBlock>
     <div class="alert alert-light text-center mt-3" role="alert" *ngIf="showPlzUiContainer && selectedEntriesForTable.length === 0">
       <div class="popular-locations text-center">
@@ -159,45 +158,20 @@
 </div>
 
 <div *ngIf="showPerimeterUiContainer">
+  
+  <div class="perimeter-container mt-4">
+    <fieldset>
+      <legend><span>Verteilung nach Perimeter</span></legend>
+      
+      <p class="fw-medium">Für die Perimeter Verteilung benötigen wir Ihr gewünschtes Zielgebiet, um Ihre Offerte zu berechnen.</p>
+      <ul>
+        <li>Nach Absenden Ihrer Anfrage erhalten Sie eine E-Mail Bestätigung mit weiteren Informationen</li>
+        <li>Unsere Mitarbeiter kümmern sich dann persönlich um Ihre Anfrage</li>
+      </ul>
+      <hr>
+      <p><strong>Preise ab CHF 250 pro 1'000 Flyer</strong></p>
+    </fieldset>
 
-  <div class="perimeter-container reminder" >
-    <div class="reminder-title">Verteilung nach GPS-Perimeter</div>
-    <ul>
-      <li>Für die Verteilung nach GPS-Perimeter benötigen wir Ihr gewünschtes Zielgebiet, um die Flyeranzahl und Kosten zu berechnen.</li>
-      <li>Nach dem Absenden Ihrer Anfrage erhalten Sie umgehend Ihre Offerte.</li>
-      <li><strong>Preise ab CHF 250.– pro 1'000 Flyer</strong></li>
-    </ul>
-
-    <div class="my-4">
-      <div class="ratio ratio-16x9">
-        <video controls>
-          <source src="assets/img/perimeter.webm" type="video/webm">
-          Ihr Browser unterstützt das Video-Tag nicht.
-        </video>
-      </div>
-    </div>
-
-    <ol>
-      <li>Öffnen Sie <a href="https://earth.google.com" target="_blank" rel="noopener noreferrer"><strong>Google Earth</strong></a></li>
-      <li>Neue <strong>lokale KML-Datei</strong> erstellen <span class="badge text-bg-secondary">CTRL + K</span><br /><i class="mdi mdi-arrow-right-thin"></i> Projektname: GPS-Perimeter – Ihre Firma</li>
-      <li>Zielgebiet als <strong>Pfad oder Polygon</strong> einzeichnen <span class="badge text-bg-secondary">CTRL + SHIFT + L</span><br /><i class="mdi mdi-arrow-right-thin"></i> In Projekt speichern</li>
-      <li>Auf die <strong>drei Punkte</strong>&nbsp;<span class="badge text-bg-secondary fs-6"><i class="mdi mdi-dots-vertical"></i></span>&nbsp;beim Eintrag klicken <br /><i class="mdi mdi-arrow-right-thin"></i> KML-Datei exportieren</li>
-      <li>KML-Datei hochladen</li>
-    </ol>
-
-    <div class="mt-3 card p-4">
-      <p class="text-muted">Bitte laden Sie Ihr GPS-Perimeter als <strong>KML-Datei</strong> hoch - max. 10 MB.</p>
-      <div class="input-group">
-        <input class="form-control" type="file" id="kmlFileUpload" #kmlFileUpload (change)="onKmlFileSelected($event)" accept=".kml"/>
-        <button type="button" class="btn btn-sm btn-primary" (click)="triggerKmlUpload()"> <i class="mdi mdi-upload"></i> hochladen</button>
-      </div>
-      <div *ngIf="kmlFileName" class="mt-2 small">
-        Ausgewählte Datei: {{ kmlFileName }}
-        <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" (click)="removeKmlFile()" title="KML-Datei entfernen">
-          <i class="mdi mdi-close-circle"></i>
-        </button>
-      </div>
-    </div>
   </div>
 </div>
 

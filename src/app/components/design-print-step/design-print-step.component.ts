@@ -1,8 +1,8 @@
-import { Component, OnInit, OnDestroy, Output, EventEmitter, ChangeDetectorRef, ChangeDetectionStrategy, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, EventEmitter, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, Observable, firstValueFrom } from 'rxjs';
-import { takeUntil, distinctUntilChanged, map, withLatestFrom, take } from 'rxjs/operators';
+import { Subject, Observable, firstValueFrom, combineLatest } from 'rxjs';
+import { takeUntil, take } from 'rxjs/operators';
 import { OrderDataService } from '../../services/order-data.service';
 import {
   DesignPackageType, PrintOptionType, FlyerFormatType, AnlieferungType,
@@ -20,25 +20,19 @@ import {
 })
 export class DesignPrintStepComponent implements OnInit, OnDestroy {
   @Output() validationChange = new EventEmitter<boolean>();
-  @ViewChild('pdfFileUpload') pdfFileUploadInputRef!: ElementRef<HTMLInputElement>;
 
   private destroy$ = new Subject<void>();
   public produktionState$: Observable<ProduktionDataState>;
-  public currentStatus$: Observable<'valid' | 'invalid' | 'pending'>;
   public currentVerteilungTyp: VerteilungTypOption = 'Nach PLZ';
 
   public druckAuflage: number | null = 0;
   public druckReserve: number | null = 0;
-  public pdfFileName: string | null = null;
 
   constructor(
     public orderDataService: OrderDataService,
     private cdr: ChangeDetectorRef
   ) {
     this.produktionState$ = this.orderDataService.produktion$;
-    this.currentStatus$ = this.orderDataService.validierungsStatus$.pipe(
-      map(vs => vs.isStep2Valid ? 'valid' : 'invalid')
-    );
   }
 
   ngOnInit(): void {
@@ -57,54 +51,57 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
     });
 
-    this.orderDataService.produktion$.pipe(
+    combineLatest([
+      this.orderDataService.verteilgebiet$,
+      this.orderDataService.produktion$
+    ]).pipe(
       takeUntil(this.destroy$)
-    ).subscribe(state => {
-      console.log(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] produktionState$ emitted:`, JSON.parse(JSON.stringify(state)));
+    ).subscribe(([verteilgebiet, produktion]) => {
+      const isValid = this.calculateValidationStatus(verteilgebiet, produktion);
+      this.validationChange.emit(isValid);
 
       if (this.currentVerteilungTyp === 'Nach PLZ') {
-        if (this.druckAuflage !== state.printServiceDetails.auflage) {
-          this.druckAuflage = state.printServiceDetails.auflage;
+        if (this.druckAuflage !== produktion.printServiceDetails.auflage) {
+          this.druckAuflage = produktion.printServiceDetails.auflage;
         }
       } else {
         if (this.druckAuflage !== 0) {
           this.druckAuflage = 0;
         }
-        if (state.printServiceDetails.auflage !== 0) {
+        if (produktion.printServiceDetails.auflage !== 0) {
           this.orderDataService.updatePrintServiceDetails({ auflage: 0 });
         }
       }
 
-      if (this.druckReserve !== state.printServiceDetails.reserve) {
-        this.druckReserve = state.printServiceDetails.reserve;
-      }
-
-      if (state.designPackage !== 'eigenes' && this.pdfFileName !== null) {
-        this.pdfFileName = null;
-        if (this.pdfFileUploadInputRef?.nativeElement) {
-          this.pdfFileUploadInputRef.nativeElement.value = '';
-        }
+      if (this.druckReserve !== produktion.printServiceDetails.reserve) {
+        this.druckReserve = produktion.printServiceDetails.reserve;
       }
       this.cdr.markForCheck();
     });
-
-    this.currentStatus$.pipe(
-      takeUntil(this.destroy$),
-      distinctUntilChanged()
-    ).subscribe(status => {
-      // Schedule the emission to the next JavaScript microtask queue
-      Promise.resolve().then(() => {
-        this.validationChange.emit(status === 'valid');
-      });
-    });
-
-    this.orderDataService.verteilgebiet$.pipe(
-      withLatestFrom(this.orderDataService.produktion$),
-      takeUntil(this.destroy$)
-    ).subscribe(([vg, produktion]) => {
-      this.handleAuflageLogic(vg, produktion);
-    });
   }
+
+  private calculateValidationStatus(verteilgebiet: VerteilgebietDataState, produktion: ProduktionDataState): boolean {
+    if (!produktion.printOption) {
+      return false;
+    }
+
+    if (produktion.printOption === 'anliefern') {
+      return !!produktion.anlieferDetails.format && !!produktion.anlieferDetails.anlieferung;
+    }
+
+    if (produktion.printOption === 'service') {
+      const auflageConditionMet = (verteilgebiet.verteilungTyp === 'Nach Perimeter') || (produktion.printServiceDetails.auflage > 0);
+      return !!produktion.printServiceDetails.format &&
+        !!produktion.printServiceDetails.grammatur &&
+        !!produktion.printServiceDetails.art &&
+        !!produktion.printServiceDetails.ausfuehrung &&
+        auflageConditionMet &&
+        produktion.printServiceDetails.reserve !== null && produktion.printServiceDetails.reserve >= 0;
+    }
+
+    return false; // Should not be reached if printOption is one of the valid types
+  }
+
 
   private handleAuflageLogic(vg: VerteilgebietDataState, produktion: ProduktionDataState): void {
     console.log(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] handleAuflageLogic. VerteilungTyp: ${vg.verteilungTyp}, TotalFlyers: ${vg.totalFlyersCount}, PrintOption: ${produktion.printOption}`);
@@ -143,17 +140,15 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
 
   onDesignPackageSelect(pkg: DesignPackageType | null): void {
     this.orderDataService.updateDesignPackage(pkg);
-    if (pkg !== 'eigenes') {
-      this.pdfFileName = null;
-      if (this.pdfFileUploadInputRef?.nativeElement) {
-        this.pdfFileUploadInputRef.nativeElement.value = '';
-      }
-      this.orderDataService.updateEigenesDesignPdfStatus(false);
-    }
     this.cdr.markForCheck();
   }
 
   onPrintOptionSelect(option: PrintOptionType | null): void {
+    if (option === 'anliefern') {
+      this.orderDataService.resetDesignAndPrintDetails();
+    } else if (option === 'service') {
+      this.orderDataService.resetAnlieferDetails();
+    }
     this.orderDataService.updatePrintOption(option);
     firstValueFrom(this.orderDataService.verteilgebiet$.pipe(take(1))).then(vg => {
       firstValueFrom(this.orderDataService.produktion$.pipe(take(1))).then(prod => {
@@ -202,87 +197,6 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
   onDruckReserveChange(): void {
     const finalReserve = this.druckReserve ?? 0;
     this.orderDataService.updatePrintServiceDetails({ reserve: finalReserve });
-  }
-
-  public triggerPdfUpload(): void {
-    if (this.pdfFileUploadInputRef?.nativeElement) {
-      this.pdfFileUploadInputRef.nativeElement.click();
-    } else {
-      console.error(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] PDF file input ref not available.`);
-    }
-  }
-
-  public async onPdfFileSelected(event: Event): Promise<void> {
-    const inputElement = event.target as HTMLInputElement;
-    const produktionState = await firstValueFrom(this.produktionState$);
-
-    if (!produktionState) {
-      console.error(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] Production state not available.`);
-      this.pdfFileName = null;
-      this.orderDataService.updateEigenesDesignPdfStatus(false);
-      if (inputElement) inputElement.value = '';
-      this.cdr.markForCheck();
-      return;
-    }
-
-    if (produktionState.designPackage !== 'eigenes') {
-      console.log(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] PDF upload attempt while design package is not 'eigenes'.`);
-      alert('PDF-Upload ist nur beim Design-Paket "eigenes" erlaubt.');
-      this.pdfFileName = null;
-      this.orderDataService.updateEigenesDesignPdfStatus(false);
-      if (inputElement) inputElement.value = '';
-      this.cdr.markForCheck();
-      return;
-    }
-
-    const files = inputElement?.files;
-
-    if (files && files.length > 0) {
-      const file = files[0];
-      const maxFileSize = 30 * 1024 * 1024; // 30MB
-      const allowedFileType = '.pdf';
-      const allowedMimeType = 'application/pdf';
-
-      if (!(file.name.toLowerCase().endsWith(allowedFileType) || file.type === allowedMimeType)) {
-        console.warn(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] Invalid PDF file type: ${file.name} (type: ${file.type}).`);
-        alert(`Ungültiger Dateityp. Nur ${allowedFileType}-Dateien sind erlaubt.`);
-        this.pdfFileName = null;
-        this.orderDataService.updateEigenesDesignPdfStatus(false);
-        if (inputElement) inputElement.value = '';
-        this.cdr.markForCheck();
-        return;
-      }
-
-      if (file.size > maxFileSize) {
-        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-        const maxFileSizeMB = (maxFileSize / (1024 * 1024)).toFixed(2);
-        console.warn(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] PDF file too large: ${fileSizeMB}MB. Max size is ${maxFileSizeMB}MB.`);
-        alert(`Datei ist zu groß (${fileSizeMB}MB). Maximale Dateigröße beträgt ${maxFileSizeMB}MB.`);
-        this.pdfFileName = null;
-        this.orderDataService.updateEigenesDesignPdfStatus(false);
-        if (inputElement) inputElement.value = '';
-        this.cdr.markForCheck();
-        return;
-      }
-
-      this.pdfFileName = file.name;
-      this.orderDataService.updateEigenesDesignPdfStatus(true);
-      console.log(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] PDF file "${file.name}" selected and status updated.`);
-    } else {
-      this.pdfFileName = null;
-      this.orderDataService.updateEigenesDesignPdfStatus(false);
-    }
-    this.cdr.markForCheck();
-  }
-
-  public removePdfFile(): void {
-    console.log(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] PDF file removed.`);
-    this.pdfFileName = null;
-    if (this.pdfFileUploadInputRef?.nativeElement) {
-      this.pdfFileUploadInputRef.nativeElement.value = '';
-    }
-    this.orderDataService.updateEigenesDesignPdfStatus(false);
-    this.cdr.markForCheck();
   }
 
   ngOnDestroy(): void {

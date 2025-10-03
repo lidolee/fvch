@@ -36,9 +36,9 @@ export class OfferProcessComponent implements OnInit, OnDestroy {
   public zielgruppe: ZielgruppeOption = 'Alle Haushalte';
   public calculatorCurrentStepIsValid: boolean = false;
   private stepSpecificValidationStates: Map<number, InternalStepValidationStatus> = new Map([
-    [1, 'pending'],
-    [2, 'pending'],
-    [3, 'pending']
+    [1, 'invalid'],
+    [2, 'invalid'],
+    [3, 'invalid']
   ]);
 
   constructor(
@@ -68,14 +68,6 @@ export class OfferProcessComponent implements OnInit, OnDestroy {
       }
     });
 
-    this.orderDataService.validierungsStatus$.pipe(takeUntil(this.destroy$)).subscribe(
-      (status: StepValidationStatus) => {
-        console.log(`[${"2025-06-07 21:27:02"}] [OfferProcessComponent] Received validation status from OrderDataService:`, status);
-        this.updateLocalStepValidationState(1, status.isStep1Valid ? 'valid' : 'invalid');
-        this.updateLocalStepValidationState(2, status.isStep2Valid ? 'valid' : 'invalid');
-        this.updateLocalStepValidationState(3, status.isStep3Valid ? 'valid' : 'invalid');
-      }
-    );
     this.updateCalculatorValidationFlag();
   }
 

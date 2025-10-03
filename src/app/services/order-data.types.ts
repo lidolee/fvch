@@ -43,8 +43,8 @@ export interface DesignPrices {
 export type PrintOptionType = 'eigenes' | 'service' | 'anliefern' | null;
 
 export type FlyerFormatType =
-  | 'A6' | 'A5' | 'A4' | 'DIN-Lang' | 'DIN_Lang'
-  | 'A3' | 'Anderes_Format' | 'anderes' | null;
+  | 'A6' | 'A5' | 'A4' | 'DIN-Lang'
+  | 'A3' | 'Anderes Format' | null;
 
 export type AnlieferungType = 'selbstanlieferung' | 'abholung' | 'selbst' | null;
 
@@ -52,7 +52,6 @@ export type DruckArtType = 'einseitig' | 'zweiseitig' | null;
 
 export type DruckGrammaturType =
   | '90' | '115' | '130' | '170' | '250' | '300'
-  | '90g' | '115g' | '130g' | '135g' | '170g' | '250g' | '300g'
   | null;
 
 export type DruckAusfuehrungType = 'standard' | 'express' | 'glaenzend' | 'matt' | null;

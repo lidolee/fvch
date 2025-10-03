@@ -1,5 +1,5 @@
 <div class="calculator-wrapper" *ngIf="kosten$ | async as kosten">
-  <h3 class="calculator-title">Kostenübersicht</h3>
+  <h3 class="calculator-title">Ihre Anfrage</h3>
 
   <div class="cost-summary">
     <ng-container *ngIf="!kosten.isPerimeterOfferte">
@@ -64,8 +64,8 @@
           <table class="table calculation-table">
             <tbody>
             <tr>
-              <td>{{ kosten.distributionHeadline }}: Manuelle Prüfung</td>
-              <td class="text-end"><span>—</span></td>
+              <td>{{ kosten.distributionHeadline }}: Manuelle Berechnung</td>
+              <td class="text-end"><span></span></td>
             </tr>
             </tbody>
           </table>
@@ -198,7 +198,7 @@
       </div>
     </div>
 
-    <div class="text-muted small my-4 hinweise-calculator" *ngIf="(!kosten.isPerimeterOfferte && kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0) || kosten.isPerimeterOfferte">
+    <div class="text-muted small my-4 hinweise-calculator" *ngIf="(!kosten.isPerimeterOfferte && kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0)">
       <strong>Hinweise</strong><br>
       <ol>
         <li>Servicepauschale deckt Fahrtkosten, detaillierte Routenplanung und GPS-Tracking für Ihre Verteilung ab.</li>

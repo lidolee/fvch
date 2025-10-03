@@ -116,28 +116,10 @@ app-map {
   }
 }
 
-.perimeter-container.reminder {
-  margin-bottom: 16px;
-  position: relative;
-  z-index: 2;
-  background-color: transparent;
-  padding: 0;
-
-  @include media-breakpoint-down(sm) {
-    font-size: 18px;
-  }
-
-  .reminder-title {
-    font-weight: bold;
-    margin-top: 6px;
-    margin-bottom: 16px;
-  }
-
-  ol {
-    padding-left: 1.5rem;
-    li {
-      margin-bottom: 12px;
-    }
+.perimeter-container {
+  p,
+  li {
+    font-size: 16px;
   }
 }
 

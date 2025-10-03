@@ -110,7 +110,7 @@ export class CalculatorService {
 
   public calculateVerteilzuschlag(format: FlyerFormatType | null, totalFlyers: number, appPrices: AppPrices | null): { price: number, key: VerteilzuschlagFormatKey | null, isAnderes: boolean, anzeigeText: string } {
     const result = { price: 0, key: null as VerteilzuschlagFormatKey | null, isAnderes: false, anzeigeText: '' };
-    result.isAnderes = format === 'Anderes_Format' || format === 'anderes';
+    result.isAnderes = format === 'Anderes Format';
 
     if (result.isAnderes || !format || !appPrices || !appPrices.distribution?.verteilungZuschlagFormat || totalFlyers <= 0) {
       if (result.isAnderes) {
@@ -119,7 +119,7 @@ export class CalculatorService {
       return result;
     }
 
-    if (format === 'DIN-Lang' || format === 'DIN_Lang') result.key = 'Lang';
+    if (format === 'DIN-Lang') result.key = 'Lang';
     else if (format === 'A4') result.key = 'A4';
     else if (format === 'A3') result.key = 'A3';
 

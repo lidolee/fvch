@@ -43,7 +43,6 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   @ViewChild('searchInputComponent') public searchInputComponentRef!: SearchInputComponent;
   @ViewChild(MapComponent) public mapComponentRef!: MapComponent;
   @ViewChild('mapView') public mapViewRef!: ElementRef<HTMLDivElement>;
-  @ViewChild('kmlFileUpload') kmlFileUploadInputRef!: ElementRef<HTMLInputElement>;
 
   private destroy$ = new Subject<void>();
   private activeProcessingStadt: string | undefined = undefined;
@@ -69,7 +68,6 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   public apiKeyConstant: string;
   public mapConfig: MapOptions;
   public mapIsLoading: boolean = false;
-  public kmlFileName: string | null = null;
 
   constructor(
     private ngZone: NgZone,
@@ -382,25 +380,14 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   }
 
   public setVerteilungTyp(typ: VerteilungTypOptionLocal): void {
-    if(this.currentVerteilungTyp !== typ) {
-      this.currentVerteilungTyp = typ;
+    if (this.currentVerteilungTyp !== typ) {
+      this.orderDataService.resetFormButKeepContactDetails();
       this.orderDataService.updateVerteilungTyp(typ as OrderVerteilungTypOption);
-      this.kmlFileName = null;
-      if (this.kmlFileUploadInputRef?.nativeElement) {
-        this.kmlFileUploadInputRef.nativeElement.value = '';
-      }
-      if (typ === 'Nach Perimeter') {
-        if (this.selectionService.getSelectedEntriesSnapshot().length > 0) {
-          this.selectionService.clearEntries();
-        }
-        this.activeProcessingStadt = undefined;
-        this.searchInputInitialTerm = '';
-        if (this.searchInputComponentRef) {
-          this.searchInputComponentRef.clearInput();
-        }
-        this.mapZoomToPlzId = null;
-        this.mapZoomToPlzIdList = null;
-      }
+
+      this.currentVerteilungTyp = typ;
+      this.updateUiFlagsAndMapState();
+      this.updateAndEmitOverallValidationState();
+
       if (typ === 'Nach PLZ') {
         setTimeout(() => {
           if (this.mapComponentRef) {
@@ -408,8 +395,6 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
           }
         }, 0);
       }
-      this.updateUiFlagsAndMapState();
-      this.updateAndEmitOverallValidationState();
     }
   }
 
@@ -503,52 +488,6 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
     this.selectionService.updateFlyerCountForEntry(event.entryId, event.newCount, event.type);
   }
 
-  public triggerKmlUpload(): void {
-    if (this.kmlFileUploadInputRef?.nativeElement) {
-      this.kmlFileUploadInputRef.nativeElement.click();
-    }
-  }
-
-  public onKmlFileSelected(event: Event): void {
-    const inputElement = event.target as HTMLInputElement;
-    if (!inputElement) {
-      this.kmlFileName = null;
-      this.updateAndEmitOverallValidationState();
-      this.cdr.markForCheck();
-      return;
-    }
-    const files = inputElement.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      const maxFileSize = 10 * 1024 * 1024;
-      const allowedFileType = '.kml';
-      if (!file.name.toLowerCase().endsWith(allowedFileType)) {
-        alert(`Ungültiger Dateityp. Nur ${allowedFileType}-Dateien sind erlaubt.`);
-        this.kmlFileName = null;
-        inputElement.value = '';
-      } else if (file.size > maxFileSize) {
-        alert(`Datei ist zu groß (max. ${maxFileSize / 1024 / 1024}MB).`);
-        this.kmlFileName = null;
-        inputElement.value = '';
-      } else {
-        this.kmlFileName = file.name;
-      }
-    } else {
-      this.kmlFileName = null;
-    }
-    this.updateAndEmitOverallValidationState();
-    this.cdr.markForCheck();
-  }
-
-  public removeKmlFile(): void {
-    this.kmlFileName = null;
-    if (this.kmlFileUploadInputRef?.nativeElement) {
-      this.kmlFileUploadInputRef.nativeElement.value = '';
-    }
-    this.updateAndEmitOverallValidationState();
-    this.cdr.markForCheck();
-  }
-
   private updateAndEmitOverallValidationState(): void {
     const currentStatus = this.calculateOverallValidationStatus();
     Promise.resolve().then(() => {
@@ -567,7 +506,7 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
       const isSearchOk = this.searchInputStatus !== 'invalid';
       if (hasSelectedEntriesForPlz && isDateOk && isExpressOk && isSearchOk) return 'valid';
     } else { // Nach Perimeter
-      if (this.kmlFileName && isDateOk && isExpressOk) return 'valid';
+      if (isDateOk && isExpressOk) return 'valid';
     }
     return 'invalid';
   }

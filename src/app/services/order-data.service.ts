@@ -56,8 +56,8 @@ export type DesignPackageType = 'basis' | 'plus' | 'premium' | 'eigenes' | null;
 export type PrintOptionType = 'eigenes' | 'service' | 'anliefern' | null;
 
 export type FlyerFormatType =
-  | 'A6' | 'A5' | 'A4' | 'DIN-Lang' | 'DIN_Lang'
-  | 'A3' | 'Anderes_Format' | 'anderes' | null;
+  | 'A6' | 'A5' | 'A4' | 'DIN-Lang'
+  | 'A3' | 'Anderes Format' | null;
 
 export type AnlieferungType = 'selbstanlieferung' | 'abholung' | 'selbst' | null;
 
@@ -65,7 +65,6 @@ export type DruckArtType = 'einseitig' | 'zweiseitig' | null;
 
 export type DruckGrammaturType =
   | '90' | '115' | '130' | '170' | '250' | '300'
-  | '90g' | '115g' | '130g' | '135g' | '170g' | '250g' | '300g'
   | null;
 
 export type DruckAusfuehrungType = 'standard' | 'express' | 'glaenzend' | 'matt' | null;
@@ -202,26 +201,29 @@ export interface AppPrices {
 }
 // --- END: Types from order-data.types.ts ---
 
+const initialVerteilgebietState: Omit<VerteilgebietDataState, 'selectedPlzEntries' | 'totalFlyersCount'> = {
+  verteilungStartdatum: null,
+  expressConfirmed: false,
+  zielgruppe: 'Alle Haushalte',
+  verteilungTyp: 'Nach PLZ'
+};
+
+const initialProduktionState: ProduktionDataState = {
+  designPackage: null,
+  printOption: null,
+  anlieferDetails: { format: null, anlieferung: null },
+  printServiceDetails: { format: null, grammatur: null, art: null, ausfuehrung: null, auflage: 0, reserve: 0 },
+  eigenesDesignPdfUploaded: false
+};
 
 @Injectable({
   providedIn: 'root'
 })
 export class OrderDataService {
 
-  public readonly verteilgebietStateSubject = new BehaviorSubject<Omit<VerteilgebietDataState, 'selectedPlzEntries' | 'totalFlyersCount'>>({
-    verteilungStartdatum: null,
-    expressConfirmed: false,
-    zielgruppe: 'Alle Haushalte',
-    verteilungTyp: 'Nach PLZ'
-  });
+  public readonly verteilgebietStateSubject = new BehaviorSubject<Omit<VerteilgebietDataState, 'selectedPlzEntries' | 'totalFlyersCount'>>(initialVerteilgebietState);
 
-  public readonly produktionStateSubject = new BehaviorSubject<ProduktionDataState>({
-    designPackage: null,
-    printOption: null,
-    anlieferDetails: { format: null, anlieferung: null },
-    printServiceDetails: { format: null, grammatur: null, art: null, ausfuehrung: null, auflage: 0, reserve: 0 },
-    eigenesDesignPdfUploaded: false
-  });
+  public readonly produktionStateSubject = new BehaviorSubject<ProduktionDataState>(initialProduktionState);
 
   private readonly kontaktDetailsSubject = new BehaviorSubject<KontaktDetailsState>({
     salutation: null, firstName: null, lastName: null, email: null, phone: null, company: null, address: null, zip: null, city: null, notes: null
@@ -301,7 +303,8 @@ export class OrderDataService {
     ]).pipe(
       map(([verteilgebiet, produktion, appPrices]) => {
         const kosten = this.calculateAllCosts(verteilgebiet, produktion, appPrices);
-        const validierung = this.validateAllSteps(verteilgebiet, produktion, this.kontaktDetailsSubject.getValue(), kosten);
+        // Step validation is now handled by components, so we just pass dummy values
+        const validierung: StepValidationStatus = { isStep1Valid: false, isStep2Valid: false, isStep3Valid: false, isOrderProcessValid: false };
         return { kosten, validierung };
       }),
       shareReplay(1)
@@ -325,6 +328,40 @@ export class OrderDataService {
   }
 
   private getCurrentTimestamp(): string { return new Date().toISOString(); }
+
+  public resetFormButKeepContactDetails(): void {
+    console.log(`[${this.getCurrentTimestamp()}] [OrderDataService] Resetting form but keeping contact details.`);
+    this.verteilgebietStateSubject.next(initialVerteilgebietState);
+    this.produktionStateSubject.next(initialProduktionState);
+    this.selectionService.clearEntries();
+  }
+
+  public resetDesignAndPrintDetails(): void {
+    const current = this.produktionStateSubject.getValue();
+    this.produktionStateSubject.next({
+      ...current,
+      designPackage: null,
+      printServiceDetails: {
+        format: null,
+        grammatur: null,
+        art: null,
+        ausfuehrung: null,
+        auflage: 0,
+        reserve: 0
+      }
+    });
+  }
+
+  public resetAnlieferDetails(): void {
+    const current = this.produktionStateSubject.getValue();
+    this.produktionStateSubject.next({
+      ...current,
+      anlieferDetails: {
+        format: null,
+        anlieferung: null
+      }
+    });
+  }
 
   private calculateAllCosts(verteilgebiet: VerteilgebietDataState, produktion: ProduktionDataState, appPrices: AppPrices): KostenState {
     const isPerimeterOfferte = verteilgebiet.verteilungTyp === 'Nach Perimeter';
@@ -477,51 +514,15 @@ export class OrderDataService {
 
     if (verteilgebiet.verteilungTyp === 'Nach PLZ') {
       isStep1Valid = verteilgebiet.selectedPlzEntries.length > 0 && verteilgebiet.totalFlyersCount > 0 && isDateOk && isExpressOk;
-    } else {
+    } else { // Nach Perimeter
       isStep1Valid = isDateOk && isExpressOk;
     }
 
-    let isStep2Valid = false;
-    const designSelected = produktion.designPackage !== null;
-    const printSelected = produktion.printOption !== null;
-
-    if (!designSelected && !printSelected) {
-      isStep2Valid = true;
-    } else {
-      let designPartValid = true;
-      if (designSelected) {
-        designPartValid = !!produktion.designPackage;
-        if (produktion.designPackage === 'eigenes') {
-          designPartValid = designPartValid && !!produktion.eigenesDesignPdfUploaded;
-        }
-      }
-
-      let printPartValid = true;
-      if (printSelected) {
-        if (produktion.printOption === 'anliefern' || produktion.printOption === 'eigenes') {
-          printPartValid = !!produktion.anlieferDetails.format && !!produktion.anlieferDetails.anlieferung;
-        } else if (produktion.printOption === 'service') {
-          let auflageConditionMet = false;
-          if (verteilgebiet.verteilungTyp === 'Nach Perimeter') {
-            auflageConditionMet = true;
-          } else {
-            auflageConditionMet = produktion.printServiceDetails.auflage > 0;
-          }
-          printPartValid = !!produktion.printServiceDetails.format &&
-            !!produktion.printServiceDetails.grammatur &&
-            !!produktion.printServiceDetails.art &&
-            !!produktion.printServiceDetails.ausfuehrung &&
-            auflageConditionMet &&
-            produktion.printServiceDetails.reserve !== null && produktion.printServiceDetails.reserve >= 0;
-        } else {
-          printPartValid = false;
-        }
-      }
-      isStep2Valid = designPartValid && printPartValid;
-    }
     const isStep3Valid = !!kontakt.salutation && !!kontakt.firstName && !!kontakt.lastName && !!kontakt.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(kontakt.email);
 
-    return { isStep1Valid, isStep2Valid, isStep3Valid, isOrderProcessValid: isStep1Valid && isStep2Valid && isStep3Valid };
+    // isStep2Valid is now handled by the component itself, so we don't calculate it here.
+    // We pass a dummy value which will be ignored by the OfferProcessComponent.
+    return { isStep1Valid, isStep2Valid: false, isStep3Valid, isOrderProcessValid: isStep1Valid && isStep3Valid };
   }
 
   public updateVerteilungStartdatum(date: Date | null): void {
@@ -551,9 +552,6 @@ export class OrderDataService {
   public updateDesignPackage(pkg: DesignPackageType | null): void {
     const current = this.produktionStateSubject.getValue();
     const newState: ProduktionDataState = { ...current, designPackage: pkg }; // Ensure newState is ProduktionDataState
-    if (pkg !== 'eigenes') {
-      newState.eigenesDesignPdfUploaded = false;
-    }
     this.produktionStateSubject.next(newState);
   }
 
