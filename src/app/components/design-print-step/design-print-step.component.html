@@ -220,7 +220,7 @@
 
   <!-- DESIGN PACKAGE SELECTION - ONLY WHEN PRODUCTION CHOICE IS MADE ////// -->
 
-  <div *ngIf="produktion.printOption ==='anliefern' || produktion.printOption === 'service'">
+  <div *ngIf="produktion.printOption === 'service'">
     <h3 class="section-title"><span>2. Flyer Design</span></h3>
 
 
@@ -235,7 +235,6 @@
         </div>
         <div class="card-body">
           <ul class="features list-unstyled">
-            <li *ngIf="produktion.printOption === 'anliefern'"><i class="mdi mdi-star-four-points-small"></i> Sie liefern uns Ihre Flyer</li>
             <li *ngIf="produktion.printOption === 'service'"><i class="mdi mdi-star-four-points-small"></i> Sie liefern ein druckfertiges PDF</li>
             <li><i class="mdi mdi-star-four-points-small"></i> Swiss Quality-Check</li>
           </ul>

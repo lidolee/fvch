@@ -73,7 +73,7 @@
       </div>
     </ng-container>
 
-    <ng-container *ngIf="(kosten.totalFlyersForDistribution > 0 && !kosten.isPerimeterOfferte) || kosten.isPerimeterOfferte">
+    <ng-container *ngIf="(kosten.totalFlyersForDistribution > 0 && !kosten.isPerimeterOfferte)">
       <div class="cost-group" *ngIf="kosten.expressZuschlagApplicable || kosten.fahrzeugGpsApplicable || (zuschlagFormatAnzeige$ | async) || kosten.flyerAbholungApplicable">
         <h4 class="cost-group-title"><span>Zuschläge & Pauschalen</span></h4>
         <div class="table-responsive">
@@ -168,7 +168,7 @@
       </div>
     </div>
 
-    <div class="cost-group total-summary mt-4" *ngIf="(!kosten.isPerimeterOfferte && kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0) || kosten.isPerimeterOfferte">
+    <div class="cost-group total-summary mt-4" *ngIf="(kosten.selectedPlzEntriesLength > 0 && kosten.totalFlyersForDistribution > 0)">
       <div class="table-responsive">
         <table class="table calculation-table">
           <tbody>
@@ -208,7 +208,7 @@
     </div>
 
     <div *ngIf="kosten.selectedPlzEntriesLength === 0 && !kosten.isPerimeterOfferte" class="text-muted small">
-      Bitte wählen Sie mind. 1 PLZ aus oder laden Sie Ihr GPS-Perimeter hoch.
+      Bitte wählen Sie mind. 1 PLZ aus.
     </div>
   </div>
 
