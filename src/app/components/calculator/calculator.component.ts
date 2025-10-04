@@ -15,6 +15,7 @@ import { CalculatorService } from '../../services/calculator.service';
 })
 export class CalculatorComponent implements OnInit, OnDestroy {
   @Input() activeStep: number = 1;
+  @Input() isOfferProcessValid: boolean = false; // HINZUGEFÜGT
 
   private _currentStepIsValid: boolean = false;
   @Input()
@@ -33,6 +34,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
   @Output() requestPreviousStep = new EventEmitter<void>();
   @Output() requestSubmit = new EventEmitter<void>();
 
+  // ... Rest der Datei bleibt unverändert ...
   private destroy$ = new Subject<void>();
 
   public kosten$: Observable<KostenState>;

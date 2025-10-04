@@ -47,7 +47,6 @@ export class SelectionService {
   }
 
   public updateFlyerCountForEntry(entryId: string, newCount: number | null, type: 'mfh' | 'efh'): void {
-    console.log(`[SelectionService] updateFlyerCountForEntry: entryId=${entryId}, newCount=${newCount}, type=${type}`);
     const entries = [...this.getSelectedEntriesSnapshot()];
     const entryIndex = entries.findIndex(e => e.id === entryId);
 
@@ -61,7 +60,6 @@ export class SelectionService {
       }
 
       entries[entryIndex] = entry;
-      console.log(`[SelectionService] Emitting updated entries for ${entryId}: mfh=${entry.manual_flyer_count_mfh}, efh=${entry.manual_flyer_count_efh}`);
       this._selectedEntries.next(entries);
     }
   }

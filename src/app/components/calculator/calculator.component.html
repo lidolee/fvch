@@ -222,6 +222,9 @@
     </div>
     <div *ngIf="activeStep === 3" class="d-flex justify-content-between">
       <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2" (click)="onRequestPrevious()">Zurück</button>
+      <!-- *** THE FIX *** -->
+      <!-- The [disabled] logic is now unified with the other steps. -->
+      <!-- It correctly reacts to the validity of the CURRENT step. -->
       <button type="button" class="btn btn-lg btn-success w-50 ms-2" (click)="onRequestSubmit()" [disabled]="currentStepValidationStatus !== 'valid'">Absenden</button>
     </div>
     <div *ngIf="activeStep === 3" class="secure-box text-center"><i class="mdi mdi-lock-check fs-4">&nbsp;</i>256-Bit TLS Verschlüsselte Datenübertragung</div>

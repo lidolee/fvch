@@ -127,9 +127,9 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
         this.selectedEntriesForTable = [...verteilgebiet.selectedPlzEntries];
         this.mapSelectedPlzIds = this.selectedEntriesForTable.map(e => e.id);
 
-        // HINZUGEFÜGT: Stellt sicher, dass die Karte auf die gesamte Auswahl zoomt, wenn sich die Auswahl ändert.
-        this.mapZoomToPlzId = null;
-        this.mapZoomToPlzIdList = this.mapSelectedPlzIds.length > 0 ? [...this.mapSelectedPlzIds] : null;
+        if (this.mapSelectedPlzIds.length === 0) {
+          this.mapZoomToPlzIdList = null;
+        }
 
         this.checkExpressSurcharge();
         this.updateAndEmitOverallValidationState();
@@ -340,7 +340,6 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
       }
       this.searchInputInitialTerm = termToUse;
 
-      // HINZUGEFÜGT: Stellt sicher, dass die Karte auf die neu ausgewählte Stadt zoomt
       this.mapZoomToPlzId = null;
       this.mapZoomToPlzIdList = plzToSelect.length > 0 ? plzToSelect.map(p => p.id) : null;
 
@@ -367,10 +366,15 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
 
   public onSearchInputEntriesSelected(e: PlzEntry[]): void {
     if(e && e.length > 0) {
+      // *** THE FIX: Explicitly set the zoom command for search-based selections. ***
+      this.mapZoomToPlzId = null;
+      this.mapZoomToPlzIdList = e.map(entry => entry.id);
+
       this.selectionService.addMultipleEntries(e);
       if(isPlatformBrowser(this.platformId)) setTimeout(()=>this.scrollToMapView(),100);
     }
   }
+
   public onSearchInputTermChanged(term: string): void { }
   public onSearchInputStatusChanged(s: SearchInputValidationStatus): void {
     if(this.searchInputStatus !== s) {
@@ -468,9 +472,8 @@ export class DistributionStepComponent implements OnInit, OnDestroy, OnChanges, 
   }
 
   public zoomToTableEntryOnMap(entry: PlzSelectionDetail): void {
-    // HINZUGEFÜGT: Setzt die richtigen Properties für den gezielten Zoom.
     this.mapZoomToPlzId = entry.id;
-    this.mapZoomToPlzIdList = null; // Wichtig: Deaktiviert den Gruppen-Zoom
+    this.mapZoomToPlzIdList = null;
     this.cdr.markForCheck();
     if(isPlatformBrowser(this.platformId)) setTimeout(()=>this.scrollToMapView(),100);
     setTimeout(() => {

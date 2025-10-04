@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, Output, EventEmitter, ChangeDetectorRef, 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, Observable, firstValueFrom, combineLatest } from 'rxjs';
-import { takeUntil, take } from 'rxjs/operators';
+import { takeUntil, take, distinctUntilChanged } from 'rxjs/operators';
 import { OrderDataService } from '../../services/order-data.service';
 import {
   DesignPackageType, PrintOptionType, FlyerFormatType, AnlieferungType,
@@ -36,75 +36,75 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    console.log(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] ngOnInit`);
+    //console.log(`[${new Date().toISOString()}] [DesignPrintStepComponent] ngOnInit`);
 
-    this.orderDataService.verteilgebiet$.pipe(
-      takeUntil(this.destroy$)
-    ).subscribe(vg => {
-      const previousVerteilungTyp = this.currentVerteilungTyp;
-      this.currentVerteilungTyp = vg.verteilungTyp;
-      if (previousVerteilungTyp !== this.currentVerteilungTyp) {
-        firstValueFrom(this.orderDataService.produktion$.pipe(take(1))).then(prod => {
-          this.handleAuflageLogic(vg, prod);
-        });
-      }
-      this.cdr.markForCheck();
-    });
+    // Emit initial validation status based on the current state.
+    firstValueFrom(combineLatest([this.orderDataService.verteilgebiet$, this.orderDataService.produktion$]).pipe(take(1)))
+      .then(([verteilgebiet, produktion]) => {
+        const isValid = this.calculateValidationStatus(verteilgebiet, produktion);
+        //console.log(`[${new Date().toISOString()}] [DesignPrintStepComponent] Emitting initial validation status: ${isValid}`);
+        this.validationChange.emit(isValid);
+      });
 
     combineLatest([
       this.orderDataService.verteilgebiet$,
       this.orderDataService.produktion$
     ]).pipe(
-      takeUntil(this.destroy$)
+      takeUntil(this.destroy$),
+      distinctUntilChanged(([vg1, p1], [vg2, p2]) => JSON.stringify({vg1, p1}) === JSON.stringify({vg2, p2}))
     ).subscribe(([verteilgebiet, produktion]) => {
       const isValid = this.calculateValidationStatus(verteilgebiet, produktion);
+      //console.log(`[${new Date().toISOString()}] [DesignPrintStepComponent] State changed, emitting validation status: ${isValid}`);
       this.validationChange.emit(isValid);
-
-      if (this.currentVerteilungTyp === 'Nach PLZ') {
-        if (this.druckAuflage !== produktion.printServiceDetails.auflage) {
-          this.druckAuflage = produktion.printServiceDetails.auflage;
-        }
-      } else {
-        if (this.druckAuflage !== 0) {
-          this.druckAuflage = 0;
-        }
-        if (produktion.printServiceDetails.auflage !== 0) {
-          this.orderDataService.updatePrintServiceDetails({ auflage: 0 });
-        }
-      }
-
-      if (this.druckReserve !== produktion.printServiceDetails.reserve) {
-        this.druckReserve = produktion.printServiceDetails.reserve;
-      }
       this.cdr.markForCheck();
     });
   }
 
-  private calculateValidationStatus(verteilgebiet: VerteilgebietDataState, produktion: ProduktionDataState): boolean {
+  private calculateValidationStatus(verteilgebiet: VerteilgebietDataState | null, produktion: ProduktionDataState): boolean {
+    //console.log(`[${new Date().toISOString()}] [DesignPrintStepComponent] Calculating validation. printOption is '${produktion.printOption}', designPackage is '${produktion.designPackage}'.`);
+
     if (!produktion.printOption) {
+      //console.log(`[${new Date().toISOString()}] [DesignPrintStepComponent] Validation FAIL: printOption is null or undefined.`);
       return false;
     }
 
-    if (produktion.printOption === 'anliefern') {
-      return !!produktion.anlieferDetails.format && !!produktion.anlieferDetails.anlieferung;
+    if (produktion.printOption === 'eigenes') {
+      //console.log(`[${new Date().toISOString()}] [DesignPrintStepComponent] Validation PASS: printOption is 'eigenes'.`);
+      return true;
     }
 
-    if (produktion.printOption === 'service') {
+    if (produktion.printOption === 'anliefern') {
+      const isValid = !!produktion.anlieferDetails.format && !!produktion.anlieferDetails.anlieferung;
+      //console.log(`[${new Date().toISOString()}] [DesignPrintStepComponent] Validation check for 'anliefern'. Result: ${isValid}`);
+      return isValid;
+    }
+
+    if (produktion.printOption === 'service' && verteilgebiet) {
+      // *** THE FIX ***
+      // A design package must be selected when print service is chosen.
+      const designPackageSelected = !!produktion.designPackage;
+      if (!designPackageSelected) {
+        //console.log(`[${new Date().toISOString()}] [DesignPrintStepComponent] Validation FAIL for 'service': No design package selected.`);
+        return false;
+      }
+
       const auflageConditionMet = (verteilgebiet.verteilungTyp === 'Nach Perimeter') || (produktion.printServiceDetails.auflage > 0);
-      return !!produktion.printServiceDetails.format &&
+      const isValid = designPackageSelected &&
+        !!produktion.printServiceDetails.format &&
         !!produktion.printServiceDetails.grammatur &&
         !!produktion.printServiceDetails.art &&
         !!produktion.printServiceDetails.ausfuehrung &&
         auflageConditionMet &&
         produktion.printServiceDetails.reserve !== null && produktion.printServiceDetails.reserve >= 0;
+      //console.log(`[${new Date().toISOString()}] [DesignPrintStepComponent] Validation check for 'service'. Result: ${isValid}`);
+      return isValid;
     }
 
-    return false; // Should not be reached if printOption is one of the valid types
+    //console.log(`[${new Date().toISOString()}] [DesignPrintStepComponent] Validation FAIL: Fallback. printOption was '${produktion.printOption}'.`);
+    return false;
   }
 
-
   private handleAuflageLogic(vg: VerteilgebietDataState, produktion: ProduktionDataState): void {
-    console.log(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] handleAuflageLogic. VerteilungTyp: ${vg.verteilungTyp}, TotalFlyers: ${vg.totalFlyersCount}, PrintOption: ${produktion.printOption}`);
     if (produktion.printOption === 'service') {
       let newAuflage: number = produktion.printServiceDetails.auflage;
 
@@ -112,18 +112,15 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
         if (vg.totalFlyersCount > 0) {
           if (produktion.printServiceDetails.auflage !== vg.totalFlyersCount) {
             newAuflage = vg.totalFlyersCount;
-            console.log(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] Auto-setting druckAuflage to ${newAuflage} for PLZ.`);
           }
         } else {
           if (produktion.printServiceDetails.auflage !== 0) {
             newAuflage = 0;
-            console.log(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] Setting druckAuflage to 0 for PLZ as totalFlyers is 0.`);
           }
         }
       } else { // Nach Perimeter
         if (produktion.printServiceDetails.auflage !== 0) {
           newAuflage = 0;
-          console.log(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] Setting druckAuflage to 0 for Perimeter.`);
         }
       }
 
@@ -200,8 +197,8 @@ export class DesignPrintStepComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    console.log(`[${"2025-06-10 12:53:55"}] [DesignPrintStepComponent] ngOnDestroy`);
     this.destroy$.next();
     this.destroy$.complete();
+    //console.log(`[${new Date().toISOString()}] [DesignPrintStepComponent] ngOnDestroy`);
   }
 }

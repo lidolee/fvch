@@ -50,7 +50,7 @@ export class CalculatorService {
     if (isPlatformBrowser(this.platformId)) {
       this.loadPrices().subscribe();
     } else {
-      console.log('SSR Environment: Skipping HttpClient call for prices.json on the server.');
+      //console.log('SSR Environment: Skipping HttpClient call for prices.json on the server.');
     }
   }
 

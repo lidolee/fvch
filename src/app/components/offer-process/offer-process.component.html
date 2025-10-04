@@ -18,8 +18,8 @@
             <div>
               <app-distribution-step
                 [initialStadt]="initialStadtUrlParam$ | async"
-              (validationChange)="onStepValidationChange('verteilgebiet', $event)"
-              (zielgruppeChange)="onZielgruppeUpdateFromStep($event)">
+                (validationChange)="onStepValidationChange('verteilgebiet', $event)"
+                (zielgruppeChange)="onZielgruppeUpdateFromStep($event)">
               </app-distribution-step>
             </div>
           </ng-template>
