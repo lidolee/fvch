@@ -233,7 +233,7 @@ export class OfferProcessComponent implements OnInit, OnDestroy {
       //console.log(`[${"2025-10-04 15:03:11"}] [OfferProcessComponent] All steps valid. Submitting AJAX POST to /offerte/dispatch.php`, payload);
 
       // AJAX POST Request
-      await firstValueFrom(this.http.post('/offerte/dispatch.php', payload));
+      await firstValueFrom(this.http.post('/offerte-api.php', payload));
 
       alert("Ihre Anfrage wurde erfolgreich versendet! Sie erhalten in Kürze eine Bestätigung per E-Mail.");
       // Optional: Formular zurücksetzen oder weiterleiten
