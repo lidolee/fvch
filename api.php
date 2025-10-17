@@ -9,6 +9,7 @@
 
 // --- 1. HTTP & CORS HANDLING (MUST BE ABSOLUTELY FIRST) -------------------
 $allowedOrigins = [
+    'http://10.1.1.100:4200',
     'http://localhost:4200',
     'https://www.flyer-verteilen.ch',
     'https://flyer-verteilen.ch'

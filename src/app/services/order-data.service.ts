@@ -59,15 +59,15 @@ export type FlyerFormatType =
   | 'A6' | 'A5' | 'A4' | 'DIN-Lang'
   | 'A3' | 'Anderes Format' | null;
 
-export type AnlieferungType = 'selbstanlieferung' | 'abholung' | 'selbst' | null;
+export type AnlieferungType = 'Selbstanlieferung' | 'Abholung' | 'Selbst' | null;
 
-export type DruckArtType = 'einseitig' | 'zweiseitig' | null;
+export type DruckArtType = 'Einseitig' | 'Zweiseitig' | null;
 
 export type DruckGrammaturType =
   | '90' | '115' | '130' | '170' | '250' | '300'
   | null;
 
-export type DruckAusfuehrungType = 'standard' | 'express' | 'glaenzend' | 'matt' | null;
+export type DruckAusfuehrungType = 'Standard' | 'Express' | 'Glaenzend' | 'Matt' | null;
 
 export interface AnlieferDetails {
   format: FlyerFormatType | null;
@@ -392,7 +392,7 @@ export class OrderDataService {
       }
     }
 
-    const flyerAbholungSurchargeRelevantTerm: AnlieferungType = 'abholung';
+    const flyerAbholungSurchargeRelevantTerm: AnlieferungType = 'Abholung';
     const flyerAbholungApplicable = produktion.anlieferDetails.anlieferung === flyerAbholungSurchargeRelevantTerm;
 
     let expressRelevantBase: number;
@@ -462,8 +462,8 @@ export class OrderDataService {
 
       if (isPerimeterOfferte) {
         printService.name = produktion.printServiceDetails.format
-          ? `Druckservice (${produktion.printServiceDetails.format}, Details nach KML)`
-          : `Druckservice (Details nach KML)`;
+          ? `Druckservice (${produktion.printServiceDetails.format})`
+          : `Druckservice`;
         printService.cost = "auf Anfrage";
       }
     }

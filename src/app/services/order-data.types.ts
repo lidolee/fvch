@@ -46,15 +46,15 @@ export type FlyerFormatType =
   | 'A6' | 'A5' | 'A4' | 'DIN-Lang'
   | 'A3' | 'Anderes Format' | null;
 
-export type AnlieferungType = 'selbstanlieferung' | 'abholung' | 'selbst' | null;
+export type AnlieferungType = 'Selbstanlieferung' | 'Abholung' | 'Selbst' | null;
 
-export type DruckArtType = 'einseitig' | 'zweiseitig' | null;
+export type DruckArtType = 'Einseitig' | 'Zweiseitig' | null;
 
 export type DruckGrammaturType =
   | '90' | '115' | '130' | '170' | '250' | '300'
   | null;
 
-export type DruckAusfuehrungType = 'standard' | 'express' | 'glaenzend' | 'matt' | null;
+export type DruckAusfuehrungType = 'Standard' | 'Express' | 'Glaenzend' | 'Matt' | null;
 
 export interface AnlieferDetails {
   format: FlyerFormatType | null;

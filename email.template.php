@@ -99,9 +99,27 @@ function render_print_block(array $produktion): void {
   <?php
 }
 
-function render_distribution_block(array $verteilgebiet, array $kosten): void {
+function render_distribution_block(array $verteilgebiet, array $kosten, array $produktion): void {
+  $flyerFormat = null;
+  $printOption = $produktion['printOption'] ?? 'none';
+  
+  if ($printOption === 'service') {
+    $flyerFormat = $produktion['printServiceDetails']['format'] ?? null;
+  } else {
+    $flyerFormat = $produktion['anlieferDetails']['format'] ?? null;
+  }
   ?>
   <p class="headline">Flyer Verteilung</p>
+  
+  
+  <?php if (!empty($flyerFormat)): ?>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+      <tr><td class="tdlabel">Format</td></tr>
+      <tr><td class="tdvalue border"><?= htmlspecialchars($flyerFormat) ?></td></tr>
+    </table>
+    <br>
+  <?php endif; ?>
+  
   <table role="presentation" border="0" cellpadding="0" cellspacing="0">
     <tr><td class="tdlabel">Gesamtauflage</td><td class="tdlabel align-right">Zielgruppe</td></tr>
     <tr>
@@ -132,7 +150,7 @@ function render_distribution_block(array $verteilgebiet, array $kosten): void {
     ?>
     <?php if ($surchargesExist): ?>
       <tr><td colspan="3">&nbsp;</td></tr>
-      <tr><td class="tdlabel" colspan="3">Zuschläge &amp; Pauschalen</td></tr>
+      <tr><td class="tdlabel" colspan="3">Zuschläge</td></tr>
       <?php if (!empty($kosten['expressZuschlagPrice'])): ?>
         <tr>
           <td class="tdvalue border" colspan="2">Express Zuschlag 50%</td>
@@ -167,7 +185,7 @@ function render_distribution_block(array $verteilgebiet, array $kosten): void {
     
     <tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
     <tr>
-      <td class="tdvalue border" colspan="2">Zwischensumme Verteilung</td>
+      <td class="tdvalue border" colspan="2">Zwischensumme</td>
       <td class="tdvalue border align-right"><?= number_format($kosten['subTotalDistribution'] ?? 0, 2, '.', "'") ?></td>
     </tr>
     <tr>
@@ -188,7 +206,7 @@ function render_distribution_block(array $verteilgebiet, array $kosten): void {
   <meta charset="UTF-8">
   <title>Anfrage</title>
   <style>
-    body { font-family: sans-serif; -webkit-font-smoothing: antialiased; font-size: 16px; line-height: 100%; color: #333333; }
+    body { font-family: sans-serif; -webkit-font-smoothing: antialiased; font-size: 16px; line-height: 1.2; color: #333333; }
     table { border-collapse: collapse; width: 100%; }
     table td { font-family: sans-serif; vertical-align: middle; padding: 8px 0px; }
     table .tdlabel { font-size: 10px !important; letter-spacing: 0.5px; font-weight: 600; text-transform: uppercase; color: #666666; padding: 8px 0px 2px 0px; }
@@ -202,7 +220,7 @@ function render_distribution_block(array $verteilgebiet, array $kosten): void {
     p { margin: 0 0 18px 0; }
     a { color: #0867ec; }
     .title { font-weight: bold; font-size: 24px; }
-    .headline { font-size: 16px !important; font-weight: bold; margin-bottom: 8px; }
+    .headline { font-family: "Montserrat", sans-serif; text-transform: uppercase; font-size: 14px !important; letter-spacing: 0.5px; font-weight: bold; color: #212529; margin-top: 24px; margin-bottom: 12px; border-top: 2px solid #dddddd; padding-top: 12px}
     .border { border-bottom: 1px solid #dddddd; }
     .align-top { vertical-align: top !important; }
     .align-right { text-align: right !important; }
@@ -224,7 +242,10 @@ function render_distribution_block(array $verteilgebiet, array $kosten): void {
           <tr>
             <td class="wrapper">
               <p class="title">Anfrage <?= htmlspecialchars($reference) ?></p>
-              <p>Guten Tag <?= htmlspecialchars($kontakt['salutation'] ?? '') ?> <?= htmlspecialchars($kontakt['lastName'] ?? '') ?>,</p>
+              
+              <img width="100%" style="padding-bottom: 24px" src="https://www.flyer-verteilen.ch/wp-content/uploads/2025/10/mail-header-02.png" alt="Header">
+              
+              <p>Grüezi <?= htmlspecialchars($kontakt['salutation'] ?? '') ?> <?= htmlspecialchars($kontakt['lastName'] ?? '') ?>,</p>
               <p>Wir haben Ihre Anfrage erhalten. Diese wird von unseren Mitarbeitern so rasch als möglich bearbeitet. Sie erhalten dann eine verbindliche Offerte via E-Mail.</p>
               
               <?php if (!empty($qr_code_html)): ?>
@@ -250,11 +271,11 @@ function render_distribution_block(array $verteilgebiet, array $kosten): void {
               <br>
               <?php render_print_block($produktion); ?>
               <br>
-              <?php render_distribution_block($verteilgebiet, $kosten); ?>
+              <?php render_distribution_block($verteilgebiet, $kosten, $produktion); ?>
               
               <br><br>
               <p>Herzlichen Dank für Ihr Vertrauen.<br>Freundliche Grüsse.</p>
-              <p>Ihr Team von Flyer Verteilen</p>
+              <p>Ihr Team von Top Flyer Verteilen</p>
             </td>
           </tr>
         </table>
