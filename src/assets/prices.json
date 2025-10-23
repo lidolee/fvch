@@ -26,7 +26,7 @@
     "surcharges": {
       "fahrzeugGPS": 150,
       "abholungFlyer": 50,
-      "express": 0.5,
+      "express": 0.25,
       "mindestbestellwert": 250
     }
   },

@@ -64,13 +64,17 @@
           <table class="table calculation-table">
             <tbody>
             <tr>
-              <td>{{ kosten.distributionHeadline }}: Manuelle Berechnung</td>
-              <td class="text-end"><span></span></td>
+              <td>{{ kosten.distributionHeadline }}</td>
+              <td class="text-end"><span>Manuelle Berechnung</span></td>
             </tr>
             </tbody>
           </table>
         </div>
       </div>
+    </ng-container>
+    
+    <ng-container *ngIf="kosten.isPerimeterOfferte">
+      <p class="my-3"><small>Nachdem wir ihren Perimeter erhalten haben, erhalten Sie ihre finale Offerte. Sie erhalten eine Bestätigung per E-Mail mit weiteren Informationen.</small></p>
     </ng-container>
 
     <ng-container *ngIf="(kosten.totalFlyersForDistribution > 0 && !kosten.isPerimeterOfferte)">
@@ -80,7 +84,7 @@
           <table class="table calculation-table">
             <tbody>
             <tr *ngIf="kosten.expressZuschlagApplicable">
-              <td class="item-label">Express Zuschlag 50%</td>
+              <td class="item-label">Express Zuschlag 25%</td>
               <td class="item-subtotal text-end">
                 <ng-container *ngIf="typeof kosten.expressZuschlagPrice === 'number'; else stringPriceEZP">{{ kosten.expressZuschlagPrice | number:'1.2-2':'de-CH' }}</ng-container>
                 <ng-template #stringPriceEZP>{{ kosten.expressZuschlagPrice }}</ng-template>
@@ -131,7 +135,7 @@
     </ng-container>
 
     <div class="cost-group" *ngIf="kosten.selectedPrintOption === 'service'">
-      <h4 class="cost-group-title"><span>Flyer Druck</span></h4>
+      <h4 class="cost-group-title"><span>Flyer Druck (Separate Offerte)</span></h4>
       <div class="table-responsive">
         <table class="table calculation-table">
           <tbody>

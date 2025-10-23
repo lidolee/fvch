@@ -464,7 +464,7 @@ export class OrderDataService {
         printService.name = produktion.printServiceDetails.format
           ? `Druckservice (${produktion.printServiceDetails.format})`
           : `Druckservice`;
-        printService.cost = "auf Anfrage";
+        printService.cost = "Manuelle Berechnung";
       }
     }
 

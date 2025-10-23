@@ -79,8 +79,11 @@ function render_design_block(array $produktion, array $kosten): void {
 
 function render_print_block(array $produktion): void {
   $printOption = $produktion['printOption'] ?? 'none';
+  // Logic adjusted to only show details if printOption is 'service'
   if ($printOption !== 'service' || empty($produktion['printServiceDetails']['format'])) {
-    echo '<p class="headline">Flyer Druck</p><p>Kein Druck bestellt.</p>';
+    // If 'Flyer vorhanden' or no format, show a simpler message or nothing related to print details.
+    // The format itself will be handled in render_distribution_block.
+    echo '<p class="headline">Flyer Druck</p><p>Kein Druckservice bestellt / Flyer vorhanden.</p>';
     return;
   }
   $details = $produktion['printServiceDetails'];
@@ -99,51 +102,94 @@ function render_print_block(array $produktion): void {
   <?php
 }
 
+function render_perimeter_block(array $verteilgebiet): void {
+  $verteilungTyp = $verteilgebiet['verteilungTyp'];
+  $perimeterHinweis = "";
+  
+  if ($verteilungTyp === 'Nach PLZ') {
+    $perimeterHinweis = "";
+  }
+  else {
+    $perimeterHinweis = "<strong>Bitte senden Sie uns Ihren gewünschten Perimeter per E-Mail. Gerne können Sie hierzu einfach auf diese E-Mail antworten. Nachdem wir Ihren Perimeter erhalten haben, erhalten Sie Ihre finale Offerte per E-Mail.</strong><br><br>";
+  }
+  ?>
+  <?= $perimeterHinweis ?>
+  <?php
+}
+
 function render_distribution_block(array $verteilgebiet, array $kosten, array $produktion): void {
+  // Logic to determine the flyer format regardless of print option
   $flyerFormat = null;
   $printOption = $produktion['printOption'] ?? 'none';
   
   if ($printOption === 'service') {
     $flyerFormat = $produktion['printServiceDetails']['format'] ?? null;
-  } else {
+  } else { // This covers the 'self' (Flyer vorhanden) case
     $flyerFormat = $produktion['anlieferDetails']['format'] ?? null;
   }
+  
+  $verteilungTyp = $verteilgebiet['verteilungTyp'];
+  
   ?>
   <p class="headline">Flyer Verteilung</p>
-  
   
   <?php if (!empty($flyerFormat)): ?>
     <table role="presentation" border="0" cellpadding="0" cellspacing="0">
       <tr><td class="tdlabel">Format</td></tr>
-      <tr><td class="tdvalue border"><?= htmlspecialchars($flyerFormat) ?></td></tr>
+      <tr>
+        <td class="tdvalue border">
+          <?= htmlspecialchars($flyerFormat) ?>
+          <?= $flyerFormat === "Anderes Format" ? '<br><br><span class="text-muted">Bitte beachten Sie, dass bei Spezialformaten ein Zuschlag für die Verteilung anfällt. Sie erhalten den finalen Preis nach einer manuellen Berechnung via E-Mail.</span>' : '' ?>
+        </td></tr>
     </table>
     <br>
   <?php endif; ?>
   
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0">
-    <tr><td class="tdlabel">Gesamtauflage</td><td class="tdlabel align-right">Zielgruppe</td></tr>
-    <tr>
-      <td class="tdvalue border"><?= number_format($verteilgebiet['totalFlyersCount'] ?? 0, 0, '.', "'") ?></td>
-      <td class="tdvalue border align-right"><?= htmlspecialchars($verteilgebiet['zielgruppe'] ?? 'N/A') ?></td>
-    </tr>
-  </table>
+  <!-- *** MODIFIED: Conditional display based on verteilungTyp *** -->
+  <?php if ($verteilungTyp === 'Nach PLZ'): ?>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+      <tr><td class="tdlabel">Gesamtauflage</td><td class="tdlabel align-right">Zielgruppe</td></tr>
+      <tr>
+        <td class="tdvalue border"><?= number_format($verteilgebiet['totalFlyersCount'] ?? 0, 0, '.', "'") ?></td>
+        <td class="tdvalue border align-right"><?= htmlspecialchars($verteilgebiet['zielgruppe'] ?? 'N/A') ?></td>
+      </tr>
+    </table>
+    <br>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+      <tr>
+        <td class="tdlabel">PLZ Ort</td>
+        <td class="tdlabel align-right">Flyer</td>
+        <td class="tdlabel align-right">Preis</td>
+      </tr>
+      <?php if (!empty($kosten['distributionCostItems'])): ?>
+        <?php foreach ($kosten['distributionCostItems'] as $item): ?>
+          <tr>
+            <td class="tdvalue border"><?= htmlspecialchars($item['plz'] . ' ' . $item['ort']) ?></td>
+            <td class="tdvalue border align-right"><?= number_format($item['flyers'], 0, '.', "'") ?></td>
+            <td class="tdvalue border align-right"><?= number_format($item['price'] ?? 0, 2, '.', "'") ?></td>
+          </tr>
+        <?php endforeach; ?>
+      <?php endif; ?>
+    </table>
+  <?php else: // Assuming 'Nach Perimeter' or other types ?>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+      <tr>
+        <td class="tdlabel">Verteilgebiet</td>
+      </tr>
+      <tr><td class="tdvalue border">Nach Perimeter</td>
+      </tr>
+      <tr>
+        <td class="tdlabel">Gesamtauflage</td>
+      </tr>
+      <tr>
+        <td class="tdvalue border">Manuelle Berechnung</td>
+      </tr>
+    </table>
+  <?php endif; ?>
+  
+  <?php if ($verteilungTyp === 'Nach PLZ'): ?>
   <br>
   <table role="presentation" border="0" cellpadding="0" cellspacing="0">
-    <tr>
-      <td class="tdlabel">PLZ Ort</td>
-      <td class="tdlabel align-right">Flyer</td>
-      <td class="tdlabel align-right">Preis</td>
-    </tr>
-    <?php if (!empty($kosten['distributionCostItems'])): ?>
-      <?php foreach ($kosten['distributionCostItems'] as $item): ?>
-        <tr>
-          <td class="tdvalue border"><?= htmlspecialchars($item['plz'] . ' ' . $item['ort']) ?></td>
-          <td class="tdvalue border align-right"><?= number_format($item['flyers'], 0, '.', "'") ?></td>
-          <td class="tdvalue border align-right"><?= number_format($item['price'] ?? 0, 2, '.', "'") ?></td>
-        </tr>
-      <?php endforeach; ?>
-    <?php endif; ?>
-    
     <!-- Surcharges Section -->
     <?php
     $surchargesExist = !empty($kosten['expressZuschlagPrice']) || !empty($kosten['fahrzeugGpsPrice']) || !empty($kosten['zuschlagFormatPrice']) || !empty($kosten['flyerAbholungPrice']) || !empty($kosten['ausgleichKleinauftragPrice']);
@@ -153,7 +199,7 @@ function render_distribution_block(array $verteilgebiet, array $kosten, array $p
       <tr><td class="tdlabel" colspan="3">Zuschläge</td></tr>
       <?php if (!empty($kosten['expressZuschlagPrice'])): ?>
         <tr>
-          <td class="tdvalue border" colspan="2">Express Zuschlag 50%</td>
+          <td class="tdvalue border" colspan="2">Express Zuschlag 25%</td>
           <td class="tdvalue border align-right"><?= number_format($kosten['expressZuschlagPrice'], 2, '.', "'") ?></td>
         </tr>
       <?php endif; ?>
@@ -193,12 +239,13 @@ function render_distribution_block(array $verteilgebiet, array $kosten, array $p
       <td class="tdvalue border align-right"><?= number_format($kosten['taxAmount'] ?? 0, 2, '.', "'") ?></td>
     </tr>
     <tr>
-      <td class="tdvalue border text-bold" colspan="2">Summe Total in CHF</td>
+      <td class="tdvalue border text-bold" colspan="2">Total provisorisch CHF</td>
       <td class="tdvalue border align-right text-bold"><?= number_format($kosten['grandTotalCalculated'] ?? 0, 2, '.', "'") ?></td>
     </tr>
   </table>
   <?php
-}
+  endif;
+  }
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -219,7 +266,7 @@ function render_distribution_block(array $verteilgebiet, array $kosten, array $p
     .footer td { color: #9a9ea6; font-size: 14px !important;; }
     p { margin: 0 0 18px 0; }
     a { color: #0867ec; }
-    .title { font-weight: bold; font-size: 24px; }
+    .title { font-weight: bold; font-size: 20px; }
     .headline { font-family: "Montserrat", sans-serif; text-transform: uppercase; font-size: 14px !important; letter-spacing: 0.5px; font-weight: bold; color: #212529; margin-top: 24px; margin-bottom: 12px; border-top: 2px solid #dddddd; padding-top: 12px}
     .border { border-bottom: 1px solid #dddddd; }
     .align-top { vertical-align: top !important; }
@@ -248,6 +295,14 @@ function render_distribution_block(array $verteilgebiet, array $kosten, array $p
               <p>Grüezi <?= htmlspecialchars($kontakt['salutation'] ?? '') ?> <?= htmlspecialchars($kontakt['lastName'] ?? '') ?>,</p>
               <p>Wir haben Ihre Anfrage erhalten. Diese wird von unseren Mitarbeitern so rasch als möglich bearbeitet. Sie erhalten dann eine verbindliche Offerte via E-Mail.</p>
               
+              <?php render_perimeter_block($verteilgebiet); ?>
+
+              Bei Fragen oder Unklarheiten sind wir gerne persönlich für Sie da. Sie erreichen uns telefonisch unter <a href="tel:+41782480448">078 248 04 48</a> oder via E-Mail an <a href="mailto:info@flyer-verteilen.ch">info@flyer-verteilen.ch</a>
+              
+              <br><br>
+              <p>Herzlichen Dank für Ihr Vertrauen.<br>Freundliche Grüsse.</p>
+              <p>Ihr Team von Top Flyer Verteilen</p>
+              
               <?php if (!empty($qr_code_html)): ?>
                 <p class="headline">QR-Code & Link</p>
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0">
@@ -265,7 +320,7 @@ function render_distribution_block(array $verteilgebiet, array $kosten, array $p
               
               <?php render_contact_block($kontakt); ?>
               <br>
-              <p class="title">Dienstleistungen</p>
+              <p class="title">Leistungen</p>
               
               <?php render_design_block($produktion, $kosten); ?>
               <br>
@@ -273,9 +328,6 @@ function render_distribution_block(array $verteilgebiet, array $kosten, array $p
               <br>
               <?php render_distribution_block($verteilgebiet, $kosten, $produktion); ?>
               
-              <br><br>
-              <p>Herzlichen Dank für Ihr Vertrauen.<br>Freundliche Grüsse.</p>
-              <p>Ihr Team von Top Flyer Verteilen</p>
             </td>
           </tr>
         </table>
