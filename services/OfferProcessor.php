@@ -1,6 +1,14 @@
 <?php
 namespace FVCH\Offer;
 
+// Annahme: Diese Klassen sind per Autoloader oder require an anderer Stelle verfügbar.
+// require_once 'TemplateService.php';
+// require_once 'EmailService.php';
+// require_once 'StorageService.php';
+// require_once 'Config.php';
+// require_once 'OfferData.php';
+
+
 class OfferProcessor
 {
     public function __construct(
@@ -12,81 +20,127 @@ class OfferProcessor
 
     public function process(OfferData $offerData): array
     {
-        $reference = date('ymd-His');
-        $token = bin2hex(random_bytes(16));
-        $viewUrl = rtrim($this->config->get('APP_URL'), '/') . '/offerte/view.php?ref=' . $reference . '&token=' . $token;
+        try {
+            $reference = date('ymd-His');
+            $token = bin2hex(random_bytes(16));
+            $viewUrl = rtrim($this->config->get('APP_URL'), '/') . '/offerte/view.php?ref=' . $reference . '&token=' . $token;
 
-        $templateData = [
-            'reference' => $reference,
-            'view_url' => $viewUrl,
-            'qr_code_html' => $this->generateQrCodeHtml($viewUrl),
-            'kontakt' => $offerData->kontakt,
-            'produktion' => $offerData->produktion,
-            'verteilgebiet' => $offerData->verteilgebiet,
-            'kosten' => $offerData->kosten,
-        ];
+            // 1. QR-Code-Daten abrufen
+            $qrCode = $this->generateQrCodeData($viewUrl);
 
-        $emailBody = $this->templateService->render($templateData);
+            $templateData = [
+                'reference' => $reference,
+                'view_url' => $viewUrl,
+                'kontakt' => $offerData->kontakt,
+                'produktion' => $offerData->produktion,
+                'verteilgebiet' => $offerData->verteilgebiet,
+                'kosten' => $offerData->kosten,
+            ];
 
-        $this->storageService->save($reference, $token, $emailBody);
+            // 2. E-Mail-HTML rendern (enthält 'cid:qr_image')
+            $emailBody = $this->templateService->render($templateData);
 
-        $this->emailService->send(
-            $offerData->kontakt['email'],
-            ($offerData->kontakt['firstName'] ?? '') . ' ' . ($offerData->kontakt['lastName'] ?? ''),
-            'Ihre Anfrage ' . $reference . ' · Top Flyer verteilen',
-            $emailBody
-        );
+            // 3. E-Mail senden (mit CID-Anhang)
+            // Dies funktioniert wie bisher.
+            $this->emailService->send(
+                $offerData->kontakt['email'],
+                ($offerData->kontakt['firstName'] ?? '') . ' ' . ($offerData->kontakt['lastName'] ?? ''),
+                'Ihre Anfrage ' . $reference . ' · Top Flyer verteilen',
+                $emailBody,
+                $qrCode['data'] ?? null,  // Reine Bilddaten
+                $qrCode['mime'] ?? null,  // MIME-Typ (z.B. 'image/png')
+                'qr_image' // Die CID, auf die sich das Template bezieht
+            );
 
-        return ['reference' => $reference, 'viewUrl' => $viewUrl];
+            // *** KORREKTUR: HTML für die Speicherung vorbereiten ***
+
+            $htmlBodyToSave = $emailBody;
+
+            // Prüfen, ob QR-Daten erfolgreich abgerufen wurden
+            if ($qrCode && !empty($qrCode['data']) && !empty($qrCode['mime'])) {
+                // 4. Base64-String für das QR-Bild erstellen
+                $base64QrCodeSrc = 'data:' . $qrCode['mime'] . ';base64,' . base64_encode($qrCode['data']);
+
+                // 5. Den 'cid:'-Link im HTML durch den Base64-String ersetzen
+                // Dies stellt sicher, dass die gespeicherte HTML-Datei autark ist
+                $htmlBodyToSave = str_replace(
+                    'src="cid:qr_image"',
+                    'src="' . $base64QrCodeSrc . '"',
+                    $emailBody
+                );
+            }
+            // *** ENDE KORREKTUR ***
+
+
+            // 6. Modifiziertes HTML in der Datei speichern
+            $this->storageService->save($reference, $token, $htmlBodyToSave);
+
+
+            return ['reference' => $reference, 'viewUrl' => $viewUrl, 'success' => true];
+
+        } catch (\Exception $e) {
+            // Fehler loggen
+            $this->logError('Kritischer Fehler in process(): ' . $e->getMessage());
+            // Saubere Fehlerantwort an das Frontend
+            return [
+                'success' => false,
+                'message' => 'Ein interner Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.'
+            ];
+        }
     }
 
     /**
-     * Generates QR code HTML using file_get_contents with robust error checking.
-     * This is the most reliable method without using cURL.
-     * Returns an empty string if the API fails, times out, or returns non-image content.
+     * Ruft die reinen QR-Code-Bilddaten und den MIME-Typ von der API ab.
+     * Gibt ein Array ['data' => ..., 'mime' => ...] oder null bei Fehler zurück.
      */
-    private function generateQrCodeHtml(string $url): string
+    private function generateQrCodeData(string $url): ?array
     {
         $qrApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' . urlencode($url);
 
-        $context = stream_context_create(['http' => ['timeout' => 4]]);
+        if (!function_exists('curl_init')) {
+            $this->logError("cURL extension is not installed or enabled on this server. Cannot fetch QR code.");
+            return null;
+        }
 
-        // Use '@' to suppress warnings if allow_url_fopen is Off, as we handle this case.
-        $result = @file_get_contents($qrApiUrl, false, $context);
+        $ch = curl_init();
 
-        // Case 1: The request failed completely. This is the most common issue.
+        curl_setopt($ch, CURLOPT_URL, $qrApiUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 4);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+
+        $result = curl_exec($ch);
+
+        $httpStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        $error = curl_error($ch);
+
+        curl_close($ch);
+
         if ($result === false) {
-            $this->logError("file_get_contents() failed. This is typically caused by the 'allow_url_fopen' setting being disabled on the server's php.ini file.");
-            return '';
+            $this->logError("cURL failed to fetch QR code. Error: " . $error);
+            return null;
         }
 
-        // Case 2: The request succeeded, but we need to validate the response.
-        $httpStatus = null;
-        $contentType = null;
-
-        // The $http_response_header variable is automatically populated by PHP after a successful file_get_contents call.
-        if (isset($http_response_header) && is_array($http_response_header)) {
-            // Get HTTP Status
-            if (preg_match('/^HTTP\/\d\.\d\s(\d{3})/', $http_response_header[0], $matches)) {
-                $httpStatus = (int)$matches[1];
-            }
-            // Get Content-Type
-            foreach ($http_response_header as $header) {
-                if (stripos($header, 'Content-Type:') === 0) {
-                    $contentType = trim(substr($header, strlen('Content-Type:')));
-                    break;
-                }
-            }
-        }
-
-        // Enterprise-grade validation: Check status is 200 AND content is an image.
-        if ($httpStatus === 200 && $contentType && str_starts_with($contentType, 'image/')) {
-            $base64 = base64_encode($result);
-            return '<img src="data:image/png;base64,' . $base64 . '" alt="QR Code zur Offerte">';
-        } else {
+        if ($httpStatus !== 200 || !$contentType || !str_starts_with($contentType, 'image/')) {
             $this->logError("QR code API responded with an invalid status or content. HTTP Status: {$httpStatus}, Content-Type: '{$contentType}'. Expected an image.");
-            return '';
+            return null;
         }
+
+        if (empty($result)) {
+            $this->logError("QR code API returned 200 OK and image content-type, but the response body was empty.");
+            return null;
+        }
+
+        $mimeType = $contentType;
+        if (strpos($mimeType, ';') !== false) {
+            $mimeType = strstr($mimeType, ';', true);
+        }
+
+        // ERFOLG: Reine Bilddaten und MIME-Typ zurückgeben
+        return ['data' => $result, 'mime' => $mimeType];
     }
 
     /**
@@ -94,8 +148,8 @@ class OfferProcessor
      */
     private function logError(string $message): void
     {
-        $logFile = __DIR__ . '/../api_errors.log';
-        $timestamp = date('Y-m-d H:i:s');
+        $logFile = dirname(__FILE__) . '/../api_errors.log';
+        $timestamp = date('Y-m_d H:i:s');
         file_put_contents($logFile, "[{$timestamp}] QR_CODE_ERROR - {$message}\n", FILE_APPEND);
     }
 }

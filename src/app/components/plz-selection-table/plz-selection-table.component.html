@@ -64,25 +64,5 @@
       </td>
     </tr>
     </tbody>
-    <tfoot>
-    <tr class="table-light">
-      <td colspan="3" class="fw-bold">Total Auswahl</td>
-      <td class="text-end fw-bold" [class.highlight-column]="highlightFlyerMaxColumn">
-        {{ getTotalAudienceCalculatedFlyers() | number:'1.0-0':'de-CH' }}
-      </td>
-
-      <!-- This cell is for the "Definitive" total column -->
-      <td class="text-end fw-bold" *ngIf="currentZielgruppe !== 'Alle Haushalte'">
-        <ng-container *ngIf="currentZielgruppe === 'Mehrfamilienhäuser'">
-          {{ getTotalDefinitiveMfhFlyers() | number:'1.0-0':'de-CH' }}
-        </ng-container>
-        <ng-container *ngIf="currentZielgruppe === 'Ein- und Zweifamilienhäuser'">
-          {{ getTotalDefinitiveEfhFlyers() | number:'1.0-0':'de-CH' }}
-        </ng-container>
-      </td>
-
-      <td></td>
-    </tr>
-    </tfoot>
   </table>
 </div>

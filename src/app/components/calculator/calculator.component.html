@@ -206,8 +206,8 @@
       <strong>Hinweise</strong><br>
       <ol>
         <li>Servicepauschale deckt Fahrtkosten, detaillierte Routenplanung und GPS-Tracking für Ihre Verteilung ab.</li>
-        <li>Spezielle Formate, Druckaufträge und Verteilung nach GPS-Perimeter erfordern eine manuelle Prüfung. Der genaue Preis wird Ihnen anschliessend per E-Mail mitgeteilt.</li>
-        <li *ngIf="!kosten.isPerimeterOfferte && (kosten.mindestbestellwert - kosten.fahrzeugGpsPrice > 0)">Der Mindestbestellwert ({{ (kosten.mindestbestellwert - kosten.fahrzeugGpsPrice) | number:'1.0-0':'de-CH' }}) für die Verteilung dient der Abdeckung von Fixkosten wie Planung und Logistik.</li>
+        <li>Spezielle Formate, Druckaufträge und Verteilung nach Perimeter erfordern eine manuelle Prüfung. Der genaue Preis wird Ihnen anschliessend per E-Mail mitgeteilt.</li>
+        <li *ngIf="!kosten.isPerimeterOfferte && (kosten.mindestbestellwert - kosten.fahrzeugGpsPrice > 0)">Der Mindestbestellwert von {{ (kosten.mindestbestellwert - kosten.fahrzeugGpsPrice) | number:'1.0-0':'de-CH' }} CHF für die Verteilung dient der Abdeckung von Fixkosten wie Planung und Logistik.</li>
       </ol>
     </div>
 

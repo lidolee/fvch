@@ -13,7 +13,27 @@ class EmailService
         $this->config = $config;
     }
 
-    public function send(string $recipientEmail, string $recipientName, string $subject, string $body): void
+    /**
+     * Sendet eine E-Mail, optional mit eingebetteten Bildern (CID).
+     *
+     * @param string $recipientEmail
+     * @param string $recipientName
+     * @param string $subject
+     * @param string $body
+     * @param string|null $inlineImageData Die reinen Bilddaten (raw string)
+     * @param string|null $inlineImageMime Der MIME-Typ (z.B. 'image/png')
+     * @param string $inlineImageCid Die Content-ID (cid), die im HTML-Template verwendet wird
+     * @throws Exception
+     */
+    public function send(
+        string $recipientEmail,
+        string $recipientName,
+        string $subject,
+        string $body,
+        ?string $inlineImageData = null,
+        ?string $inlineImageMime = null,
+        string $inlineImageCid = 'qr_image'
+    ): void
     {
         $mail = new PHPMailer(true);
         $mail->CharSet = 'UTF-8';
@@ -33,6 +53,19 @@ class EmailService
         $mail->isHTML(true);
         $mail->Subject = $subject;
         $mail->Body = $body;
+
+        // *** KORREKTUR: Eingebettetes Bild (CID) hinzufügen ***
+        // Fügt die Bilddaten als Inline-Anhang hinzu, auf den das Template verweisen kann.
+        if ($inlineImageData && $inlineImageMime) {
+            $mail->addStringEmbeddedImage(
+                $inlineImageData,
+                $inlineImageCid,
+                'qr-code.png', // Name des Anhangs (beliebig)
+                'base64',      // PHPMailer erwartet, dass wir 'base64' angeben, behandelt die Daten aber als raw string
+                $inlineImageMime
+            );
+        }
+        // *** ENDE DER KORREKTUR ***
 
         $mail->send();
     }

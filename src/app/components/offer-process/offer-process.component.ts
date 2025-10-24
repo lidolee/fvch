@@ -215,21 +215,32 @@ export class OfferProcessComponent implements OnInit, OnDestroy {
         kosten
       };
 
+      // Annahme: Die PHP-Antwort enthält { success: true, reference: '...' }
       const response = await firstValueFrom(this.http.post<any>(API_ENDPOINT, payload));
 
-      let successMessage = `Ihre Anfrage wurde erfolgreich versendet! Sie erhalten in Kürze eine Bestätigung per E-Mail.\n\nReferenz: ${response.reference}`;
-      if(response.viewUrl) {
-        successMessage += `\n\nSie können Ihre Anfrage hier einsehen: ${response.viewUrl}`;
+      // *** START DER ÄNDERUNG ***
+      // Anstelle des Alerts leiten wir auf die Danke-Seite weiter.
+
+      if (response && response.reference) {
+        // Weiterleitung zur Danke-Seite mit Referenz als URL-Parameter
+        window.location.href = `https://www.flyer-verteilen.ch/offerte/danke.html?ref=${response.reference}`;
+      } else {
+        // Fallback, falls die Antwort nicht das erwartete Format hat
+        console.error('Antwort vom Server hat ein unerwartetes Format:', response);
+        alert('Ihre Anfrage wurde versendet, aber die Referenznummer konnte nicht empfangen werden.');
       }
-      alert(successMessage);
+      // *** ENDE DER ÄNDERUNG ***
 
     } catch (error: any) {
       console.error('Fehler beim Senden der Offertanfrage via AJAX:', error);
       const errorMessage = error.error?.message || 'Beim Senden Ihrer Anfrage ist ein unbekannter Fehler aufgetreten.';
       alert(`Fehler: ${errorMessage}\n\nBitte versuchen Sie es später erneut oder kontaktieren Sie uns direkt.`);
-    } finally {
+
+      // Nur 'isSubmitting' zurücksetzen, wenn ein Fehler auftritt.
+      // Bei Erfolg ist es nicht nötig, da die Seite sowieso weiterleitet.
       this.isSubmitting = false;
       this.cdr.detectChanges();
     }
+    // 'finally'-Block entfernt, da 'isSubmitting' nur bei Fehler zurückgesetzt werden muss.
   }
 }

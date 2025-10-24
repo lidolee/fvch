@@ -1,5 +1,6 @@
 <?php
 // Template Helper Functions, co-located with the template for maintainability.
+// (HINWEIS: Dies basiert auf der von Ihnen zuvor geposteten Template-Version)
 
 function render_contact_block(array $kontakt): void {
   echo '<p class="headline">Kontaktdaten</p>';
@@ -188,64 +189,64 @@ function render_distribution_block(array $verteilgebiet, array $kosten, array $p
   <?php endif; ?>
   
   <?php if ($verteilungTyp === 'Nach PLZ'): ?>
-  <br>
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0">
-    <!-- Surcharges Section -->
-    <?php
-    $surchargesExist = !empty($kosten['expressZuschlagPrice']) || !empty($kosten['fahrzeugGpsPrice']) || !empty($kosten['zuschlagFormatPrice']) || !empty($kosten['flyerAbholungPrice']) || !empty($kosten['ausgleichKleinauftragPrice']);
-    ?>
-    <?php if ($surchargesExist): ?>
-      <tr><td colspan="3">&nbsp;</td></tr>
-      <tr><td class="tdlabel" colspan="3">Zuschläge</td></tr>
-      <?php if (!empty($kosten['expressZuschlagPrice'])): ?>
-        <tr>
-          <td class="tdvalue border" colspan="2">Express Zuschlag 25%</td>
-          <td class="tdvalue border align-right"><?= number_format($kosten['expressZuschlagPrice'], 2, '.', "'") ?></td>
-        </tr>
+    <br>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+      <!-- Surcharges Section -->
+      <?php
+      $surchargesExist = !empty($kosten['expressZuschlagPrice']) || !empty($kosten['fahrzeugGpsPrice']) || !empty($kosten['zuschlagFormatPrice']) || !empty($kosten['flyerAbholungPrice']) || !empty($kosten['ausgleichKleinauftragPrice']);
+      ?>
+      <?php if ($surchargesExist): ?>
+        <tr><td colspan="3">&nbsp;</td></tr>
+        <tr><td class="tdlabel" colspan="3">Zuschläge</td></tr>
+        <?php if (!empty($kosten['expressZuschlagPrice'])): ?>
+          <tr>
+            <td class="tdvalue border" colspan="2">Express Zuschlag 25%</td>
+            <td class="tdvalue border align-right"><?= number_format($kosten['expressZuschlagPrice'], 2, '.', "'") ?></td>
+          </tr>
+        <?php endif; ?>
+        <?php if (!empty($kosten['fahrzeugGpsPrice'])): ?>
+          <tr>
+            <td class="tdvalue border" colspan="2">Servicepauschale</td>
+            <td class="tdvalue border align-right"><?= number_format($kosten['fahrzeugGpsPrice'], 2, '.', "'") ?></td>
+          </tr>
+        <?php endif; ?>
+        <?php if (!empty($kosten['zuschlagFormatPrice'])): ?>
+          <tr>
+            <td class="tdvalue border" colspan="2"><?= htmlspecialchars($kosten['zuschlagFormatAnzeigeText'] ?? 'Formatzuschlag') ?></td>
+            <td class="tdvalue border align-right"><?= number_format($kosten['zuschlagFormatPrice'], 2, '.', "'") ?></td>
+          </tr>
+        <?php endif; ?>
+        <?php if (!empty($kosten['flyerAbholungPrice'])): ?>
+          <tr>
+            <td class="tdvalue border" colspan="2">Flyer Abholung</td>
+            <td class="tdvalue border align-right"><?= number_format($kosten['flyerAbholungPrice'], 2, '.', "'") ?></td>
+          </tr>
+        <?php endif; ?>
+        <?php if (!empty($kosten['ausgleichKleinauftragPrice'])): ?>
+          <tr>
+            <td class="tdvalue border" colspan="2">Ausgleich Kleinauftrag</td>
+            <td class="tdvalue border align-right"><?= number_format($kosten['ausgleichKleinauftragPrice'], 2, '.', "'") ?></td>
+          </tr>
+        <?php endif; ?>
       <?php endif; ?>
-      <?php if (!empty($kosten['fahrzeugGpsPrice'])): ?>
-        <tr>
-          <td class="tdvalue border" colspan="2">Servicepauschale</td>
-          <td class="tdvalue border align-right"><?= number_format($kosten['fahrzeugGpsPrice'], 2, '.', "'") ?></td>
-        </tr>
-      <?php endif; ?>
-      <?php if (!empty($kosten['zuschlagFormatPrice'])): ?>
-        <tr>
-          <td class="tdvalue border" colspan="2"><?= htmlspecialchars($kosten['zuschlagFormatAnzeigeText'] ?? 'Formatzuschlag') ?></td>
-          <td class="tdvalue border align-right"><?= number_format($kosten['zuschlagFormatPrice'], 2, '.', "'") ?></td>
-        </tr>
-      <?php endif; ?>
-      <?php if (!empty($kosten['flyerAbholungPrice'])): ?>
-        <tr>
-          <td class="tdvalue border" colspan="2">Flyer Abholung</td>
-          <td class="tdvalue border align-right"><?= number_format($kosten['flyerAbholungPrice'], 2, '.', "'") ?></td>
-        </tr>
-      <?php endif; ?>
-      <?php if (!empty($kosten['ausgleichKleinauftragPrice'])): ?>
-        <tr>
-          <td class="tdvalue border" colspan="2">Ausgleich Kleinauftrag</td>
-          <td class="tdvalue border align-right"><?= number_format($kosten['ausgleichKleinauftragPrice'], 2, '.', "'") ?></td>
-        </tr>
-      <?php endif; ?>
-    <?php endif; ?>
-    
-    <tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr>
-      <td class="tdvalue border" colspan="2">Zwischensumme</td>
-      <td class="tdvalue border align-right"><?= number_format($kosten['subTotalDistribution'] ?? 0, 2, '.', "'") ?></td>
-    </tr>
-    <tr>
-      <td class="tdvalue border" colspan="2">MwSt.</td>
-      <td class="tdvalue border align-right"><?= number_format($kosten['taxAmount'] ?? 0, 2, '.', "'") ?></td>
-    </tr>
-    <tr>
-      <td class="tdvalue border text-bold" colspan="2">Total provisorisch CHF</td>
-      <td class="tdvalue border align-right text-bold"><?= number_format($kosten['grandTotalCalculated'] ?? 0, 2, '.', "'") ?></td>
-    </tr>
-  </table>
+      
+      <tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr>
+        <td class="tdvalue border" colspan="2">Zwischensumme</td>
+        <td class="tdvalue border align-right"><?= number_format($kosten['subTotalDistribution'] ?? 0, 2, '.', "'") ?></td>
+      </tr>
+      <tr>
+        <td class="tdvalue border" colspan="2">MwSt.</td>
+        <td class="tdvalue border align-right"><?= number_format($kosten['taxAmount'] ?? 0, 2, '.', "'") ?></td>
+      </tr>
+      <tr>
+        <td class="tdvalue border text-bold" colspan="2">Total provisorisch CHF</td>
+        <td class="tdvalue border align-right text-bold"><?= number_format($kosten['grandTotalCalculated'] ?? 0, 2, '.', "'") ?></td>
+      </tr>
+    </table>
   <?php
   endif;
-  }
+}
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -296,27 +297,35 @@ function render_distribution_block(array $verteilgebiet, array $kosten, array $p
               <p>Wir haben Ihre Anfrage erhalten. Diese wird von unseren Mitarbeitern so rasch als möglich bearbeitet. Sie erhalten dann eine verbindliche Offerte via E-Mail.</p>
               
               <?php render_perimeter_block($verteilgebiet); ?>
-
+              
               Bei Fragen oder Unklarheiten sind wir gerne persönlich für Sie da. Sie erreichen uns telefonisch unter <a href="tel:+41782480448">078 248 04 48</a> oder via E-Mail an <a href="mailto:info@flyer-verteilen.ch">info@flyer-verteilen.ch</a>
               
               <br><br>
               <p>Herzlichen Dank für Ihr Vertrauen.<br>Freundliche Grüsse.</p>
               <p>Ihr Team von Top Flyer Verteilen</p>
               
-              <?php if (!empty($qr_code_html)): ?>
+              <!-- *** KORREKTUR: Umstellung auf CID-Einbettung *** -->
+              <!-- Diese Variable '$view_url' wird vom OfferProcessor immer bereitgestellt -->
+              <?php if (!empty($view_url)): ?>
                 <p class="headline">QR-Code & Link</p>
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                   <tr>
                     <td class="tdlabel">QR-Code</td>
-                    <td class="tdlabel">Link zur Anfrage</td>
+                    <td class="tdlabel" style="padding-left: 18px;">Link zur Anfrage</td>
                   </tr>
                   <tr>
-                    <td class="tdvalue border"><?= $qr_code_html ?></td>
-                    <td class="tdvalue border align-top"><a href="<?= htmlspecialchars($view_url) ?>"><?= htmlspecialchars($view_url) ?></a></td>
+                    <!--
+                      Das 'src' verweist auf 'cid:qr_image'.
+                      Der EmailService hängt das Bild mit genau dieser ID an.
+                      Dies funktioniert in allen E-Mail-Clients, inkl. Outlook.
+                    -->
+                    <td class="tdvalue border"><img src="cid:qr_image" alt="QR Code zur Offerte" width="150" height="150"></td>
+                    <td class="tdvalue border align-top" style="padding-left: 18px;"><a href="<?= htmlspecialchars($view_url) ?>">REF <?= htmlspecialchars($reference) ?></a></td>
                   </tr>
                 </table>
                 <br>
               <?php endif; ?>
+              <!-- *** ENDE DER KORREKTUR *** -->
               
               <?php render_contact_block($kontakt); ?>
               <br>
@@ -327,7 +336,7 @@ function render_distribution_block(array $verteilgebiet, array $kosten, array $p
               <?php render_print_block($produktion); ?>
               <br>
               <?php render_distribution_block($verteilgebiet, $kosten, $produktion); ?>
-              
+            
             </td>
           </tr>
         </table>
