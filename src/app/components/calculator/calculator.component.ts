@@ -89,6 +89,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
 
   public onRequestPrevious(): void {
     this.requestPreviousStep.emit();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   public onRequestNext(): void {
@@ -96,6 +97,7 @@ export class CalculatorComponent implements OnInit, OnDestroy {
       this.requestSubmit.emit();
     } else {
       this.requestNextStep.emit();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
   public onRequestSubmit(): void {

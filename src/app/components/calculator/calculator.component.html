@@ -218,18 +218,18 @@
 
   <div class="actions-container mt-4">
     <div *ngIf="activeStep === 1" class="d-grid">
-      <button type="button" class="btn btn-lg btn-primary w-100" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>
+      <button type="button" class="btn btn-lg btn-primary w-100 mb-5" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>
     </div>
     <div *ngIf="activeStep === 2" class="d-flex justify-content-between">
-      <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2" (click)="onRequestPrevious()">Zurück</button>
-      <button type="button" class="btn btn-lg btn-primary w-50 ms-2" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>
+      <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2 mb-5" (click)="onRequestPrevious()">Zurück</button>
+      <button type="button" class="btn btn-lg btn-primary w-50 ms-2 mb-5" (click)="onRequestNext()" [disabled]="currentStepValidationStatus !== 'valid'">Weiter</button>
     </div>
     <div *ngIf="activeStep === 3" class="d-flex justify-content-between">
-      <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2" (click)="onRequestPrevious()">Zurück</button>
+      <button type="button" class="btn btn-lg btn-outline-secondary w-50 me-2 mb-5" (click)="onRequestPrevious()">Zurück</button>
       <!-- *** THE FIX *** -->
       <!-- The [disabled] logic is now unified with the other steps. -->
       <!-- It correctly reacts to the validity of the CURRENT step. -->
-      <button type="button" class="btn btn-lg btn-success w-50 ms-2" (click)="onRequestSubmit()" [disabled]="currentStepValidationStatus !== 'valid'">Absenden</button>
+      <button type="button" class="btn btn-lg btn-success w-50 ms-2 mb-5" (click)="onRequestSubmit()" [disabled]="currentStepValidationStatus !== 'valid'">Absenden</button>
     </div>
     <div *ngIf="activeStep === 3" class="secure-box text-center"><i class="mdi mdi-lock-check fs-4">&nbsp;</i>256-Bit TLS Verschlüsselte Datenübertragung</div>
   </div>

@@ -374,7 +374,7 @@ export class OrderDataService {
     let mindestbestellwertHinweis = '';
 
     if (isPerimeterOfferte) {
-      distributionHeadline = 'Verteilung nach Perimeter';
+      distributionHeadline = 'Perimeter Verteilung';
       distribution = { items: [], total: 0 };
       ausgleichKleinauftragPriceNum = 0;
     } else {

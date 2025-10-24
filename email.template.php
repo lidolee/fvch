@@ -136,12 +136,65 @@ function render_distribution_block(array $verteilgebiet, array $kosten, array $p
   
   <?php if (!empty($flyerFormat)): ?>
     <table role="presentation" border="0" cellpadding="0" cellspacing="0">
-      <tr><td class="tdlabel">Format</td></tr>
+      <tr><td class="tdlabel" colspan="2">Format</td></tr>
       <tr>
-        <td class="tdvalue border">
+        <td class="tdvalue border" colspan="2">
           <?= htmlspecialchars($flyerFormat) ?>
           <?= $flyerFormat === "Anderes Format" ? '<br><br><span class="text-muted">Bitte beachten Sie, dass bei Spezialformaten ein Zuschlag für die Verteilung anfällt. Sie erhalten den finalen Preis nach einer manuellen Berechnung via E-Mail.</span>' : '' ?>
-        </td></tr>
+        </td>
+      </tr>
+      
+      <?php
+      // *** NEUE LOGIK: Anlieferung der Flyer ***
+      // Zeigt diesen Block nur an, wenn der Kunde "anliefern" (printOption) ausgewählt hat
+      if ($printOption === 'anliefern'):
+        // Holt die Anlieferart aus dem Payload
+        $anlieferung = $produktion['anlieferDetails']['anlieferung'] ?? null;
+        
+        $anlieferText = 'N/A'; // Fallback
+        if ($anlieferung === 'Abholung') {
+          $anlieferText = 'Kunde wünscht Abholung';
+        } elseif ($anlieferung === 'Selbst') { // KORREKTUR: Prüft auf 'Selbst' (gemäss Payload)
+          $anlieferText = 'Kunde liefert an';
+        }
+        ?>
+        <tr><td class="tdlabel" colspan="2">Anlieferung der Flyer</td></tr>
+        <tr>
+          <td class="tdvalue border" colspan="2">
+            <?= htmlspecialchars($anlieferText) ?>
+          </td>
+        </tr>
+      <?php endif; // Ende der $printOption 'anliefern' Prüfung ?>
+      
+      <tr><td class="tdlabel">Express Verteilung</td><td class="tdlabel align-right">Startdatum</td></tr>
+      <tr>
+        <td class="tdvalue border">
+          <?php
+          // KORRIGIERT: Verwendet 'expressConfirmed' aus dem $verteilgebiet-Array
+          $isExpress = $verteilgebiet['expressConfirmed'] ?? false;
+          echo $isExpress ? 'Ja' : 'Nein';
+          ?>
+        </td>
+        <td class="tdvalue border align-right">
+          <?php
+          // KORRIGIERT: Verwendet 'verteilungStartdatum' aus dem $verteilgebiet-Array
+          $startDate = $verteilgebiet['verteilungStartdatum'] ?? null;
+          if ($startDate) {
+            // Versucht, das Datum (ISO-String) in DD.MM.YYYY umzuwandeln
+            $dateObj = date_create($startDate);
+            if ($dateObj) {
+              echo htmlspecialchars(date_format($dateObj, 'd.m.Y'));
+            } else {
+              // Fallback, falls das Datum ein unerwartetes Format hat
+              echo htmlspecialchars($startDate);
+            }
+          } else {
+            // Fallback, falls kein Datum angegeben wurde
+            echo 'N/A';
+          }
+          ?>
+        </td>
+      </tr>
     </table>
     <br>
   <?php endif; ?>
@@ -319,7 +372,7 @@ function render_distribution_block(array $verteilgebiet, array $kosten, array $p
                       Der EmailService hängt das Bild mit genau dieser ID an.
                       Dies funktioniert in allen E-Mail-Clients, inkl. Outlook.
                     -->
-                    <td class="tdvalue border"><img src="cid:qr_image" alt="QR Code zur Offerte" width="150" height="150"></td>
+                    <td class="tdvalue border"><img src="cid:qr_image" alt="QR Code zur Offerte" width="120" height="120"></td>
                     <td class="tdvalue border align-top" style="padding-left: 18px;"><a href="<?= htmlspecialchars($view_url) ?>">REF <?= htmlspecialchars($reference) ?></a></td>
                   </tr>
                 </table>
