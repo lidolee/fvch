@@ -32,7 +32,7 @@ class OfferProcessor
     {
         $reference = date('ymd-His');
         $token = bin2hex(random_bytes(16));
-        $viewUrl = rtrim($this->config->get('APP_URL'), '/') . '/offerte/view.php?ref=' . $reference . '&token=' . $token;
+        $viewUrl = rtrim($this->config->get('APP_URL'), '/') . '/offerte/view.html?ref=' . $reference . '&token=' . $token;
 
         // 1. QR-Code-Daten abrufen (Robustes cURL)
         $qrCodeResult = $this->generateQrCodeData($viewUrl);
